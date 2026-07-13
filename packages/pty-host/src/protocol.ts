@@ -5,7 +5,25 @@
  */
 
 export type HostInbound =
-  | { type: 'create'; requestId: number; cols: number; rows: number; shell?: string; cwd?: string }
+  | {
+      /** Config de scrollback (Story 1.4) — enviada uma vez após o spawn. */
+      type: 'configure';
+      scrollbackDir: string;
+      maxFileBytes: number;
+      restoreTailBytes: number;
+    }
+  | {
+      type: 'create';
+      requestId: number;
+      /** Tag = session id: nomeia scrollback e correlaciona com o registry. */
+      tag: string;
+      cols: number;
+      rows: number;
+      shell?: string;
+      cwd?: string;
+      /** true no restore do boot: injeta tail do scrollback antes do stream vivo. */
+      restore?: boolean;
+    }
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }
   | { type: 'shutdown' };

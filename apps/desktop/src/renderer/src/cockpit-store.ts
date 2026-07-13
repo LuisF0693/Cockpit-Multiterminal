@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { SessionRecord } from '@cockpit/shared';
+import type { LayoutTile, SessionRecord } from '@cockpit/shared';
 import {
   addTile,
   bringToFront,
@@ -23,7 +23,7 @@ interface CockpitState {
   focusedId: string | null;
   ports: ReadonlyMap<string, MessagePort>;
 
-  seedSessions(list: SessionRecord[]): void;
+  seedSessions(list: SessionRecord[], savedTiles?: LayoutTile[]): void;
   upsertSession(record: SessionRecord): void;
   removeSession(id: string): void;
   attachPort(id: string, port: MessagePort): void;
@@ -39,12 +39,24 @@ export const useCockpitStore = create<CockpitState>((set) => ({
   focusedId: null,
   ports: new Map<string, MessagePort>(),
 
-  seedSessions: (list) =>
-    set((s) => ({
-      sessions: list,
-      layout: list.reduce((acc, r) => (acc.tiles.some((t) => t.id === r.id) ? acc : addTile(acc, r.id)), s.layout),
-      focusedId: s.focusedId ?? list[0]?.id ?? null
-    })),
+  seedSessions: (list, savedTiles = []) =>
+    set((s) => {
+      // Tiles salvos (Story 1.4) têm prioridade; sem tile salvo → cascata default.
+      const saved = new Map(savedTiles.map((t) => [t.id, t]));
+      let layout = s.layout;
+      for (const record of list) {
+        if (layout.tiles.some((t) => t.id === record.id)) continue;
+        const tile = saved.get(record.id);
+        layout = tile
+          ? { ...layout, tiles: [...layout.tiles, { ...tile }] }
+          : addTile(layout, record.id);
+      }
+      return {
+        sessions: list,
+        layout,
+        focusedId: s.focusedId ?? list[0]?.id ?? null
+      };
+    }),
 
   upsertSession: (record) =>
     set((s) => {

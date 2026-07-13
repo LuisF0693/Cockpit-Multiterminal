@@ -29,18 +29,21 @@ pnpm --filter @cockpit/desktop smoke:abi      # valida node-pty sob ABI do Elect
 pnpm --filter @cockpit/desktop spike:conpty   # spike ConPTY (Story 1.1)
 ```
 
-### Módulo nativo (node-pty)
+### Módulos nativos (node-pty, better-sqlite3)
 
-O node-pty 1.1+ traz prebuilds N-API que carregam direto no Electron — após o
-`pnpm install`, rode o `smoke:abi` para confirmar. Se o smoke falhar (erro de
-ABI, ex.: após upgrade do Electron), recompile com:
+- **node-pty 1.1+**: prebuilds N-API carregam direto no Electron — `smoke:abi` confirma.
+- **better-sqlite3**: NÃO é N-API — precisa do prebuilt para a ABI do Electron.
+  Após `pnpm install` (ou upgrade do Electron), rode:
 
 ```bash
-pnpm --filter @cockpit/desktop rebuild:native
+pnpm --filter @cockpit/desktop rebuild:native   # baixa prebuilt electron via prebuild-install
+pnpm --filter @cockpit/desktop smoke:store      # valida SQLite WAL sob Electron
 ```
 
-> Não use o rebuild do electron-builder (`npmRebuild: false` é intencional —
-> ele não executa `pnpm.cjs` no Windows; gotcha da Story 1.1).
+> ⚠️ Depois do rebuild, better-sqlite3 não carrega sob Node puro — testes
+> vitest usam a interface `StateStore` com fake em memória; o ciclo real roda
+> em `smoke:persist` (Electron-run). Não use o rebuild do electron-builder
+> (`npmRebuild: false` é intencional — gotcha da Story 1.1).
 
 ## Estrutura
 

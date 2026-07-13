@@ -53,18 +53,28 @@ export function App(): JSX.Element {
       else st.upsertSession(event.session);
     });
 
-    // Seed + primeiro terminal (uma vez, mesmo sob StrictMode).
+    // Seed (sessões restauradas + layout salvo — Story 1.4) + primeiro
+    // terminal se vazio (uma vez, mesmo sob StrictMode).
     if (!bootRef.current) {
       bootRef.current = true;
-      void window.cockpit.session
-        .list()
-        .then((list) => {
-          store.seedSessions(list);
+      void Promise.all([window.cockpit.session.list(), window.cockpit.layout.get()])
+        .then(([list, savedTiles]) => {
+          store.seedSessions(list, savedTiles);
           if (list.length === 0) return newTerminal();
           return undefined;
         })
         .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
     }
+
+    // Persistência contínua do layout (debounced — NFR8).
+    let persistTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubLayout = useCockpitStore.subscribe((state, prev) => {
+      if (state.layout === prev.layout) return;
+      if (persistTimer !== null) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        void window.cockpit.layout.update({ tiles: useCockpitStore.getState().layout.tiles });
+      }, 300);
+    });
 
     // Atalhos: registro central (Ctrl+N / Ctrl+1..9 / Ctrl+W).
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -84,6 +94,8 @@ export function App(): JSX.Element {
     return () => {
       window.removeEventListener('message', onWindowMessage);
       window.removeEventListener('keydown', onKeyDown);
+      if (persistTimer !== null) clearTimeout(persistTimer);
+      unsubLayout();
       unsubscribe();
     };
   }, []);

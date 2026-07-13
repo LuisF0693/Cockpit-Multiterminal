@@ -23,6 +23,8 @@ export const IpcChannels = {
   sessionList: 'session.list',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
+  layoutGet: 'layout.get',
+  layoutUpdate: 'layout.update',
   /** Evento Main → renderer que transfere a MessagePort de dados (tag = session id). */
   terminalPort: 'terminal.port'
 } as const;
@@ -77,6 +79,22 @@ export const SessionEventSchema = z.object({
 });
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
 
+/** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
+export const LayoutTileSchema = z.object({
+  id: z.string().min(1),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  zIndex: z.number().int()
+});
+export type LayoutTile = z.infer<typeof LayoutTileSchema>;
+
+export const LayoutUpdateRequestSchema = z.object({
+  tiles: LayoutTileSchema.array()
+});
+export type LayoutUpdateRequest = z.infer<typeof LayoutUpdateRequestSchema>;
+
 /**
  * Mensagem postada pelo preload na window do renderer transferindo a
  * MessagePort de dados do terminal (padrão Electron p/ sandbox+contextIsolation).
@@ -103,5 +121,11 @@ export interface CockpitApi {
     list(): Promise<SessionRecord[]>;
     /** Assina eventos de domínio; retorna unsubscribe. */
     onEvent(cb: (event: SessionEvent) => void): () => void;
+  };
+  layout: {
+    /** Layout salvo da última execução (vazio na primeira). */
+    get(): Promise<LayoutTile[]>;
+    /** Persistência contínua (chamar debounced — NFR8). */
+    update(req: LayoutUpdateRequest): Promise<void>;
   };
 }

@@ -2,3 +2,10 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'packages/adapters/*'
+
+# pnpm 10: build scripts permitidos (movido do package.json "pnpm", que não é mais lido)
+onlyBuiltDependencies:
+  - electron
+  - node-pty
+  - esbuild
+  - better-sqlite3

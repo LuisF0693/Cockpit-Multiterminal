@@ -7,8 +7,10 @@
  * confirmados acima de HIGH_WATER; retoma abaixo de LOW_WATER. O renderer
  * confirma consumo com mensagens {t:'ack', n} no callback do xterm.write.
  */
+import { join } from 'node:path';
 import { spawn as ptySpawn } from 'node-pty';
 import { PtySessionManager, type PtyLike, type PtySpawnOptions } from './session-manager';
+import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import type { HostInbound, HostOutbound } from './protocol';
 
 const HIGH_WATER_BYTES = 512 * 1024;
@@ -35,19 +37,42 @@ const spawnFn = (opts: PtySpawnOptions): PtyLike =>
 
 const manager = new PtySessionManager(spawnFn);
 const dataPorts = new Map<string, PortMainLike>();
+const writers = new Map<string, ScrollbackWriter>();
+
+/** Config de scrollback (Story 1.4) — chega via mensagem 'configure'. */
+let scrollbackConfig: { dir: string; maxFileBytes: number; restoreTailBytes: number } | null = null;
+
+function scrollbackPath(tag: string): string | null {
+  return scrollbackConfig ? join(scrollbackConfig.dir, `${tag}.log`) : null;
+}
 
 function send(msg: HostOutbound): void {
   parentPort.postMessage(msg);
 }
 
-function wireDataChannel(id: string, port: PortMainLike): void {
+function wireDataChannel(id: string, port: PortMainLike, tag: string, restore: boolean): void {
   dataPorts.set(id, port);
   let outstanding = 0;
   let paused = false;
   const encoder = new TextEncoder();
 
+  // Scrollback persistido (AC3): seed do tail salvo ANTES do stream vivo.
+  const file = scrollbackPath(tag);
+  if (file && restore && scrollbackConfig) {
+    const tail = readScrollbackTail(file, scrollbackConfig.restoreTailBytes);
+    if (tail.byteLength > 0) {
+      outstanding += tail.byteLength;
+      port.postMessage(tail);
+    }
+  }
+  const writer = file
+    ? new ScrollbackWriter(file, scrollbackConfig?.maxFileBytes)
+    : null;
+  if (writer) writers.set(id, writer);
+
   manager.onData(id, (data) => {
     const chunk = encoder.encode(data);
+    writer?.append(chunk);
     outstanding += chunk.byteLength;
     port.postMessage(chunk);
     if (!paused && outstanding > HIGH_WATER_BYTES) {
@@ -58,6 +83,8 @@ function wireDataChannel(id: string, port: PortMainLike): void {
 
   manager.onExit(id, ({ exitCode }) => {
     send({ type: 'session-exit', id, exitCode });
+    writers.get(id)?.dispose();
+    writers.delete(id);
     port.close();
     dataPorts.delete(id);
   });
@@ -92,6 +119,14 @@ function isAck(value: unknown): value is { t: 'ack'; n: number } {
 parentPort.on('message', (e) => {
   const msg = e.data as HostInbound;
   switch (msg.type) {
+    case 'configure': {
+      scrollbackConfig = {
+        dir: msg.scrollbackDir,
+        maxFileBytes: msg.maxFileBytes,
+        restoreTailBytes: msg.restoreTailBytes
+      };
+      break;
+    }
     case 'create': {
       try {
         const port = e.ports[0];
@@ -102,7 +137,7 @@ parentPort.on('message', (e) => {
           ...(msg.shell !== undefined ? { shell: msg.shell } : {}),
           ...(msg.cwd !== undefined ? { cwd: msg.cwd } : {})
         });
-        wireDataChannel(created.id, port);
+        wireDataChannel(created.id, port, msg.tag, msg.restore === true);
         send({ type: 'created', requestId: msg.requestId, id: created.id, pid: created.pid });
       } catch (err) {
         send({
@@ -119,6 +154,8 @@ parentPort.on('message', (e) => {
     }
     case 'close': {
       void manager.dispose(msg.id).then(({ orphan }) => {
+        writers.get(msg.id)?.dispose();
+        writers.delete(msg.id);
         dataPorts.get(msg.id)?.close();
         dataPorts.delete(msg.id);
         send({ type: 'closed', requestId: msg.requestId, id: msg.id, orphan });
@@ -126,6 +163,8 @@ parentPort.on('message', (e) => {
       break;
     }
     case 'shutdown': {
+      for (const writer of writers.values()) writer.dispose();
+      writers.clear();
       void manager.disposeAll().then(({ orphans }) => {
         if (orphans.length > 0) {
           console.error(`[pty-host] órfãos no shutdown: ${orphans.join(', ')}`);

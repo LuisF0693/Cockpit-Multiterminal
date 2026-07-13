@@ -8,7 +8,15 @@ import { ulid } from './ulid';
  */
 
 export interface PtyOps {
-  createPty(opts: { cols: number; rows: number; cwd?: string }): Promise<{ ptyId: string; pid: number }>;
+  createPty(opts: {
+    /** Id da sessão (tag do scrollback e da porta binária — Story 1.4). */
+    sessionId: string;
+    cols: number;
+    rows: number;
+    cwd?: string;
+    /** true no boot: o host injeta o tail do scrollback persistido. */
+    restore?: boolean;
+  }): Promise<{ ptyId: string; pid: number }>;
   closePty(ptyId: string): Promise<{ orphan: boolean }>;
   resizePty(ptyId: string, cols: number, rows: number): void;
 }
@@ -34,14 +42,20 @@ export class SessionRegistry {
     rows: number;
     name?: string | undefined;
     cwd?: string | undefined;
+    /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
+    id?: string | undefined;
+    restore?: boolean | undefined;
   }): Promise<SessionRecord> {
+    const id = opts.id ?? ulid();
     const { ptyId, pid } = await this.ops.createPty({
+      sessionId: id,
       cols: opts.cols,
       rows: opts.rows,
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {})
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      ...(opts.restore !== undefined ? { restore: opts.restore } : {})
     });
     const record: SessionRecord = {
-      id: ulid(),
+      id,
       name: opts.name ?? `${DEFAULT_NAME_PREFIX} ${++this.nameSeq}`,
       cwd: opts.cwd ?? process.cwd(),
       status: 'running',

@@ -1,8 +1,11 @@
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
+import { SqliteStateStore } from '@cockpit/core';
 import { AppInfoSchema, IpcChannels, type AppInfo } from '@cockpit/shared';
 import { PtyHostManager } from './pty-host-manager';
-import { registerSessionIpc } from './session-ipc';
+import { registerSessionIpc, type SessionIpcHandle } from './session-ipc';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -70,11 +73,36 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => buildAppInfo());
 
+  // State store (Story 1.4): SQLite WAL em userData/state (decisão crítica 2).
+  const stateDir = join(app.getPath('userData'), 'state');
+  mkdirSync(join(stateDir, 'scrollback'), { recursive: true });
+  const stateStore = new SqliteStateStore(new Database(join(stateDir, 'cockpit.db')));
+  stateStore.init();
+
   ptyHostManager = new PtyHostManager();
   ptyHostManager.start();
-  registerSessionIpc(ptyHostManager);
+  ptyHostManager.configure({
+    scrollbackDir: join(stateDir, 'scrollback'),
+    maxFileBytes: 1024 * 1024,
+    restoreTailBytes: 256 * 1024
+  });
 
-  createWindow();
+  sessionIpc = registerSessionIpc(ptyHostManager, stateStore, (batch) =>
+    stateStore.applyBatch(batch)
+  );
+
+  const { cleanShutdown } = sessionIpc.persistence.markBootStart();
+  if (!cleanShutdown) {
+    console.warn('[state] boot após shutdown NÃO limpo (Recovery Screen completa entra no E5)');
+  }
+
+  // Restore (AC2) ANTES da janela: session.list do renderer já traz tudo.
+  void sessionIpc
+    .restore()
+    .then(({ restored, archived }) => {
+      if (restored > 0) console.log(`[state] restauradas ${restored} sessões (${archived} arquivadas)`);
+    })
+    .finally(() => createWindow());
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -82,14 +110,25 @@ app.whenReady().then(() => {
 });
 
 let ptyHostManager: PtyHostManager | null = null;
+let sessionIpc: SessionIpcHandle | null = null;
 let quitting = false;
 
-// Shutdown ordenado: PTYs dispostos (AC4) antes do app morrer.
+// Shutdown ordenado: PTYs dispostos (AC4) + flush da write queue +
+// clean_shutdown=1 (FR12) antes do app morrer.
 app.on('before-quit', (event) => {
   if (quitting || !ptyHostManager) return;
   event.preventDefault();
   quitting = true;
-  void ptyHostManager.shutdown().finally(() => app.quit());
+  const finalize = (): void => {
+    try {
+      sessionIpc?.persistence.markCleanShutdown();
+      sessionIpc?.queue.dispose();
+    } catch (err) {
+      console.error('[state] falha no clean shutdown:', err);
+    }
+    app.quit();
+  };
+  void ptyHostManager.shutdown().finally(finalize);
 });
 
 app.on('window-all-closed', () => {

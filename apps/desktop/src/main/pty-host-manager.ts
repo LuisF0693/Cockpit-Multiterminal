@@ -23,6 +23,12 @@ type Pending =
   | { kind: 'create'; port2: Electron.MessagePortMain; resolve: (v: CreatedPty) => void; reject: (e: Error) => void }
   | { kind: 'close'; resolve: (v: { orphan: boolean }) => void; reject: (e: Error) => void };
 
+export interface ScrollbackConfig {
+  scrollbackDir: string;
+  maxFileBytes: number;
+  restoreTailBytes: number;
+}
+
 export class PtyHostManager {
   private host: UtilityProcess | null = null;
   private shuttingDown = false;
@@ -30,9 +36,16 @@ export class PtyHostManager {
   private readonly pending = new Map<number, Pending>();
   private sessionExitListener: ((ptyId: string, exitCode: number) => void) | null = null;
   private hostExitListener: (() => void) | null = null;
+  private scrollbackConfig: ScrollbackConfig | null = null;
 
   start(): void {
     this.spawnHost();
+  }
+
+  /** Config de scrollback (1.4) — reenviada automaticamente após respawn. */
+  configure(config: ScrollbackConfig): void {
+    this.scrollbackConfig = config;
+    this.post({ type: 'configure', ...config });
   }
 
   onSessionExit(cb: (ptyId: string, exitCode: number) => void): void {
@@ -44,7 +57,13 @@ export class PtyHostManager {
     this.hostExitListener = cb;
   }
 
-  async createPty(opts: { cols: number; rows: number; cwd?: string }): Promise<CreatedPty> {
+  async createPty(opts: {
+    sessionId: string;
+    cols: number;
+    rows: number;
+    cwd?: string;
+    restore?: boolean;
+  }): Promise<CreatedPty> {
     const { port1, port2 } = new MessageChannelMain();
     const requestId = ++this.seq;
     return await new Promise<CreatedPty>((resolve, reject) => {
@@ -70,9 +89,11 @@ export class PtyHostManager {
         {
           type: 'create',
           requestId,
+          tag: opts.sessionId,
           cols: opts.cols,
           rows: opts.rows,
-          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {})
+          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+          ...(opts.restore !== undefined ? { restore: opts.restore } : {})
         },
         [port1]
       );
@@ -143,6 +164,10 @@ export class PtyHostManager {
     });
 
     host.on('message', (raw: unknown) => this.onHostMessage(raw as HostOutbound));
+
+    host.once('spawn', () => {
+      if (this.scrollbackConfig) this.post({ type: 'configure', ...this.scrollbackConfig });
+    });
 
     host.on('exit', (code) => {
       this.failAllPending(new Error(`PTY Host saiu (code ${code})`));

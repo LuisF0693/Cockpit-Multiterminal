@@ -2,12 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   AppInfoSchema,
   IpcChannels,
+  LayoutTileSchema,
   SessionCloseResponseSchema,
   SessionEventSchema,
   SessionRecordSchema,
   TERMINAL_PORT_MESSAGE,
   type AppInfo,
   type CockpitApi,
+  type LayoutUpdateRequest,
   type SessionCloseRequest,
   type SessionCreateRequest,
   type SessionEvent,
@@ -51,6 +53,15 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.sessionEvent, listener);
       return () => ipcRenderer.removeListener(IpcChannels.sessionEvent, listener);
+    }
+  },
+  layout: {
+    get: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.layoutGet);
+      return LayoutTileSchema.array().parse(raw);
+    },
+    update: async (req: LayoutUpdateRequest) => {
+      await ipcRenderer.invoke(IpcChannels.layoutUpdate, req);
     }
   }
 };

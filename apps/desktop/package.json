@@ -12,14 +12,17 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests",
     "spike:conpty": "tsx spike/conpty-spike.ts",
-    "rebuild:native": "electron-rebuild -f -w node-pty",
-    "smoke:abi": "electron smoke/abi-smoke.cjs"
+    "rebuild:native": "node scripts/rebuild-native.cjs",
+    "smoke:abi": "electron smoke/abi-smoke.cjs",
+    "smoke:store": "electron smoke/store-smoke.cjs",
+    "smoke:persist": "electron-vite build && electron out/main/persist-smoke.js"
   },
   "dependencies": {
     "@cockpit/core": "workspace:*",
     "@cockpit/pty-host": "workspace:*",
     "@cockpit/shared": "workspace:*",
     "@cockpit/ui": "workspace:*",
+    "better-sqlite3": "^11.10.0",
     "node-pty": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -28,6 +31,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.5.0",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
