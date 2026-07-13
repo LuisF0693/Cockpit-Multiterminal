@@ -137,7 +137,10 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
       inputSub.dispose();
       webgl?.dispose();
       term.dispose();
-      port.close();
+      // NÃO fechar a porta aqui: o dono é o App/store (fecha no removeSession).
+      // O duplo-mount do StrictMode (dev) remonta este componente com a MESMA
+      // porta — close() no cleanup mataria o canal permanentemente.
+      port.onmessage = null;
     };
   }, [port]);
 

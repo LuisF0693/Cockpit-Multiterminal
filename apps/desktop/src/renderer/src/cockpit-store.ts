@@ -74,6 +74,8 @@ export const useCockpitStore = create<CockpitState>((set) => ({
     set((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
       const ports = new Map(s.ports);
+      // O store é o dono do ciclo de vida da porta (TerminalView só a usa).
+      ports.get(id)?.close();
       ports.delete(id);
       return {
         sessions,
