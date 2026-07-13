@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import { join } from 'node:path';
 import { AppInfoSchema, IpcChannels, type AppInfo } from '@cockpit/shared';
 import { PtyHostManager } from './pty-host-manager';
+import { registerSessionIpc } from './session-ipc';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -71,6 +72,7 @@ app.whenReady().then(() => {
 
   ptyHostManager = new PtyHostManager();
   ptyHostManager.start();
+  registerSessionIpc(ptyHostManager);
 
   createWindow();
 

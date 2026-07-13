@@ -16,13 +16,15 @@
     "smoke:abi": "electron smoke/abi-smoke.cjs"
   },
   "dependencies": {
+    "@cockpit/core": "workspace:*",
     "@cockpit/pty-host": "workspace:*",
     "@cockpit/shared": "workspace:*",
     "@cockpit/ui": "workspace:*",
     "node-pty": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",

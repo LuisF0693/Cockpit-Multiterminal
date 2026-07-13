@@ -5,7 +5,8 @@ import {
   type CockpitApi,
   type TerminalPortMessage
 } from '@cockpit/shared';
-import { TerminalView } from '@cockpit/ui';
+import { Sidebar, TerminalTile, matchShortcut } from '@cockpit/ui';
+import { useCockpitStore } from './cockpit-store';
 
 declare global {
   interface Window {
@@ -13,75 +14,103 @@ declare global {
   }
 }
 
-interface ActiveTerminal {
-  id: string;
-  pid: number;
-  port: MessagePort;
-}
-
 /**
- * Story 1.2: a canary page dá lugar a 1 terminal PTY real.
- * Header preserva nome/versão (AC da 1.1); grid de múltiplos terminais é a 1.3.
+ * Story 1.3: canvas com liberdade de arranjo — múltiplos terminais em tiles
+ * móveis/redimensionáveis + sidebar em árvore + atalhos centrais.
+ * A UI reflete eventos do SessionRegistry (Main); nunca é dona das sessões.
  */
 export function App(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null);
-  const [terminal, setTerminal] = useState<ActiveTerminal | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const bootRef = useRef(false);
 
-  // A porta pode chegar via window message ANTES do invoke resolver —
-  // guardar dos dois lados e casar por id.
-  const portsRef = useRef(new Map<string, MessagePort>());
-  const createdRef = useRef<{ id: string; pid: number } | null>(null);
+  const sessions = useCockpitStore((s) => s.sessions);
+  const layout = useCockpitStore((s) => s.layout);
+  const focusedId = useCockpitStore((s) => s.focusedId);
+  const ports = useCockpitStore((s) => s.ports);
 
   useEffect(() => {
-    let disposed = false;
-    let ownedId: string | null = null;
+    const store = useCockpitStore.getState();
 
-    const tryActivate = (): void => {
-      const created = createdRef.current;
-      if (disposed || !created) return;
-      const port = portsRef.current.get(created.id);
-      if (!port) return;
-      portsRef.current.delete(created.id);
-      setTerminal({ id: created.id, pid: created.pid, port });
-    };
+    void window.cockpit
+      .getAppInfo()
+      .then(setInfo)
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
 
+    // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
       const data = event.data as Partial<TerminalPortMessage> | undefined;
       if (event.source !== window || data?.type !== TERMINAL_PORT_MESSAGE || !data.id) return;
       const port = event.ports[0];
-      if (!port) return;
-      portsRef.current.set(data.id, port);
-      tryActivate();
+      if (port) useCockpitStore.getState().attachPort(data.id, port);
     };
     window.addEventListener('message', onWindowMessage);
 
-    window.cockpit
-      .getAppInfo()
-      .then(setInfo)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    // Eventos de domínio → espelho no store.
+    const unsubscribe = window.cockpit.session.onEvent((event) => {
+      const st = useCockpitStore.getState();
+      if (event.type === 'closed') st.removeSession(event.session.id);
+      else st.upsertSession(event.session);
+    });
 
-    window.cockpit.terminal
-      .create({ cols: 80, rows: 24 })
-      .then((created) => {
-        // StrictMode (dev) roda o efeito 2x: se ESTE efeito já foi limpo,
-        // fechar imediatamente o PTY que ele criou (evita sessão fantasma).
-        if (disposed) {
-          void window.cockpit.terminal.close({ id: created.id });
-          return;
-        }
-        ownedId = created.id;
-        createdRef.current = created;
-        tryActivate();
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    // Seed + primeiro terminal (uma vez, mesmo sob StrictMode).
+    if (!bootRef.current) {
+      bootRef.current = true;
+      void window.cockpit.session
+        .list()
+        .then((list) => {
+          store.seedSessions(list);
+          if (list.length === 0) return newTerminal();
+          return undefined;
+        })
+        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    }
+
+    // Atalhos: registro central (Ctrl+N / Ctrl+1..9 / Ctrl+W).
+    const onKeyDown = (e: KeyboardEvent): void => {
+      const action = matchShortcut(e);
+      if (!action) return;
+      e.preventDefault();
+      const st = useCockpitStore.getState();
+      if (action.type === 'new-terminal') void newTerminal();
+      if (action.type === 'focus-terminal') {
+        const target = st.sessions[action.index];
+        if (target) st.focus(target.id);
+      }
+      if (action.type === 'close-terminal' && st.focusedId) void closeSession(st.focusedId);
+    };
+    window.addEventListener('keydown', onKeyDown);
 
     return () => {
-      disposed = true;
       window.removeEventListener('message', onWindowMessage);
-      if (ownedId) void window.cockpit.terminal.close({ id: ownedId });
+      window.removeEventListener('keydown', onKeyDown);
+      unsubscribe();
     };
   }, []);
+
+  const newTerminal = async (): Promise<void> => {
+    try {
+      await window.cockpit.session.create({ cols: 80, rows: 24 });
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  };
+
+  const closeSession = async (id: string): Promise<void> => {
+    const session = useCockpitStore.getState().sessions.find((s) => s.id === id);
+    if (!session) return;
+    if (
+      session.status === 'running' &&
+      !window.confirm(`Encerrar "${session.name}"? O processo ativo será finalizado.`)
+    ) {
+      return;
+    }
+    try {
+      await window.cockpit.session.close({ id });
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  };
 
   return (
     <main
@@ -91,7 +120,8 @@ export function App(): JSX.Element {
         flexDirection: 'column',
         background: '#0B0F14',
         color: '#E5E7EB',
-        fontFamily: 'Inter, system-ui, sans-serif'
+        fontFamily: 'Inter, system-ui, sans-serif',
+        overflow: 'hidden'
       }}
     >
       <header
@@ -107,30 +137,79 @@ export function App(): JSX.Element {
         <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
         {info && (
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#9CA3AF' }}>
-            v{info.version} · {info.platform}
-            {terminal && ` · pty pid ${terminal.pid}`}
+            v{info.version} · {info.platform} · {sessions.length}{' '}
+            {sessions.length === 1 ? 'sessão' : 'sessões'}
           </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <button
+          onClick={() => void newTerminal()}
+          title="Novo terminal (Ctrl+N)"
+          style={{
+            background: '#111827',
+            color: '#E5E7EB',
+            border: '1px solid #1F2937',
+            borderRadius: 6,
+            padding: '4px 12px',
+            fontSize: 12,
+            cursor: 'pointer'
+          }}
+        >
+          + novo terminal
+        </button>
+        {error && (
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#F87171' }}>{error}</span>
         )}
       </header>
 
-      <section style={{ flex: 1, minHeight: 0, padding: 8 }}>
-        {terminal ? (
-          <TerminalView
-            port={terminal.port}
-            onResize={({ cols, rows }) =>
-              void window.cockpit.terminal.resize({ id: terminal.id, cols, rows })
-            }
-          />
-        ) : error ? (
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#F87171' }}>
-            Falha ao criar terminal: {error}
-          </p>
-        ) : (
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#6B7280' }}>
-            Iniciando terminal…
-          </p>
-        )}
-      </section>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <Sidebar
+          sessions={sessions}
+          focusedId={focusedId}
+          onSelect={(id) => useCockpitStore.getState().focus(id)}
+          onNewTerminal={() => void newTerminal()}
+        />
+
+        <section style={{ flex: 1, position: 'relative', overflow: 'auto', minWidth: 0 }}>
+          {sessions.map((session) => {
+            const tile = layout.tiles.find((t) => t.id === session.id);
+            if (!tile) return null;
+            return (
+              <TerminalTile
+                key={session.id}
+                session={session}
+                layout={tile}
+                focused={focusedId === session.id}
+                port={ports.get(session.id) ?? null}
+                onFocus={() => useCockpitStore.getState().focus(session.id)}
+                onClose={() => void closeSession(session.id)}
+                onRename={(name) => void window.cockpit.session.rename({ id: session.id, name })}
+                onMove={(x, y) => useCockpitStore.getState().moveTileTo(session.id, x, y)}
+                onMoveEnd={() => useCockpitStore.getState().snapTile(session.id)}
+                onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(session.id, w, h)}
+                onResizePty={({ cols, rows }) =>
+                  void window.cockpit.session.resize({ id: session.id, cols, rows })
+                }
+              />
+            );
+          })}
+          {sessions.length === 0 && (
+            <p
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'grid',
+                placeItems: 'center',
+                color: '#6B7280',
+                fontFamily: 'monospace',
+                fontSize: 13
+              }}
+            >
+              Ctrl+N ou "+ novo terminal" para começar
+            </p>
+          )}
+        </section>
+      </div>
     </main>
   );
 }

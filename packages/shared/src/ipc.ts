@@ -16,46 +16,66 @@ export type AppInfo = z.infer<typeof AppInfoSchema>;
 /** Nomes canônicos dos canais IPC de controle (baixa frequência). */
 export const IpcChannels = {
   appInfo: 'app.info',
-  terminalCreate: 'terminal.create',
-  terminalClose: 'terminal.close',
-  terminalResize: 'terminal.resize',
-  /** Evento Main → renderer que transfere a MessagePort de dados. */
+  sessionCreate: 'session.create',
+  sessionRename: 'session.rename',
+  sessionClose: 'session.close',
+  sessionResize: 'session.resize',
+  sessionList: 'session.list',
+  /** Push Main → renderer com eventos de domínio de sessão. */
+  sessionEvent: 'session.event',
+  /** Evento Main → renderer que transfere a MessagePort de dados (tag = session id). */
   terminalPort: 'terminal.port'
 } as const;
 
 /**
- * Contratos do terminal (Story 1.2). Controle via Zod (baixa frequência);
- * os DADOS do PTY trafegam por MessagePort binária, fora destes canais.
+ * Sessão de terminal (Story 1.3) — fonte de verdade no SessionRegistry (core,
+ * Main process); a UI apenas reflete eventos (CQRS leve).
  */
-export const TerminalCreateRequestSchema = z.object({
-  cols: z.number().int().min(2).max(500),
-  rows: z.number().int().min(2).max(500)
-});
-export type TerminalCreateRequest = z.infer<typeof TerminalCreateRequestSchema>;
-
-export const TerminalCreateResponseSchema = z.object({
+export const SessionRecordSchema = z.object({
   id: z.string().min(1),
-  pid: z.number().int().positive()
+  name: z.string().min(1).max(60),
+  cwd: z.string().min(1),
+  status: z.enum(['running', 'exited']),
+  pid: z.number().int().positive(),
+  createdAt: z.number().int().nonnegative()
 });
-export type TerminalCreateResponse = z.infer<typeof TerminalCreateResponseSchema>;
+export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
-export const TerminalResizeRequestSchema = z.object({
-  id: z.string().min(1),
+export const SessionCreateRequestSchema = z.object({
+  name: z.string().min(1).max(60).optional(),
   cols: z.number().int().min(2).max(500),
-  rows: z.number().int().min(2).max(500)
+  rows: z.number().int().min(2).max(500),
+  cwd: z.string().optional()
 });
-export type TerminalResizeRequest = z.infer<typeof TerminalResizeRequestSchema>;
+export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 
-export const TerminalCloseRequestSchema = z.object({
-  id: z.string().min(1)
+export const SessionRenameRequestSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60)
 });
-export type TerminalCloseRequest = z.infer<typeof TerminalCloseRequestSchema>;
+export type SessionRenameRequest = z.infer<typeof SessionRenameRequestSchema>;
 
-export const TerminalCloseResponseSchema = z.object({
+export const SessionCloseRequestSchema = z.object({ id: z.string().min(1) });
+export type SessionCloseRequest = z.infer<typeof SessionCloseRequestSchema>;
+
+export const SessionCloseResponseSchema = z.object({
   id: z.string().min(1),
   orphan: z.boolean()
 });
-export type TerminalCloseResponse = z.infer<typeof TerminalCloseResponseSchema>;
+export type SessionCloseResponse = z.infer<typeof SessionCloseResponseSchema>;
+
+export const SessionResizeRequestSchema = z.object({
+  id: z.string().min(1),
+  cols: z.number().int().min(2).max(500),
+  rows: z.number().int().min(2).max(500)
+});
+export type SessionResizeRequest = z.infer<typeof SessionResizeRequestSchema>;
+
+export const SessionEventSchema = z.object({
+  type: z.enum(['created', 'renamed', 'closed', 'exited']),
+  session: SessionRecordSchema
+});
+export type SessionEvent = z.infer<typeof SessionEventSchema>;
 
 /**
  * Mensagem postada pelo preload na window do renderer transferindo a
@@ -74,10 +94,14 @@ export interface TerminalPortMessage {
  */
 export interface CockpitApi {
   getAppInfo(): Promise<AppInfo>;
-  terminal: {
-    /** Cria o PTY; a MessagePort de dados chega via window message TERMINAL_PORT_MESSAGE. */
-    create(req: TerminalCreateRequest): Promise<TerminalCreateResponse>;
-    resize(req: TerminalResizeRequest): Promise<void>;
-    close(req: TerminalCloseRequest): Promise<TerminalCloseResponse>;
+  session: {
+    /** Cria a sessão; a MessagePort de dados chega via window message TERMINAL_PORT_MESSAGE (id = session id). */
+    create(req: SessionCreateRequest): Promise<SessionRecord>;
+    rename(req: SessionRenameRequest): Promise<SessionRecord>;
+    close(req: SessionCloseRequest): Promise<SessionCloseResponse>;
+    resize(req: SessionResizeRequest): Promise<void>;
+    list(): Promise<SessionRecord[]>;
+    /** Assina eventos de domínio; retorna unsubscribe. */
+    onEvent(cb: (event: SessionEvent) => void): () => void;
   };
 }

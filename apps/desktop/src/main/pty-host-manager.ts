@@ -1,38 +1,108 @@
-import { MessageChannelMain, ipcMain, utilityProcess, type UtilityProcess } from 'electron';
+import { MessageChannelMain, utilityProcess, type UtilityProcess } from 'electron';
 import { join } from 'node:path';
-import {
-  IpcChannels,
-  TerminalCloseRequestSchema,
-  TerminalCreateRequestSchema,
-  TerminalCreateResponseSchema,
-  TerminalResizeRequestSchema,
-  type TerminalCloseResponse,
-  type TerminalCreateResponse
-} from '@cockpit/shared';
 import type { HostInbound, HostOutbound } from '@cockpit/pty-host';
 
 /**
- * Supervisor do PTY Host (utilityProcess) + IPC de controle do terminal.
- * O Main só NEGOCIA o canal binário (MessageChannelMain): port1 → PTY Host,
- * port2 → renderer. Dados nunca passam por aqui (decisão crítica 4).
+ * Supervisor do PTY Host (utilityProcess) — serviço puro de PTY para o Main.
+ * O registro de sessões (fonte de verdade) vive no SessionRegistry (@cockpit/core);
+ * aqui só se fala com o host: criar/fechar/redimensionar PTYs e negociar as
+ * MessagePorts binárias (decisão crítica 4: dados nunca passam pelo Main).
  */
 
 const RESPAWN_DELAY_MS = 1000;
-const CREATE_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+
+interface CreatedPty {
+  ptyId: string;
+  pid: number;
+  /** Porta binária a entregar ao renderer dono da sessão. */
+  rendererPort: Electron.MessagePortMain;
+}
 
 type Pending =
-  | { kind: 'create'; resolve: (v: TerminalCreateResponse) => void; reject: (e: Error) => void }
-  | { kind: 'close'; resolve: (v: TerminalCloseResponse) => void; reject: (e: Error) => void };
+  | { kind: 'create'; port2: Electron.MessagePortMain; resolve: (v: CreatedPty) => void; reject: (e: Error) => void }
+  | { kind: 'close'; resolve: (v: { orphan: boolean }) => void; reject: (e: Error) => void };
 
 export class PtyHostManager {
   private host: UtilityProcess | null = null;
   private shuttingDown = false;
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
+  private sessionExitListener: ((ptyId: string, exitCode: number) => void) | null = null;
+  private hostExitListener: (() => void) | null = null;
 
   start(): void {
     this.spawnHost();
-    this.registerIpc();
+  }
+
+  onSessionExit(cb: (ptyId: string, exitCode: number) => void): void {
+    this.sessionExitListener = cb;
+  }
+
+  /** Disparado quando o host morre inesperadamente (todas as sessões se perdem). */
+  onHostExit(cb: () => void): void {
+    this.hostExitListener = cb;
+  }
+
+  async createPty(opts: { cols: number; rows: number; cwd?: string }): Promise<CreatedPty> {
+    const { port1, port2 } = new MessageChannelMain();
+    const requestId = ++this.seq;
+    return await new Promise<CreatedPty>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        port2.close();
+        reject(new Error('timeout criando PTY no host'));
+      }, REQUEST_TIMEOUT_MS);
+      this.pending.set(requestId, {
+        kind: 'create',
+        port2,
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          port2.close();
+          reject(e);
+        }
+      });
+      this.post(
+        {
+          type: 'create',
+          requestId,
+          cols: opts.cols,
+          rows: opts.rows,
+          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {})
+        },
+        [port1]
+      );
+    });
+  }
+
+  async closePty(ptyId: string): Promise<{ orphan: boolean }> {
+    const requestId = ++this.seq;
+    return await new Promise<{ orphan: boolean }>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        reject(new Error('timeout fechando PTY no host'));
+      }, REQUEST_TIMEOUT_MS);
+      this.pending.set(requestId, {
+        kind: 'close',
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
+      this.post({ type: 'close', requestId, id: ptyId });
+    });
+  }
+
+  resizePty(ptyId: string, cols: number, rows: number): void {
+    this.post({ type: 'resize', id: ptyId, cols, rows });
   }
 
   async shutdown(): Promise<void> {
@@ -78,6 +148,7 @@ export class PtyHostManager {
       this.failAllPending(new Error(`PTY Host saiu (code ${code})`));
       if (this.shuttingDown) return;
       console.error(`[pty-host] exit inesperado (code ${code}) — respawn em ${RESPAWN_DELAY_MS}ms`);
+      this.hostExitListener?.();
       setTimeout(() => {
         if (!this.shuttingDown) this.spawnHost();
       }, RESPAWN_DELAY_MS);
@@ -86,71 +157,12 @@ export class PtyHostManager {
     this.host = host;
   }
 
-  private registerIpc(): void {
-    ipcMain.handle(IpcChannels.terminalCreate, async (event, raw: unknown) => {
-      const req = TerminalCreateRequestSchema.parse(raw);
-      const { port1, port2 } = new MessageChannelMain();
-      const requestId = ++this.seq;
-
-      const created = await new Promise<TerminalCreateResponse>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          this.pending.delete(requestId);
-          reject(new Error('timeout criando terminal no PTY Host'));
-        }, CREATE_TIMEOUT_MS);
-        this.pending.set(requestId, {
-          kind: 'create',
-          resolve: (v) => {
-            clearTimeout(timer);
-            resolve(v);
-          },
-          reject: (e) => {
-            clearTimeout(timer);
-            reject(e);
-          }
-        });
-        this.post({ type: 'create', requestId, cols: req.cols, rows: req.rows }, [port1]);
-      });
-
-      // Porta de dados vai ao renderer que pediu o terminal.
-      event.sender.postMessage(IpcChannels.terminalPort, { id: created.id }, [port2]);
-      return created;
-    });
-
-    ipcMain.handle(IpcChannels.terminalResize, (_event, raw: unknown) => {
-      const req = TerminalResizeRequestSchema.parse(raw);
-      this.post({ type: 'resize', id: req.id, cols: req.cols, rows: req.rows });
-    });
-
-    ipcMain.handle(IpcChannels.terminalClose, async (_event, raw: unknown) => {
-      const req = TerminalCloseRequestSchema.parse(raw);
-      const requestId = ++this.seq;
-      return await new Promise<TerminalCloseResponse>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          this.pending.delete(requestId);
-          reject(new Error('timeout fechando terminal no PTY Host'));
-        }, CREATE_TIMEOUT_MS);
-        this.pending.set(requestId, {
-          kind: 'close',
-          resolve: (v) => {
-            clearTimeout(timer);
-            resolve(v);
-          },
-          reject: (e) => {
-            clearTimeout(timer);
-            reject(e);
-          }
-        });
-        this.post({ type: 'close', requestId, id: req.id });
-      });
-    });
-  }
-
   private onHostMessage(msg: HostOutbound): void {
     switch (msg.type) {
       case 'created': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'create') {
-          p.resolve(TerminalCreateResponseSchema.parse({ id: msg.id, pid: msg.pid }));
+          p.resolve({ ptyId: msg.id, pid: msg.pid, rendererPort: p.port2 });
         }
         break;
       }
@@ -161,12 +173,13 @@ export class PtyHostManager {
       }
       case 'closed': {
         const p = this.takePending(msg.requestId);
-        if (p?.kind === 'close') p.resolve({ id: msg.id, orphan: msg.orphan });
+        if (p?.kind === 'close') p.resolve({ orphan: msg.orphan });
         if (msg.orphan) console.error(`[pty-host] AVISO: órfão detectado ao fechar ${msg.id}`);
         break;
       }
       case 'session-exit': {
         console.log(`[pty-host] sessão ${msg.id} saiu (code ${msg.exitCode})`);
+        this.sessionExitListener?.(msg.id, msg.exitCode);
         break;
       }
     }

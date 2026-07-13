@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { matchShortcut } from './shortcuts';
 import '@xterm/xterm/css/xterm.css';
 
 /**
@@ -11,11 +12,18 @@ import '@xterm/xterm/css/xterm.css';
  * - input: term.onData → TextEncoder → port.postMessage
  * Renderer WebGL com fallback documentado: se o addon falhar (GPU/driver),
  * seguimos no renderer DOM/canvas padrão do xterm — funcional, menos rápido.
+ * Tiles desfocados escrevem em lote (~10fps) para não competir com o focado
+ * (spec de performance da Story 1.3); o backpressure segue funcionando pois
+ * os acks são enviados quando o lote é consumido.
  */
+
+const UNFOCUSED_FLUSH_MS = 100;
 
 export interface TerminalViewProps {
   /** Porta de dados binária negociada pelo Main (uma por sessão PTY). */
   port: MessagePort;
+  /** Tile focado escreve imediatamente; desfocado, em lote. */
+  focused?: boolean;
   /** Notifica cols/rows para o resize do PTY (canal de controle). */
   onResize?: (size: { cols: number; rows: number }) => void;
 }
@@ -27,10 +35,14 @@ const THEME = {
   selectionBackground: '#334155'
 };
 
-export function TerminalView({ port, onResize }: TerminalViewProps): JSX.Element {
+export function TerminalView({ port, focused = true, onResize }: TerminalViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const onResizeRef = useRef(onResize);
   onResizeRef.current = onResize;
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
+  const termRef = useRef<Terminal | null>(null);
+  const flushRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -45,6 +57,12 @@ export function TerminalView({ port, onResize }: TerminalViewProps): JSX.Element
       scrollback: 5000,
       allowProposedApi: true
     });
+    termRef.current = term;
+
+    // Atalhos globais (Ctrl+N/W/1..9) não são consumidos pelo xterm:
+    // retornar false pula o handling interno e deixa o evento subir à window.
+    term.attachCustomKeyEventHandler((e) => matchShortcut(e) === null);
+
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container);
@@ -74,10 +92,31 @@ export function TerminalView({ port, onResize }: TerminalViewProps): JSX.Element
       port.postMessage(encoder.encode(data));
     });
 
+    // Escrita com throttle p/ tiles desfocados; ack por chunk consumido.
+    let pending: Uint8Array[] = [];
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const writeChunk = (chunk: Uint8Array): void => {
+      term.write(chunk, () => port.postMessage({ t: 'ack', n: chunk.byteLength }));
+    };
+    const flushPending = (): void => {
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      const batch = pending;
+      pending = [];
+      for (const chunk of batch) writeChunk(chunk);
+    };
+    flushRef.current = flushPending;
+
     port.onmessage = (event: MessageEvent) => {
       const chunk = event.data as Uint8Array;
-      // Ack após consumo → backpressure no host (pause/resume do PTY).
-      term.write(chunk, () => port.postMessage({ t: 'ack', n: chunk.byteLength }));
+      if (focusedRef.current) {
+        writeChunk(chunk);
+        return;
+      }
+      pending.push(chunk);
+      flushTimer ??= setTimeout(flushPending, UNFOCUSED_FLUSH_MS);
     };
     port.start();
 
@@ -89,10 +128,11 @@ export function TerminalView({ port, onResize }: TerminalViewProps): JSX.Element
     const observer = new ResizeObserver(notifyResize);
     observer.observe(container);
 
-    term.focus();
-
     return () => {
       disposed = true;
+      if (flushTimer !== null) clearTimeout(flushTimer);
+      flushRef.current = null;
+      termRef.current = null;
       observer.disconnect();
       inputSub.dispose();
       webgl?.dispose();
@@ -100,6 +140,14 @@ export function TerminalView({ port, onResize }: TerminalViewProps): JSX.Element
       port.close();
     };
   }, [port]);
+
+  // Ganhou foco → drena o buffer pendente e foca o xterm.
+  useEffect(() => {
+    if (focused) {
+      flushRef.current?.();
+      termRef.current?.focus();
+    }
+  }, [focused]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 0 }} />;
 }

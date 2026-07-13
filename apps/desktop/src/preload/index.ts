@@ -2,15 +2,18 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   AppInfoSchema,
   IpcChannels,
+  SessionCloseResponseSchema,
+  SessionEventSchema,
+  SessionRecordSchema,
   TERMINAL_PORT_MESSAGE,
-  TerminalCloseResponseSchema,
-  TerminalCreateResponseSchema,
   type AppInfo,
   type CockpitApi,
-  type TerminalCloseRequest,
-  type TerminalCreateRequest,
-  type TerminalPortMessage,
-  type TerminalResizeRequest
+  type SessionCloseRequest,
+  type SessionCreateRequest,
+  type SessionEvent,
+  type SessionRenameRequest,
+  type SessionResizeRequest,
+  type TerminalPortMessage
 } from '@cockpit/shared';
 
 /**
@@ -22,17 +25,32 @@ const api: CockpitApi = {
     const raw: unknown = await ipcRenderer.invoke(IpcChannels.appInfo);
     return AppInfoSchema.parse(raw);
   },
-  terminal: {
-    create: async (req: TerminalCreateRequest) => {
-      const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalCreate, req);
-      return TerminalCreateResponseSchema.parse(raw);
+  session: {
+    create: async (req: SessionCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionCreate, req);
+      return SessionRecordSchema.parse(raw);
     },
-    resize: async (req: TerminalResizeRequest) => {
-      await ipcRenderer.invoke(IpcChannels.terminalResize, req);
+    rename: async (req: SessionRenameRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionRename, req);
+      return SessionRecordSchema.parse(raw);
     },
-    close: async (req: TerminalCloseRequest) => {
-      const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalClose, req);
-      return TerminalCloseResponseSchema.parse(raw);
+    close: async (req: SessionCloseRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionClose, req);
+      return SessionCloseResponseSchema.parse(raw);
+    },
+    resize: async (req: SessionResizeRequest) => {
+      await ipcRenderer.invoke(IpcChannels.sessionResize, req);
+    },
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionList);
+      return SessionRecordSchema.array().parse(raw);
+    },
+    onEvent: (cb: (event: SessionEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(SessionEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.sessionEvent, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.sessionEvent, listener);
     }
   }
 };

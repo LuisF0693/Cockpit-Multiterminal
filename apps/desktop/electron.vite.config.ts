@@ -21,11 +21,12 @@ function relaxCspForDev(): Plugin {
 const shared = resolve(__dirname, '../../packages/shared/src');
 const ui = resolve(__dirname, '../../packages/ui/src');
 const ptyHost = resolve(__dirname, '../../packages/pty-host/src');
+const core = resolve(__dirname, '../../packages/core/src');
 
 export default defineConfig({
   main: {
     resolve: {
-      alias: { '@cockpit/shared': shared, '@cockpit/pty-host': ptyHost }
+      alias: { '@cockpit/shared': shared, '@cockpit/pty-host': ptyHost, '@cockpit/core': core }
     },
     build: {
       rollupOptions: {
