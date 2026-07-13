@@ -1,0 +1,13 @@
+{
+  "date": "2026-07-13T17:57:19.519Z",
+  "platform": "win32 x64 node v25.4.0",
+  "ptyCount": 6,
+  "durationMinutes": 30,
+  "allProducedOutput": true,
+  "prematureExits": 0,
+  "orphansAfterKill": [],
+  "rssMinMB": "97.5",
+  "rssMaxMB": "157.6",
+  "knownNoise": "node-pty conpty_console_list_agent pode logar \"AttachConsole failed\" no kill quando o pai não tem console — ruído não-fatal, sem impacto em (a)/(c)/(d)",
+  "verdict": "PASS (a,c,d) — validar (b) TUI manualmente"
+}

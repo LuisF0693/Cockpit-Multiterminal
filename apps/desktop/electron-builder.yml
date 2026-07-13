@@ -1,0 +1,37 @@
+appId: dev.synkra.meucockpit
+productName: Meu Cockpit
+copyright: © 2026 LuisF0693
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  # Sem code signing no MVP; false também evita a extração do winCodeSign,
+  # que exige privilégio de symlink (admin/Dev Mode) no Windows.
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Meu Cockpit
+
+artifactName: MeuCockpit-Setup-${version}.${ext}
+
+# electron-builder + pnpm no Windows falha ao executar pnpm.cjs no rebuild nativo.
+# node-pty não é usado em runtime na canary (Story 1.1); o rebuild para ABI do
+# Electron entra na Story 1.2 via @electron/rebuild dedicado.
+npmRebuild: false
+
+# Sem code signing no MVP (aviso SmartScreen esperado no primeiro uso)
+forceCodeSigning: false

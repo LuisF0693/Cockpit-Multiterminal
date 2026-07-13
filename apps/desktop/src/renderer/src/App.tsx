@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AppInfo } from '@cockpit/shared';
-import type { CockpitApi } from '../../preload/index';
+import type { AppInfo, CockpitApi } from '@cockpit/shared';
 
 declare global {
   interface Window {

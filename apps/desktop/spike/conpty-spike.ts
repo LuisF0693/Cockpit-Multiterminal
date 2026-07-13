@@ -39,6 +39,16 @@ interface PtyProbe {
 const probes: PtyProbe[] = [];
 const startedAt = Date.now();
 const memSamples: number[] = [];
+let shuttingDown = false;
+
+const isPidAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 console.log(`[spike] Spawnando ${PTY_COUNT} PTYs (${shellCmd}) por ${DURATION_MIN} min...`);
 
@@ -66,7 +76,12 @@ for (let i = 0; i < PTY_COUNT; i++) {
   pty.onExit(({ exitCode }) => {
     probe.exited = true;
     probe.exitCode = exitCode;
-    console.error(`[spike] ❌ PTY #${i} (pid ${probe.pid}) saiu prematuramente: code ${exitCode}`);
+    if (shuttingDown) {
+      // Exit pós-kill é esperado (0xC000013A = CTRL_C_EXIT em consoles Windows)
+      console.log(`[spike] PTY #${i} (pid ${probe.pid}) encerrado no shutdown: code ${exitCode}`);
+    } else {
+      console.error(`[spike] ❌ PTY #${i} (pid ${probe.pid}) saiu prematuramente: code ${exitCode}`);
+    }
   });
   probes.push(probe);
   console.log(`[spike] PTY #${i} ok — pid ${pty.pid}`);
@@ -88,31 +103,37 @@ const activity = setInterval(() => {
 
 setTimeout(() => {
   clearInterval(activity);
+  // Exits pré-shutdown são os verdadeiramente prematuros (critério a)
+  const prematureExits = probes.filter((p) => p.exited).length;
   console.log('[spike] Encerrando PTYs (critério d: kill limpo)...');
+  shuttingDown = true;
   for (const p of probes) {
     if (!p.exited) p.pty.kill();
   }
 
   setTimeout(() => {
-    const survivors = probes.filter((p) => !p.exited && p.bytesReceived > 0);
-    const prematureExits = probes.filter((p) => p.exited && p.exitCode !== 0 && p.exitCode !== null);
+    // Critério d: nenhum processo de shell sobrevivente (órfão) após o kill
+    const orphans = probes.filter((p) => isPidAlive(p.pid));
+    const allProducedOutput = probes.every((p) => p.bytesReceived > 0);
     const report = {
       date: new Date().toISOString(),
       platform: `${process.platform} ${process.arch} node ${process.version}`,
       ptyCount: PTY_COUNT,
       durationMinutes: DURATION_MIN,
-      allProducedOutput: probes.every((p) => p.bytesReceived > 0),
-      prematureExits: prematureExits.length,
+      allProducedOutput,
+      prematureExits,
+      orphansAfterKill: orphans.map((p) => p.pid),
       rssMinMB: Math.min(...memSamples).toFixed(1),
       rssMaxMB: Math.max(...memSamples).toFixed(1),
+      knownNoise:
+        'node-pty conpty_console_list_agent pode logar "AttachConsole failed" no kill quando o pai não tem console — ruído não-fatal, sem impacto em (a)/(c)/(d)',
       verdict:
-        probes.every((p) => p.bytesReceived > 0) && prematureExits.length === 0
+        allProducedOutput && prematureExits === 0 && orphans.length === 0
           ? 'PASS (a,c,d) — validar (b) TUI manualmente'
           : 'FAIL — escalar @architect (fallback Tauri)'
     };
     writeFileSync(join(__dirname, 'conpty-spike-report.json'), JSON.stringify(report, null, 2));
     console.log('[spike] Relatório:', report);
-    console.log(`[spike] Verificar órfãos: Get-Process | Where-Object { $_.Name -match 'powershell|conhost' }`);
     process.exit(report.verdict.startsWith('PASS') ? 0 : 1);
-  }, 3000);
+  }, 5000);
 }, DURATION_MIN * 60000);

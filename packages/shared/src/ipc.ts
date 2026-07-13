@@ -17,3 +17,11 @@ export type AppInfo = z.infer<typeof AppInfoSchema>;
 export const IpcChannels = {
   appInfo: 'app.info'
 } as const;
+
+/**
+ * Contrato da bridge exposta pelo preload em window.cockpit.
+ * Vive no shared para o renderer nunca importar tipos do processo preload/Electron.
+ */
+export interface CockpitApi {
+  getAppInfo(): Promise<AppInfo>;
+}

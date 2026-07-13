@@ -14,8 +14,11 @@ node_modules
 # Build & Logs (AIOX)
 dist/
 build/
+out/
+release/
 *.log
 logs/
+.turbo/
 
 # IDE & OS (AIOX)
 .DS_Store

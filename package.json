@@ -8,13 +8,17 @@
   "engines": {
     "node": ">=20"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "node-pty", "esbuild"]
+  },
   "scripts": {
     "dev": "turbo run dev --filter=@cockpit/desktop",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
+    "dist": "pnpm --filter @cockpit/desktop dist"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
