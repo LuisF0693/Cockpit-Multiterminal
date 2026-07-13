@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import { join } from 'node:path';
 import { AppInfoSchema, IpcChannels, type AppInfo } from '@cockpit/shared';
+import { PtyHostManager } from './pty-host-manager';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -51,12 +52,16 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   // CSP estrita para todo conteúdo carregado.
+  // Em dev, o react-refresh do @vitejs/plugin-react exige um script inline
+  // (preamble) — sem 'unsafe-inline' o renderer não sobe. Produção fica estrita.
+  const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
+  const scriptSrc = isDev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'";
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws:"
+          `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws:`
         ]
       }
     });
@@ -64,11 +69,25 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IpcChannels.appInfo, (): AppInfo => buildAppInfo());
 
+  ptyHostManager = new PtyHostManager();
+  ptyHostManager.start();
+
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+let ptyHostManager: PtyHostManager | null = null;
+let quitting = false;
+
+// Shutdown ordenado: PTYs dispostos (AC4) antes do app morrer.
+app.on('before-quit', (event) => {
+  if (quitting || !ptyHostManager) return;
+  event.preventDefault();
+  quitting = true;
+  void ptyHostManager.shutdown().finally(() => app.quit());
 });
 
 app.on('window-all-closed', () => {

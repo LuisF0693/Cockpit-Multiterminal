@@ -1,18 +1,49 @@
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import type { Plugin } from 'vite';
+
+/**
+ * Só em dev (serve): o preamble inline do react-refresh precisa de
+ * 'unsafe-inline' no script-src da meta CSP. O build de produção não passa
+ * por aqui — a CSP estrita do index.html permanece intacta no empacotado.
+ */
+function relaxCspForDev(): Plugin {
+  return {
+    name: 'cockpit-dev-csp',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      return html.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'");
+    }
+  };
+}
 
 const shared = resolve(__dirname, '../../packages/shared/src');
+const ui = resolve(__dirname, '../../packages/ui/src');
+const ptyHost = resolve(__dirname, '../../packages/pty-host/src');
 
 export default defineConfig({
   main: {
-    resolve: { alias: { '@cockpit/shared': shared } }
+    resolve: {
+      alias: { '@cockpit/shared': shared, '@cockpit/pty-host': ptyHost }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          // PTY Host roda como utilityProcess — entry próprio em out/main/pty-host.js
+          'pty-host': resolve(ptyHost, 'host-entry.ts')
+        },
+        // Módulo nativo: carregado em runtime pelo utilityProcess, nunca bundled.
+        external: ['node-pty']
+      }
+    }
   },
   preload: {
     resolve: { alias: { '@cockpit/shared': shared } }
   },
   renderer: {
-    plugins: [react()],
-    resolve: { alias: { '@cockpit/shared': shared } }
+    plugins: [react(), relaxCspForDev()],
+    resolve: { alias: { '@cockpit/shared': shared, '@cockpit/ui': ui } }
   }
 });

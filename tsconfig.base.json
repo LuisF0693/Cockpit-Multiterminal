@@ -20,7 +20,9 @@
       "@cockpit/core": ["packages/core/src/index.ts"],
       "@cockpit/core/*": ["packages/core/src/*"],
       "@cockpit/ui": ["packages/ui/src/index.ts"],
-      "@cockpit/ui/*": ["packages/ui/src/*"]
+      "@cockpit/ui/*": ["packages/ui/src/*"],
+      "@cockpit/pty-host": ["packages/pty-host/src/index.ts"],
+      "@cockpit/pty-host/*": ["packages/pty-host/src/*"]
     }
   }
 }

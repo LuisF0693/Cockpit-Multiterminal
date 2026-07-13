@@ -1,6 +1,6 @@
 /**
  * @cockpit/ui — Design system (tokens, atoms/molecules/organisms) e telas do cockpit.
- * Placeholder na Story 1.1: componentes entram na Story 1.2+ seguindo
- * docs/front-end-spec.md (Atomic Design, tokens-first, zero hardcoded values).
+ * Atomic Design, tokens-first (docs/front-end-spec.md).
  */
-export const UI_PACKAGE = '@cockpit/ui' as const;
+export { TerminalView } from './terminal-view';
+export type { TerminalViewProps } from './terminal-view';

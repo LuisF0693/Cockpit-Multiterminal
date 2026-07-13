@@ -9,7 +9,11 @@
     "node": ">=20"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "node-pty", "esbuild"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "node-pty",
+      "esbuild"
+    ]
   },
   "scripts": {
     "dev": "turbo run dev --filter=@cockpit/desktop",
@@ -23,6 +27,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "eslint": "^9.9.0",
+    "globals": "^17.7.0",
     "prettier": "^3.3.3",
     "turbo": "^2.1.0",
     "typescript": "^5.5.4",
