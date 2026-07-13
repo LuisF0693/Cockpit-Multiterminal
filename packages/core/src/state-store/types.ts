@@ -11,6 +11,8 @@ export interface PersistedTerminal {
   name: string;
   cwd: string;
   status: 'running' | 'exited';
+  /** Adapter que hospeda a sessão (schema v2 — Story 2.1). */
+  adapterId: string;
   tile: LayoutTile | null;
   createdAt: number;
   archivedAt: number | null;

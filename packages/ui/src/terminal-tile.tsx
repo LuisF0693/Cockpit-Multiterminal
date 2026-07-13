@@ -24,6 +24,15 @@ export interface TerminalTileProps {
   onResizePty: (size: { cols: number; rows: number }) => void;
 }
 
+/** Código de cores de status (front-end spec — base do painel da 2.5). */
+const STATUS_COLORS: Record<string, string> = {
+  idle: '#6B7280',
+  working: '#34D399',
+  'waiting-input': '#FBBF24',
+  done: '#60A5FA',
+  error: '#F87171'
+};
+
 type DragState =
   | { kind: 'move'; startX: number; startY: number; originX: number; originY: number }
   | { kind: 'resize'; edge: 'e' | 's' | 'se'; startX: number; startY: number; originW: number; originH: number };
@@ -99,6 +108,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
   };
 
   const exited = session.status === 'exited';
+  const statusColor = STATUS_COLORS[session.agentStatus] ?? '#6B7280';
 
   return (
     <section
@@ -137,7 +147,12 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           flexShrink: 0
         }}
       >
-        <span style={{ fontSize: 11, color: exited ? '#F87171' : '#34D399' }}>●</span>
+        <span
+          title={`${session.adapterId} · ${session.agentStatus}`}
+          style={{ fontSize: 11, color: exited ? '#F87171' : statusColor }}
+        >
+          ●
+        </span>
         {editing ? (
           <input
             autoFocus

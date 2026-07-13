@@ -16,7 +16,11 @@ export class MemoryStateStore implements StateStore {
 
   upsertTerminal(t: PersistedTerminal): void {
     const prev = this.terminals.get(t.id);
-    this.terminals.set(t.id, { ...t, tile: t.tile ?? prev?.tile ?? null });
+    this.terminals.set(t.id, {
+      ...t,
+      adapterId: t.adapterId || prev?.adapterId || 'shell',
+      tile: t.tile ?? prev?.tile ?? null
+    });
   }
 
   setTerminalStatus(id: string, status: PersistedTerminal['status']): void {

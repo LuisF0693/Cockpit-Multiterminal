@@ -23,22 +23,13 @@ export class PersistenceManager {
       this.queue.push(() => {
         switch (event.type) {
           case 'created':
-            this.store.upsertTerminal({
-              id: s.id,
-              name: s.name,
-              cwd: s.cwd,
-              status: s.status,
-              tile: null,
-              createdAt: s.createdAt,
-              archivedAt: null
-            });
-            break;
           case 'renamed':
             this.store.upsertTerminal({
               id: s.id,
               name: s.name,
               cwd: s.cwd,
               status: s.status,
+              adapterId: s.adapterId,
               tile: null,
               createdAt: s.createdAt,
               archivedAt: null
@@ -50,6 +41,9 @@ export class PersistenceManager {
           case 'closed':
             this.store.archiveTerminal(s.id, Date.now());
             break;
+          case 'status':
+            // agentStatus é transiente (Dev Notes 2.1) — não persiste.
+            return;
         }
         this.store.appendEvent({
           id: ulid(),
@@ -90,6 +84,7 @@ export class PersistenceManager {
           id: t.id,
           name: t.name,
           cwd: t.cwd,
+          adapterId: t.adapterId,
           cols: 80,
           rows: 24,
           restore: true

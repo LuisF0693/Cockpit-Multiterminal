@@ -1,5 +1,5 @@
 {
-  "name": "@cockpit/pty-host",
+  "name": "@cockpit/adapter-shell",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@cockpit/adapter-contract": "workspace:*",
-    "@cockpit/adapter-shell": "workspace:*",
     "@cockpit/shared": "workspace:*",
     "node-pty": "^1.0.0"
   },

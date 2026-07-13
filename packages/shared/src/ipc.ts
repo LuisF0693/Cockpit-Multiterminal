@@ -21,6 +21,7 @@ export const IpcChannels = {
   sessionClose: 'session.close',
   sessionResize: 'session.resize',
   sessionList: 'session.list',
+  adapterList: 'adapter.list',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -28,6 +29,20 @@ export const IpcChannels = {
   /** Evento Main → renderer que transfere a MessagePort de dados (tag = session id). */
   terminalPort: 'terminal.port'
 } as const;
+
+/**
+ * Status de agente (data-models.md / FR5) — detectado pelo adapter.
+ * Shell (process-only): working enquanto vivo, done/error no exit.
+ */
+export const AgentStatusSchema = z.enum(['idle', 'working', 'waiting-input', 'done', 'error']);
+export type AgentStatus = z.infer<typeof AgentStatusSchema>;
+
+/** Adapter disponível para hospedar terminais (Epic 2). */
+export const AdapterInfoSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().min(1)
+});
+export type AdapterInfo = z.infer<typeof AdapterInfoSchema>;
 
 /**
  * Sessão de terminal (Story 1.3) — fonte de verdade no SessionRegistry (core,
@@ -39,7 +54,11 @@ export const SessionRecordSchema = z.object({
   cwd: z.string().min(1),
   status: z.enum(['running', 'exited']),
   pid: z.number().int().positive(),
-  createdAt: z.number().int().nonnegative()
+  createdAt: z.number().int().nonnegative(),
+  /** Adapter que hospeda a sessão (Story 2.1); 'shell' é o default. */
+  adapterId: z.string().min(1),
+  /** Status do agente (transiente — não persiste). */
+  agentStatus: AgentStatusSchema
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
@@ -47,7 +66,8 @@ export const SessionCreateRequestSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   cols: z.number().int().min(2).max(500),
   rows: z.number().int().min(2).max(500),
-  cwd: z.string().optional()
+  cwd: z.string().optional(),
+  adapterId: z.string().min(1).optional()
 });
 export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 
@@ -74,7 +94,7 @@ export const SessionResizeRequestSchema = z.object({
 export type SessionResizeRequest = z.infer<typeof SessionResizeRequestSchema>;
 
 export const SessionEventSchema = z.object({
-  type: z.enum(['created', 'renamed', 'closed', 'exited']),
+  type: z.enum(['created', 'renamed', 'closed', 'exited', 'status']),
   session: SessionRecordSchema
 });
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
@@ -127,5 +147,9 @@ export interface CockpitApi {
     get(): Promise<LayoutTile[]>;
     /** Persistência contínua (chamar debounced — NFR8). */
     update(req: LayoutUpdateRequest): Promise<void>;
+  };
+  adapter: {
+    /** Adapters registrados no PTY Host (Story 2.1+). */
+    list(): Promise<AdapterInfo[]>;
   };
 }

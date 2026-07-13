@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
+  AdapterInfoSchema,
   AppInfoSchema,
   IpcChannels,
   LayoutTileSchema,
@@ -62,6 +63,12 @@ const api: CockpitApi = {
     },
     update: async (req: LayoutUpdateRequest) => {
       await ipcRenderer.invoke(IpcChannels.layoutUpdate, req);
+    }
+  },
+  adapter: {
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterList);
+      return AdapterInfoSchema.array().parse(raw);
     }
   }
 };

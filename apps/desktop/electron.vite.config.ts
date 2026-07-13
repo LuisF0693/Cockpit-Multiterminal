@@ -22,11 +22,19 @@ const shared = resolve(__dirname, '../../packages/shared/src');
 const ui = resolve(__dirname, '../../packages/ui/src');
 const ptyHost = resolve(__dirname, '../../packages/pty-host/src');
 const core = resolve(__dirname, '../../packages/core/src');
+const adapterContract = resolve(__dirname, '../../packages/adapter-contract/src');
+const adapterShell = resolve(__dirname, '../../packages/adapters/shell/src');
 
 export default defineConfig({
   main: {
     resolve: {
-      alias: { '@cockpit/shared': shared, '@cockpit/pty-host': ptyHost, '@cockpit/core': core }
+      alias: {
+        '@cockpit/shared': shared,
+        '@cockpit/pty-host': ptyHost,
+        '@cockpit/core': core,
+        '@cockpit/adapter-contract': adapterContract,
+        '@cockpit/adapter-shell': adapterShell
+      }
     },
     build: {
       rollupOptions: {

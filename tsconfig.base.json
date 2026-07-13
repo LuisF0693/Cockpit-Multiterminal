@@ -22,7 +22,9 @@
       "@cockpit/ui": ["packages/ui/src/index.ts"],
       "@cockpit/ui/*": ["packages/ui/src/*"],
       "@cockpit/pty-host": ["packages/pty-host/src/index.ts"],
-      "@cockpit/pty-host/*": ["packages/pty-host/src/*"]
+      "@cockpit/pty-host/*": ["packages/pty-host/src/*"],
+      "@cockpit/adapter-contract": ["packages/adapter-contract/src/index.ts"],
+      "@cockpit/adapter-shell": ["packages/adapters/shell/src/index.ts"]
     }
   }
 }

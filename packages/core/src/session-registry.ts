@@ -14,6 +14,8 @@ export interface PtyOps {
     cols: number;
     rows: number;
     cwd?: string;
+    /** Adapter que hospeda a sessão (Story 2.1); default 'shell'. */
+    adapterId?: string;
     /** true no boot: o host injeta o tail do scrollback persistido. */
     restore?: boolean;
   }): Promise<{ ptyId: string; pid: number }>;
@@ -42,15 +44,19 @@ export class SessionRegistry {
     rows: number;
     name?: string | undefined;
     cwd?: string | undefined;
+    /** Adapter (2.1): default 'shell'. */
+    adapterId?: string | undefined;
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
   }): Promise<SessionRecord> {
     const id = opts.id ?? ulid();
+    const adapterId = opts.adapterId ?? 'shell';
     const { ptyId, pid } = await this.ops.createPty({
       sessionId: id,
       cols: opts.cols,
       rows: opts.rows,
+      adapterId,
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       ...(opts.restore !== undefined ? { restore: opts.restore } : {})
     });
@@ -60,7 +66,9 @@ export class SessionRegistry {
       cwd: opts.cwd ?? process.cwd(),
       status: 'running',
       pid,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      adapterId,
+      agentStatus: 'working'
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -94,6 +102,17 @@ export class SessionRegistry {
       if (session.ptyId === ptyId && session.record.status === 'running') {
         session.record = { ...session.record, status: 'exited' };
         this.emit({ type: 'exited', session: session.record });
+        return;
+      }
+    }
+  }
+
+  /** Status do agente detectado pelo adapter (FR5 — Story 2.1). */
+  markAgentStatus(ptyId: string, agentStatus: SessionRecord['agentStatus']): void {
+    for (const session of this.sessions.values()) {
+      if (session.ptyId === ptyId && session.record.agentStatus !== agentStatus) {
+        session.record = { ...session.record, agentStatus };
+        this.emit({ type: 'status', session: session.record });
         return;
       }
     }

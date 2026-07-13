@@ -103,6 +103,44 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/adapter-contract:
+    dependencies:
+      '@cockpit/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/adapters/shell:
+    dependencies:
+      '@cockpit/adapter-contract':
+        specifier: workspace:*
+        version: link:../../adapter-contract
+      '@cockpit/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      node-pty:
+        specifier: ^1.0.0
+        version: 1.1.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/core:
     dependencies:
       '@cockpit/shared':
@@ -127,6 +165,15 @@ importers:
 
   packages/pty-host:
     dependencies:
+      '@cockpit/adapter-contract':
+        specifier: workspace:*
+        version: link:../adapter-contract
+      '@cockpit/adapter-shell':
+        specifier: workspace:*
+        version: link:../adapters/shell
+      '@cockpit/shared':
+        specifier: workspace:*
+        version: link:../shared
       node-pty:
         specifier: ^1.0.0
         version: 1.1.0

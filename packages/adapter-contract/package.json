@@ -1,5 +1,5 @@
 {
-  "name": "@cockpit/pty-host",
+  "name": "@cockpit/adapter-contract",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,10 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@cockpit/adapter-contract": "workspace:*",
-    "@cockpit/adapter-shell": "workspace:*",
-    "@cockpit/shared": "workspace:*",
-    "node-pty": "^1.0.0"
+    "@cockpit/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

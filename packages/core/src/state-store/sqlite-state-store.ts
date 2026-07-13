@@ -22,13 +22,14 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '2';
 
 interface TerminalRow {
   id: string;
   name: string;
   cwd: string;
   status: string;
+  adapter_id: string;
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
@@ -69,20 +70,50 @@ export class SqliteStateStore implements StateStore {
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts);
     `);
+    this.migrate();
     this.setMeta('schema_version', SCHEMA_VERSION);
+  }
+
+  /** Migrações incrementais guardadas por app_meta.schema_version. */
+  private migrate(): void {
+    const current = this.getMeta('schema_version');
+    // v1 → v2 (Story 2.1): coluna adapter_id; instalações novas já nascem
+    // com a coluna via ALTER idempotente (CREATE TABLE acima permanece v1
+    // por compatibilidade de leitura — a coluna é o delta).
+    const hasAdapterColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('terminals') WHERE name = 'adapter_id'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasAdapterColumn) {
+      this.db.exec(`ALTER TABLE terminals ADD COLUMN adapter_id TEXT NOT NULL DEFAULT 'shell'`);
+      if (current === '1') {
+        console.log('[state] schema migrado v1 → v2 (adapter_id)');
+      }
+    }
   }
 
   upsertTerminal(t: PersistedTerminal): void {
     this.db
       .prepare(
-        `INSERT INTO terminals (id, name, cwd, status, tile_json, created_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO terminals (id, name, cwd, status, adapter_id, tile_json, created_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, cwd = excluded.cwd, status = excluded.status,
+           adapter_id = excluded.adapter_id,
            tile_json = COALESCE(excluded.tile_json, terminals.tile_json),
            archived_at = excluded.archived_at`
       )
-      .run(t.id, t.name, t.cwd, t.status, t.tile ? JSON.stringify(t.tile) : null, t.createdAt, t.archivedAt);
+      .run(
+        t.id,
+        t.name,
+        t.cwd,
+        t.status,
+        t.adapterId,
+        t.tile ? JSON.stringify(t.tile) : null,
+        t.createdAt,
+        t.archivedAt
+      );
   }
 
   setTerminalStatus(id: string, status: PersistedTerminal['status']): void {
@@ -106,6 +137,7 @@ export class SqliteStateStore implements StateStore {
       name: r.name,
       cwd: r.cwd,
       status: r.status === 'exited' ? 'exited' : 'running',
+      adapterId: r.adapter_id ?? 'shell',
       tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
       createdAt: r.created_at,
       archivedAt: r.archived_at

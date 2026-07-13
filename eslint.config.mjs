@@ -41,8 +41,10 @@ export default tseslint.config(
     }
   },
   {
-    // Único lugar autorizado a importar adapters (Story 2.1+)
-    files: ['packages/pty-host/**/*.ts'],
+    // Únicos lugares autorizados a importar adapters (NFR7 — Story 2.1):
+    // o PTY Host (consome via AdapterRegistry) e os próprios adapters
+    // (implementam o contrato).
+    files: ['packages/pty-host/**/*.ts', 'packages/adapters/**/*.ts'],
     rules: {
       'no-restricted-imports': 'off'
     }
@@ -56,6 +58,13 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-require-imports': 'off'
+    }
+  },
+  {
+    // Scripts Node ESM da raiz (guarda NFR7 etc.)
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node
     }
   }
 );

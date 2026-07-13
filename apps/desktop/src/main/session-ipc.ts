@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { PersistenceManager, SessionRegistry, WriteQueue, type StateStore } from '@cockpit/core';
 import {
+  AgentStatusSchema,
   IpcChannels,
   LayoutUpdateRequestSchema,
   SessionCloseRequestSchema,
@@ -34,12 +35,13 @@ export function registerSessionIpc(
   const parkedPorts = new Map<string, Electron.MessagePortMain>();
 
   const registry = new SessionRegistry({
-    createPty: async ({ sessionId, cols, rows, cwd, restore }) => {
+    createPty: async ({ sessionId, cols, rows, cwd, adapterId, restore }) => {
       const created = await ptyHost.createPty({
         sessionId,
         cols,
         rows,
         ...(cwd !== undefined ? { cwd } : {}),
+        ...(adapterId !== undefined ? { adapterId } : {}),
         ...(restore !== undefined ? { restore } : {})
       });
       parkedPorts.set(sessionId, created.rendererPort);
@@ -55,6 +57,11 @@ export function registerSessionIpc(
 
   // Exit espontâneo do shell → registro reflete; host caiu → todas exited.
   ptyHost.onSessionExit((ptyId) => registry.markExited(ptyId));
+  // Status do agente (FR5 — Story 2.1): adapter → host → registry → UI.
+  ptyHost.onSessionStatus((ptyId, status) => {
+    const parsed = AgentStatusSchema.safeParse(status);
+    if (parsed.success) registry.markAgentStatus(ptyId, parsed.data);
+  });
   ptyHost.onHostExit(() => {
     for (const record of registry.list()) {
       if (record.status === 'running') registry.markExited(registry.ptyIdOf(record.id));
@@ -106,6 +113,8 @@ export function registerSessionIpc(
     for (const record of records) deliverPort(record.id, event.sender);
     return records;
   });
+
+  ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
 
   ipcMain.handle(IpcChannels.layoutGet, () => persistence.savedLayout());
 

@@ -22,7 +22,12 @@ interface CreatedPty {
 
 type Pending =
   | { kind: 'create'; port2: Electron.MessagePortMain; resolve: (v: CreatedPty) => void; reject: (e: Error) => void }
-  | { kind: 'close'; resolve: (v: { orphan: boolean }) => void; reject: (e: Error) => void };
+  | { kind: 'close'; resolve: (v: { orphan: boolean }) => void; reject: (e: Error) => void }
+  | {
+      kind: 'adapters';
+      resolve: (v: Array<{ id: string; displayName: string }>) => void;
+      reject: (e: Error) => void;
+    };
 
 export interface ScrollbackConfig {
   scrollbackDir: string;
@@ -36,6 +41,7 @@ export class PtyHostManager {
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
   private sessionExitListener: ((ptyId: string, exitCode: number) => void) | null = null;
+  private sessionStatusListener: ((ptyId: string, status: string) => void) | null = null;
   private hostExitListener: (() => void) | null = null;
   private scrollbackConfig: ScrollbackConfig | null = null;
 
@@ -53,6 +59,34 @@ export class PtyHostManager {
     this.sessionExitListener = cb;
   }
 
+  /** Status do agente detectado pelo adapter (FR5 — Story 2.1). */
+  onSessionStatus(cb: (ptyId: string, status: string) => void): void {
+    this.sessionStatusListener = cb;
+  }
+
+  /** Adapters registrados no host (Story 2.1). */
+  async listAdapters(): Promise<Array<{ id: string; displayName: string }>> {
+    const requestId = ++this.seq;
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        reject(new Error('timeout listando adapters'));
+      }, REQUEST_TIMEOUT_MS);
+      this.pending.set(requestId, {
+        kind: 'adapters',
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
+      this.post({ type: 'list-adapters', requestId });
+    });
+  }
+
   /** Disparado quando o host morre inesperadamente (todas as sessões se perdem). */
   onHostExit(cb: () => void): void {
     this.hostExitListener = cb;
@@ -63,6 +97,7 @@ export class PtyHostManager {
     cols: number;
     rows: number;
     cwd?: string;
+    adapterId?: string;
     restore?: boolean;
   }): Promise<CreatedPty> {
     const { port1, port2 } = new MessageChannelMain();
@@ -94,6 +129,7 @@ export class PtyHostManager {
           cols: opts.cols,
           rows: opts.rows,
           ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+          ...(opts.adapterId !== undefined ? { adapterId: opts.adapterId } : {}),
           ...(opts.restore !== undefined ? { restore: opts.restore } : {})
         },
         [port1]
@@ -220,6 +256,15 @@ export class PtyHostManager {
       case 'session-exit': {
         console.log(`[pty-host] sessão ${msg.id} saiu (code ${msg.exitCode})`);
         this.sessionExitListener?.(msg.id, msg.exitCode);
+        break;
+      }
+      case 'session-status': {
+        this.sessionStatusListener?.(msg.id, msg.status);
+        break;
+      }
+      case 'adapters': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'adapters') p.resolve(msg.adapters);
         break;
       }
     }

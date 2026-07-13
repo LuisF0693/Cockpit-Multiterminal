@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   TERMINAL_PORT_MESSAGE,
+  type AdapterInfo,
   type AppInfo,
   type CockpitApi,
   type TerminalPortMessage
@@ -22,6 +23,8 @@ declare global {
 export function App(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
+  const [selectedAdapter, setSelectedAdapter] = useState('shell');
   const bootRef = useRef(false);
 
   const sessions = useCockpitStore((s) => s.sessions);
@@ -36,6 +39,11 @@ export function App(): JSX.Element {
       .getAppInfo()
       .then(setInfo)
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+
+    void window.cockpit.adapter
+      .list()
+      .then(setAdapters)
+      .catch(() => setAdapters([{ id: 'shell', displayName: 'Shell' }]));
 
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
@@ -100,9 +108,13 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  const newTerminal = async (): Promise<void> => {
+  const newTerminal = async (adapterId?: string): Promise<void> => {
     try {
-      await window.cockpit.session.create({ cols: 80, rows: 24 });
+      await window.cockpit.session.create({
+        cols: 80,
+        rows: 24,
+        adapterId: adapterId ?? selectedAdapter
+      });
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
@@ -154,9 +166,30 @@ export function App(): JSX.Element {
           </span>
         )}
         <span style={{ flex: 1 }} />
+        {adapters.length > 1 && (
+          <select
+            value={selectedAdapter}
+            onChange={(e) => setSelectedAdapter(e.target.value)}
+            title="Adapter do novo terminal"
+            style={{
+              background: '#111827',
+              color: '#E5E7EB',
+              border: '1px solid #1F2937',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 12
+            }}
+          >
+            {adapters.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.displayName}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={() => void newTerminal()}
-          title="Novo terminal (Ctrl+N)"
+          title={`Novo terminal ${selectedAdapter} (Ctrl+N)`}
           style={{
             background: '#111827',
             color: '#E5E7EB',
