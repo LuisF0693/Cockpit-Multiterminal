@@ -35,7 +35,9 @@ export default defineConfig({
           // PTY Host roda como utilityProcess — entry próprio em out/main/pty-host.js
           'pty-host': resolve(ptyHost, 'host-entry.ts'),
           // Smoke de persistência (Story 1.4, AC4) — roda sob ABI do Electron
-          'persist-smoke': resolve(__dirname, 'src/main/persist-smoke.ts')
+          'persist-smoke': resolve(__dirname, 'src/main/persist-smoke.ts'),
+          // Smoke de diagnóstico do canal binário (host → MessagePort)
+          'dataflow-smoke': resolve(__dirname, 'src/main/dataflow-smoke.ts')
         },
         // Módulos nativos: carregados em runtime (utilityProcess / Main), nunca bundled.
         external: ['node-pty', 'better-sqlite3']

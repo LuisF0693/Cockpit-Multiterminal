@@ -1,4 +1,5 @@
-import { MessageChannelMain, utilityProcess, type UtilityProcess } from 'electron';
+import { MessageChannelMain, app, utilityProcess, type UtilityProcess } from 'electron';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HostInbound, HostOutbound } from '@cockpit/pty-host';
 
@@ -146,7 +147,21 @@ export class PtyHostManager {
   }
 
   private spawnHost(): void {
-    const entry = join(__dirname, 'pty-host.js');
+    // NÃO usar __dirname puro: quando o Rollup fatia este módulo num chunk
+    // (out/main/chunks/), __dirname deixa de apontar para out/main e o fork
+    // quebra silenciosamente. require.main é falsy no main do Electron, então
+    // resolvemos por candidatos conhecidos a partir do appPath (dev: apps/
+    // desktop; execução direta de arquivo: out/main; empacotado: app.asar).
+    const candidates = [
+      join(app.getAppPath(), 'out', 'main', 'pty-host.js'),
+      join(app.getAppPath(), 'pty-host.js'),
+      join(__dirname, 'pty-host.js'),
+      join(__dirname, '..', 'pty-host.js')
+    ];
+    const entry = candidates.find((p) => existsSync(p));
+    if (!entry) {
+      throw new Error(`pty-host.js não encontrado; candidatos: ${candidates.join(' | ')}`);
+    }
     const host = utilityProcess.fork(entry, [], {
       serviceName: 'cockpit-pty-host',
       stdio: ['ignore', 'pipe', 'pipe']
