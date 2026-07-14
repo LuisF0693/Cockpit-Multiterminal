@@ -35,7 +35,7 @@ so that o contrato "reabrir = retomar" seja verificável, não prometido.
 3. Contadores do boot logados: adotadas / relançadas / arquivadas.
 4. Critério de sucesso do MVP verificado por smoke: ciclo com restart no meio sem perda de estado persistido (NFR5) — smoke:persist (relaunch) + smoke:daemon (adoção) referenciados como evidência.
 
-### Story 4.3 — Recuperação pós-crash com resumo
+### Story 4.3 — Recuperação pós-crash com resumo (revisada)
 
 As a desenvolvedor multi-agente,
 I want que após um crash o cockpit me mostre o que estava em andamento,
@@ -43,7 +43,7 @@ so that eu retome com confiança em vez de reconstruir a situação de memória.
 
 #### Acceptance Criteria
 
-1. Crash detectado na reabertura (flag de sessão não encerrada corretamente).
-2. Tela de recuperação exibe: agentes ativos no momento do crash, tarefas em andamento, decisões pendentes e últimos eventos da timeline.
-3. Usuário escolhe: restaurar tudo, restaurar seletivamente ou iniciar sessão limpa (estado anterior arquivado, não destruído).
-4. Evento de recuperação registrado na timeline.
+1. Crash detectado na reabertura (flag `clean_shutdown`, FR12 — já existe desde a 1.4); boot NÃO relança/adota automaticamente enquanto a tela de recuperação não for resolvida.
+2. Tela de recuperação exibe: terminais ativos no momento do crash (nome, adapter, cwd, último status conhecido pela trilha) e últimos eventos globais da timeline. "Tarefas em andamento" fica FORA (entidade do E5, ainda não existe — mesmo tratamento da coluna "tarefa: —" do master).
+3. Usuário escolhe: restaurar tudo, restaurar seletivamente (checklist) ou iniciar sessão limpa — terminais não escolhidos são ARQUIVADOS (nunca destruídos, mesma garantia da 1.4).
+4. Evento de recuperação (`crash.recovery`: escolha + contadores) registrado na timeline.

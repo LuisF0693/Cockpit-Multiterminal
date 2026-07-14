@@ -8,6 +8,7 @@ import {
 } from '@cockpit/shared';
 import {
   MasterDashboard,
+  RecoveryScreen,
   SessionReportView,
   Sidebar,
   StatusPulseStyles,
@@ -16,7 +17,7 @@ import {
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
-import type { DaemonStatus, SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
+import type { CrashSummary, DaemonStatus, SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -36,7 +37,8 @@ export function App(): JSX.Element {
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
-  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report'>('master');
+  // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
+  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report' | 'recovery'>('master');
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -51,6 +53,8 @@ export function App(): JSX.Element {
   // Vínculo com o daemon (6.4): 'connected' default — modo utilityProcess
   // nunca emite e o badge fica oculto.
   const [daemonState, setDaemonState] = useState<DaemonStatus['state']>('connected');
+  // Recuperação pós-crash (Story 4.3): resumo não-nulo bloqueia o boot normal.
+  const [crashSummary, setCrashSummary] = useState<CrashSummary | null>(null);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -90,8 +94,6 @@ export function App(): JSX.Element {
   const ports = useCockpitStore((s) => s.ports);
 
   useEffect(() => {
-    const store = useCockpitStore.getState();
-
     void window.cockpit
       .getAppInfo()
       .then(setInfo)
@@ -125,18 +127,19 @@ export function App(): JSX.Element {
       else st.upsertSession(event.session);
     });
 
-    // Seed (sessões restauradas + layout salvo — Story 1.4) + primeiro
-    // terminal se vazio (uma vez, mesmo sob StrictMode).
-    if (!bootRef.current) {
-      bootRef.current = true;
-      void Promise.all([window.cockpit.session.list(), window.cockpit.layout.get()])
-        .then(([list, savedTiles]) => {
-          store.seedSessions(list, savedTiles);
-          if (list.length === 0) return newTerminal();
-          return undefined;
-        })
-        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
-    }
+    // Recuperação pós-crash (Story 4.3, AC1): se há resumo pendente, a
+    // Recovery Screen decide ANTES — sem seed nem terminal automático.
+    void window.cockpit.recovery
+      .summary()
+      .then((summary) => {
+        if (summary) {
+          setCrashSummary(summary);
+          setView('recovery');
+        } else {
+          seedFromMain();
+        }
+      })
+      .catch(() => seedFromMain()); // falha na checagem não deve travar o boot normal
 
     // Persistência contínua do layout (debounced — NFR8).
     let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -153,6 +156,7 @@ export function App(): JSX.Element {
       const action = matchShortcut(e);
       if (!action) return;
       e.preventDefault();
+      if (viewRef.current === 'recovery') return; // 4.3: sem atalhos até resolver
       const st = useCockpitStore.getState();
       if (action.type === 'new-terminal') void newTerminal();
       if (action.type === 'focus-terminal') {
@@ -178,6 +182,36 @@ export function App(): JSX.Element {
       unsubDaemon();
     };
   }, []);
+
+  /**
+   * Seed (sessões restauradas/adotadas + layout salvo — Story 1.4) + primeiro
+   * terminal se vazio. Guardado por bootRef (uma vez, mesmo sob StrictMode);
+   * chamado no mount SE não há crash pendente, ou após resolver a Recovery
+   * Screen (4.3) — mesmo caminho nos dois casos, sem duplicar lógica.
+   */
+  const seedFromMain = (): void => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    void Promise.all([window.cockpit.session.list(), window.cockpit.layout.get()])
+      .then(([list, savedTiles]) => {
+        useCockpitStore.getState().seedSessions(list, savedTiles);
+        if (list.length === 0) return newTerminal();
+        return undefined;
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /** Resolve a Recovery Screen (Story 4.3) e então semeia normalmente. */
+  const resolveRecovery = (choice: 'all' | 'selective' | 'clean', keepIds?: string[]): void => {
+    void window.cockpit.recovery
+      .resolve({ choice, ...(keepIds ? { keepIds } : {}) })
+      .then(() => {
+        setCrashSummary(null);
+        setView('master');
+        seedFromMain();
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
 
   const newTerminal = async (adapterId?: string): Promise<void> => {
     try {
@@ -407,15 +441,16 @@ export function App(): JSX.Element {
         )}
         <button
           onClick={() => void newTerminal()}
+          disabled={view === 'recovery'}
           title={`Novo terminal ${selectedAdapter} (Ctrl+N)`}
           style={{
             background: '#111827',
-            color: '#E5E7EB',
+            color: view === 'recovery' ? '#4B5563' : '#E5E7EB',
             border: '1px solid #1F2937',
             borderRadius: 6,
             padding: '4px 12px',
             fontSize: 12,
-            cursor: 'pointer'
+            cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
           }}
         >
           + novo terminal
@@ -430,8 +465,14 @@ export function App(): JSX.Element {
           sessions={sessions}
           focusedId={focusedId}
           onSelect={(id) => goToTerminal(id)}
-          onNewTerminal={() => void newTerminal()}
+          onNewTerminal={() => {
+            if (view !== 'recovery') void newTerminal();
+          }}
         />
+
+        {view === 'recovery' && crashSummary && (
+          <RecoveryScreen summary={crashSummary} onResolve={resolveRecovery} />
+        )}
 
         {view === 'master' && (
           <MasterDashboard

@@ -6,6 +6,7 @@ import {
   IpcChannels,
   LayoutUpdateRequestSchema,
   TimelineGetRequestSchema,
+  RecoveryResolveRequestSchema,
   SessionCloseRequestSchema,
   SessionCreateRequestSchema,
   SessionRenameRequestSchema,
@@ -52,7 +53,13 @@ export interface SessionIpcHandle {
   registry: SessionRegistry;
   persistence: PersistenceManager;
   queue: WriteQueue;
-  /** Restore do boot (AC2) — chamar após registrar tudo. */
+  /** true se o boot anterior não fechou graciosamente (Story 4.3, FR12). */
+  crashDetected: boolean;
+  /**
+   * Restore do boot (AC2 da 1.4) — chamar após registrar tudo. Quando
+   * `crashDetected` é true, NÃO chamar automaticamente: a Recovery Screen
+   * (4.3) resolve via IPC (`recovery.resolve`), que roda este MESMO caminho.
+   */
   restore(): Promise<{ restored: number; archived: number; adopted: number; elapsedMs: number }>;
 }
 
@@ -84,6 +91,12 @@ export function registerSessionIpc(
   const queue = new WriteQueue(applyBatch);
   const persistence = new PersistenceManager(store, queue);
   persistence.wire(registry);
+
+  // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
+  // para o handle já nascer sabendo se há uma Recovery Screen a resolver.
+  const { cleanShutdown } = persistence.markBootStart();
+  const crashDetected = !cleanShutdown;
+  let recoveryResolved = !crashDetected;
 
   // Exit espontâneo do shell → registro reflete (exitCode → relatório 3.5);
   // host caiu → todas exited.
@@ -223,18 +236,46 @@ export function registerSessionIpc(
     return adopted;
   };
 
+  // Time-to-resume (AC1 da 4.2): adoção + relaunch clássico, do primeiro I/O
+  // até a última sessão relançada — não inclui createWindow()/boot do
+  // Electron (constantes de plataforma fora do controle desta lógica).
+  // Caminho ÚNICO: usado tanto pelo boot automático quanto pela resolução
+  // da Recovery Screen (4.3) — nenhuma lógica duplicada entre os dois.
+  const performResume = async (): Promise<{ restored: number; archived: number; adopted: number; elapsedMs: number }> => {
+    const startedAt = Date.now();
+    const adopted = await adoptFromDaemon();
+    const { restored, archived } = await persistence.restore(registry);
+    return { restored, archived, adopted, elapsedMs: Date.now() - startedAt };
+  };
+
+  // Recuperação pós-crash (Story 4.3)
+  ipcMain.handle(IpcChannels.recoverySummary, () => {
+    if (!crashDetected || recoveryResolved) return null;
+    return persistence.crashSummary();
+  });
+
+  ipcMain.handle(IpcChannels.recoveryResolve, async (_event, raw: unknown) => {
+    const req = RecoveryResolveRequestSchema.parse(raw);
+    if (req.choice === 'clean') {
+      for (const t of store.listActiveTerminals()) persistence.archiveForCrash(t.id);
+    } else if (req.choice === 'selective') {
+      const keep = new Set(req.keepIds ?? []);
+      for (const t of store.listActiveTerminals()) {
+        if (!keep.has(t.id)) persistence.archiveForCrash(t.id);
+      }
+    }
+    queue.flush(); // arquivamentos visíveis para o performResume() a seguir
+    const { restored, archived, adopted } = await performResume();
+    persistence.recordCrashRecovery(req.choice, { restored, archived, adopted });
+    recoveryResolved = true;
+    return { restored, archived, adopted };
+  });
+
   return {
     registry,
     persistence,
     queue,
-    // Time-to-resume (AC1 da 4.2): adoção + relaunch clássico, do primeiro
-    // I/O até a última sessão relançada — não inclui createWindow()/boot do
-    // Electron (constantes de plataforma fora do controle desta lógica).
-    restore: async () => {
-      const startedAt = Date.now();
-      const adopted = await adoptFromDaemon();
-      const { restored, archived } = await persistence.restore(registry);
-      return { restored, archived, adopted, elapsedMs: Date.now() - startedAt };
-    }
+    crashDetected,
+    restore: performResume
   };
 }

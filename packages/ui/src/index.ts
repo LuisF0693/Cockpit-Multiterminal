@@ -39,3 +39,5 @@ export { TimelineView } from './timeline-view';
 export type { TimelineViewProps } from './timeline-view';
 export { SessionReportView } from './session-report';
 export type { SessionReportViewProps } from './session-report';
+export { RecoveryScreen } from './recovery-screen';
+export type { RecoveryScreenProps } from './recovery-screen';

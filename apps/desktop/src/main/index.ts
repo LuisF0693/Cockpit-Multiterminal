@@ -110,29 +110,33 @@ app.whenReady().then(async () => {
     backend = startUtilityHost(scrollback);
   }
 
+  // markBootStart() roda DENTRO de registerSessionIpc (precisa resolver
+  // crashDetected antes do primeiro IPC) — não chamar de novo aqui.
   sessionIpc = registerSessionIpc(backend, stateStore, (batch) =>
     stateStore.applyBatch(batch)
   );
 
-  const { cleanShutdown } = sessionIpc.persistence.markBootStart();
-  if (!cleanShutdown) {
-    console.warn('[state] boot após shutdown NÃO limpo (Recovery Screen completa entra no E5)');
+  if (sessionIpc.crashDetected) {
+    // Story 4.3: boot NÃO relança/adota sozinho — a janela sobe imediatamente
+    // e o renderer resolve via Recovery Screen (recovery.summary/resolve).
+    console.warn('[state] boot após shutdown NÃO limpo — aguardando resolução da Recovery Screen');
+    createWindow();
+  } else {
+    // Restore (AC2 da 1.4) ANTES da janela: session.list do renderer já traz
+    // tudo. Time-to-resume medido e logado (AC1/AC3 da 4.2, orçamento NFR4 <10s).
+    const RESUME_BUDGET_MS = 10_000;
+    void sessionIpc
+      .restore()
+      .then(({ restored, archived, adopted, elapsedMs }) => {
+        console.log(
+          `[boot] retomada em ${elapsedMs}ms — adotadas=${adopted} relançadas=${restored} arquivadas=${archived}`
+        );
+        if (elapsedMs > RESUME_BUDGET_MS) {
+          console.warn(`[boot] retomada excedeu o orçamento NFR4 (${RESUME_BUDGET_MS}ms): ${elapsedMs}ms`);
+        }
+      })
+      .finally(() => createWindow());
   }
-
-  // Restore (AC2 da 1.4) ANTES da janela: session.list do renderer já traz
-  // tudo. Time-to-resume medido e logado (AC1/AC3 da 4.2, orçamento NFR4 <10s).
-  const RESUME_BUDGET_MS = 10_000;
-  void sessionIpc
-    .restore()
-    .then(({ restored, archived, adopted, elapsedMs }) => {
-      console.log(
-        `[boot] retomada em ${elapsedMs}ms — adotadas=${adopted} relançadas=${restored} arquivadas=${archived}`
-      );
-      if (elapsedMs > RESUME_BUDGET_MS) {
-        console.warn(`[boot] retomada excedeu o orçamento NFR4 (${RESUME_BUDGET_MS}ms): ${elapsedMs}ms`);
-      }
-    })
-    .finally(() => createWindow());
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

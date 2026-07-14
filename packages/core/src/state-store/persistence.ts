@@ -1,4 +1,4 @@
-import type { LayoutTile, SessionEvent, SessionReport } from '@cockpit/shared';
+import type { CrashSummary, LayoutTile, SessionEvent, SessionReport } from '@cockpit/shared';
 import { ulid } from '../ulid';
 import type { SessionRegistry } from '../session-registry';
 import type { StateStore } from './types';
@@ -245,5 +245,47 @@ export class PersistenceManager {
   markCleanShutdown(): void {
     this.queue.flush();
     this.store.setMeta('clean_shutdown', '1');
+  }
+
+  /**
+   * Resumo do crash (Story 4.3, AC2): terminais ainda ativos + último status
+   * CONHECIDO pela trilha (agentStatus é transiente — não há "ao vivo" antes
+   * de retomar) + últimos eventos globais para contexto.
+   */
+  crashSummary(): CrashSummary {
+    this.queue.flush();
+    const terminals = this.store.listActiveTerminals().map((t) => {
+      const last = this.store.listEvents({ terminalId: t.id, type: 'status.changed', limit: 1 })[0];
+      const status = last?.payload['status'];
+      return {
+        id: t.id,
+        name: t.name,
+        adapterId: t.adapterId,
+        cwd: t.cwd,
+        lastKnownStatus: typeof status === 'string' ? status : 'desconhecido'
+      };
+    });
+    return { terminals, lastEvents: this.store.listEvents({ limit: 20 }) };
+  }
+
+  /** Arquiva sem tentar retomar (Story 4.3) — nunca destrói, exclui do próximo restore(). */
+  archiveForCrash(id: string): void {
+    this.queue.push(() => this.store.archiveTerminal(id, Date.now()));
+  }
+
+  /** Escolha de recuperação registrada na trilha (Story 4.3, AC4). */
+  recordCrashRecovery(
+    choice: 'all' | 'selective' | 'clean',
+    counts: { restored: number; archived: number; adopted: number }
+  ): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'human',
+        type: 'crash.recovery',
+        payload: { choice, ...counts }
+      })
+    );
   }
 }

@@ -32,6 +32,9 @@ export const IpcChannels = {
   workspaceCreate: 'workspace.create',
   workspaceRename: 'workspace.rename',
   workspaceSetActive: 'workspace.setActive',
+  /** Recuperação pós-crash (Story 4.3). */
+  recoverySummary: 'recovery.summary',
+  recoveryResolve: 'recovery.resolve',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -172,6 +175,41 @@ export const TimelineGetRequestSchema = z.object({
 });
 export type TimelineGetRequest = z.infer<typeof TimelineGetRequestSchema>;
 
+/**
+ * Recuperação pós-crash (Story 4.3) — resumo mostrado antes de qualquer
+ * adoção/relaunch automático. lastKnownStatus vem do último evento
+ * status.changed da trilha (agentStatus é transiente — não há status "ao
+ * vivo" antes de retomar); 'desconhecido' quando não há histórico.
+ */
+export const CrashTerminalInfoSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  adapterId: z.string().min(1),
+  cwd: z.string().min(1),
+  lastKnownStatus: z.string().min(1)
+});
+export type CrashTerminalInfo = z.infer<typeof CrashTerminalInfoSchema>;
+
+export const CrashSummarySchema = z.object({
+  terminals: CrashTerminalInfoSchema.array(),
+  lastEvents: TimelineEventSchema.array()
+});
+export type CrashSummary = z.infer<typeof CrashSummarySchema>;
+
+export const RecoveryResolveRequestSchema = z.object({
+  choice: z.enum(['all', 'selective', 'clean']),
+  /** Ids a manter quando choice='selective'; ignorado nas outras opções. */
+  keepIds: z.string().min(1).array().optional()
+});
+export type RecoveryResolveRequest = z.infer<typeof RecoveryResolveRequestSchema>;
+
+export const RecoveryResolveResponseSchema = z.object({
+  restored: z.number().int().nonnegative(),
+  archived: z.number().int().nonnegative(),
+  adopted: z.number().int().nonnegative()
+});
+export type RecoveryResolveResponse = z.infer<typeof RecoveryResolveResponseSchema>;
+
 /** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
@@ -263,5 +301,10 @@ export interface CockpitApi {
     /** Renomeia e propaga às sessões (vivas e persistidas). */
     rename(req: WorkspaceRenameRequest): Promise<WorkspaceList>;
     setActive(req: WorkspaceSetActiveRequest): Promise<WorkspaceList>;
+  };
+  recovery: {
+    /** Resumo do crash pendente (Story 4.3); null quando não há recuperação a resolver. */
+    summary(): Promise<CrashSummary | null>;
+    resolve(req: RecoveryResolveRequest): Promise<RecoveryResolveResponse>;
   };
 }

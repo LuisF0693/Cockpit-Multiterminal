@@ -327,6 +327,43 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(types).toContain('session.recovered');
   });
 
+  it('crashSummary lista ativos com último status conhecido (Story 4.3, AC2)', async () => {
+    const { manager, registry } = makeHarness();
+    const withStatus = await registry.create({ cols: 80, rows: 24, name: 'Com status', cwd: 'C:/a' });
+    registry.markAgentStatus(registry.ptyIdOf(withStatus.id), 'waiting-input');
+    const noStatus = await registry.create({ cols: 80, rows: 24, name: 'Sem status', cwd: 'C:/b' });
+    manager.recordInstruction(withStatus.id, 'algo'); // ruído global na trilha
+
+    const summary = manager.crashSummary();
+    const a = summary.terminals.find((t) => t.id === withStatus.id)!;
+    const b = summary.terminals.find((t) => t.id === noStatus.id)!;
+    expect(a).toMatchObject({ name: 'Com status', adapterId: 'shell', cwd: 'C:/a', lastKnownStatus: 'waiting-input' });
+    expect(b.lastKnownStatus).toBe('desconhecido'); // sem status.changed na trilha
+    expect(summary.lastEvents.length).toBeGreaterThan(0);
+  });
+
+  it('archiveForCrash arquiva sem destruir e some do próximo crashSummary (Story 4.3, AC3)', async () => {
+    const { store, queue, manager, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24, name: 'Descartada', cwd: 'C:/x' });
+
+    manager.archiveForCrash(s.id);
+    queue.flush();
+
+    expect(store.terminals.get(s.id)!.archivedAt).not.toBeNull(); // arquivada, não destruída
+    expect(store.terminals.has(s.id)).toBe(true); // linha PRESERVADA
+    expect(manager.crashSummary().terminals.map((t) => t.id)).not.toContain(s.id);
+  });
+
+  it('recordCrashRecovery registra escolha e contadores na trilha (Story 4.3, AC4)', () => {
+    const { manager } = makeHarness();
+    manager.recordCrashRecovery('selective', { restored: 1, archived: 2, adopted: 0 });
+
+    const trail = manager.timeline({ limit: 10, type: 'crash.recovery' });
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.origin).toBe('human');
+    expect(trail[0]!.payload).toMatchObject({ choice: 'selective', restored: 1, archived: 2, adopted: 0 });
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

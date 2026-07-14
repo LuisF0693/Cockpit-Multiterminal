@@ -2,9 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  CrashSummarySchema,
   DaemonStatusSchema,
   IpcChannels,
   LayoutTileSchema,
+  RecoveryResolveResponseSchema,
   SessionCloseResponseSchema,
   SessionEventSchema,
   SessionRecordSchema,
@@ -15,6 +17,7 @@ import {
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
+  type RecoveryResolveRequest,
   type SessionCloseRequest,
   type SessionCreateRequest,
   type SessionEvent,
@@ -117,6 +120,16 @@ const api: CockpitApi = {
     setActive: async (req: WorkspaceSetActiveRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceSetActive, req);
       return WorkspaceListSchema.parse(raw);
+    }
+  },
+  recovery: {
+    summary: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.recoverySummary);
+      return raw === null ? null : CrashSummarySchema.parse(raw);
+    },
+    resolve: async (req: RecoveryResolveRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.recoveryResolve, req);
+      return RecoveryResolveResponseSchema.parse(raw);
     }
   }
 };

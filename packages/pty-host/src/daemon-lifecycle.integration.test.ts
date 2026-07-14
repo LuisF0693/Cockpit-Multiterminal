@@ -58,6 +58,12 @@ describe('lifecycle do daemon (Story 6.4)', () => {
       });
       clientA.write(id, new TextEncoder().encode('echo marker-historico\r'));
       await waitFor(() => outA.includes('marker-historico'), 20_000);
+      // Aguarda o shell voltar ao prompt (settle) antes de desconectar: sem
+      // isso, a conclusão do 'echo' pode vazar bytes DEPOIS do disconnect,
+      // chegando como stream VIVO ao cliente B (não replay) e confundindo a
+      // asserção abaixo — race do teste, não do daemon.
+      clientA.write(id, new TextEncoder().encode('echo settle-marker\r'));
+      await waitFor(() => outA.includes('settle-marker'), 20_000);
       clientA.disconnect();
 
       const clientB = new DaemonClient();
