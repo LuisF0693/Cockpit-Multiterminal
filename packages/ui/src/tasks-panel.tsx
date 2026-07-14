@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { SessionRecord, Task, TaskState } from '@cockpit/shared';
+import { TASK_NEXT_STATES, TASK_STATE_LABEL } from './task-lifecycle-ui';
 
 /**
  * TasksPanel (Story 5.1) — superfície mínima do CRUD/lifecycle (AC1/2/3):
@@ -22,27 +23,6 @@ export interface TasksPanelProps {
   /** Envia a mesma instrução a todos os terminais vinculados (Story 5.2, AC3). */
   onInstruct: (taskId: string, text: string) => void;
 }
-
-const STATE_LABEL: Record<TaskState, string> = {
-  planned: 'planejada',
-  in_progress: 'em execução',
-  awaiting_decision: 'aguardando decisão',
-  reviewed: 'revisada',
-  done: 'concluída'
-};
-
-/**
- * Espelho leve de packages/core/src/task-lifecycle.ts — a UI não depende de
- * @cockpit/core (fronteira do pacote); duplicação pequena e intencional.
- * Se crescer, o Board (5.4) é o ponto natural para centralizar.
- */
-const NEXT_STATES: Record<TaskState, TaskState[]> = {
-  planned: ['in_progress'],
-  in_progress: ['awaiting_decision'],
-  awaiting_decision: ['in_progress', 'reviewed'],
-  reviewed: ['done', 'in_progress'],
-  done: []
-};
 
 export function TasksPanel({
   tasks,
@@ -134,11 +114,11 @@ export function TasksPanel({
                 <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t.title}
                 </strong>
-                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{STATE_LABEL[t.state]}</span>
+                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{TASK_STATE_LABEL[t.state]}</span>
                 <span style={{ display: 'flex', gap: 6 }}>
-                  {NEXT_STATES[t.state].map((next) => (
+                  {TASK_NEXT_STATES[t.state].map((next) => (
                     <button key={next} onClick={() => onTransition(t.id, next)} style={buttonStyle}>
-                      → {STATE_LABEL[next]}
+                      → {TASK_STATE_LABEL[next]}
                     </button>
                   ))}
                 </span>

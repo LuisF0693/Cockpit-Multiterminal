@@ -43,3 +43,11 @@ export { RecoveryScreen } from './recovery-screen';
 export type { RecoveryScreenProps } from './recovery-screen';
 export { TasksPanel } from './tasks-panel';
 export type { TasksPanelProps } from './tasks-panel';
+export { LifecycleBoard } from './lifecycle-board';
+export type { LifecycleBoardProps } from './lifecycle-board';
+export {
+  TASK_NEXT_STATES,
+  TASK_STATE_LABEL,
+  TASK_STATE_ORDER,
+  canTransitionTask
+} from './task-lifecycle-ui';

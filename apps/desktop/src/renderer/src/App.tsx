@@ -7,6 +7,7 @@ import {
   type TerminalPortMessage
 } from '@cockpit/shared';
 import {
+  LifecycleBoard,
   MasterDashboard,
   RecoveryScreen,
   SessionReportView,
@@ -47,7 +48,9 @@ export function App(): JSX.Element {
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
-  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks'>('master');
+  const [view, setView] = useState<
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board'
+  >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -430,7 +433,8 @@ export function App(): JSX.Element {
               ['master', 'Master', 'Sessão Master (Ctrl+M)'],
               ['canvas', 'Canvas', 'Canvas de terminais'],
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
-              ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)']
+              ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
+              ['board', 'Board', 'Lifecycle Board (Story 5.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -595,6 +599,10 @@ export function App(): JSX.Element {
             onUnlink={(terminalId) => linkTask(terminalId, null)}
             onInstruct={instructTaskAgents}
           />
+        )}
+
+        {view === 'board' && (
+          <LifecycleBoard tasks={tasks} sessions={sessions} onCreate={createTask} onMove={transitionTask} />
         )}
 
         <section
