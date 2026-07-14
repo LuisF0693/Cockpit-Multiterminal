@@ -26,8 +26,11 @@ Thumbs.db
 .idea/
 *.swp
 
-# AIOX Local (AIOX)
-.aiox-core/local/
+# AIOX framework instalado localmente (CLI/templates/dados gerados do
+# framework, nao conteudo autoral do projeto) - o produto vive inteiro fora
+# desta pasta (docs/stories, packages, apps). Vazou nos commits iniciais do
+# scaffold; removido do rastreamento em 2026-07-14 (~401K linhas).
+.aiox-core/
 .claude/settings.local.json
 .aiox/install-log.txt
 
