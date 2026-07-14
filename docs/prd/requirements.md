@@ -17,6 +17,11 @@
 - **FR13:** O sistema deve gerenciar entidades de trabalho (tarefas) com estados de lifecycle: planejada → em execução → aguardando decisão → revisada → concluída.
 - **FR14:** Cada tarefa deve poder ser vinculada a um ou mais terminais/agentes, e o vínculo deve ser visível na sessão master e na tarefa.
 - **FR15:** Pontos de decisão humana (aprovar / rejeitar / redirecionar) devem ser registrados na timeline com autor, timestamp e justificativa opcional.
+- **FR16:** Cada terminal vinculado a uma tarefa deve poder receber um papel (escritor ou revisor); uma tarefa em modo "three-brain" tem exatamente 1 escritor e no mínimo 2 revisores.
+- **FR17:** Quando o agente escritor de uma tarefa em modo three-brain sinalizar conclusão (status done/waiting-input), o sistema deve rotear automaticamente uma instrução de revisão a todos os revisores vinculados, sem ação humana.
+- **FR18:** As saídas mais recentes de cada revisor devem ficar visíveis lado a lado num painel de revisão vinculado à tarefa, junto do resultado do escritor.
+- **FR19:** Rejeitar uma revisão (fluxo humano existente, FR15) devolve a tarefa ao escritor com o feedback agregado dos revisores anexado como instrução de correção automática.
+- **FR20:** O ciclo three-brain deve reusar o lifecycle de tarefa existente (FR13) e os pontos de decisão humana (FR15) — nenhuma máquina de estados nova, só orquestração sobre o que já existe.
 
 ### Non Functional
 
