@@ -8,6 +8,7 @@ import {
   SessionEventSchema,
   SessionRecordSchema,
   TERMINAL_PORT_MESSAGE,
+  TimelineEventSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -72,6 +73,12 @@ const api: CockpitApi = {
     list: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterList);
       return AdapterInfoSchema.array().parse(raw);
+    }
+  },
+  timeline: {
+    get: async (req = {}) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.timelineGet, req);
+      return TimelineEventSchema.array().parse(raw);
     }
   }
 };

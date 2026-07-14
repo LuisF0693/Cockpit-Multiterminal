@@ -78,6 +78,12 @@ export class PersistenceManager {
     });
   }
 
+  /** Timeline (3.3): flush dos pendentes antes de ler (frescor). */
+  timeline(opts: { limit: number; terminalId?: string; type?: string }): ReturnType<StateStore['listEvents']> {
+    this.queue.flush();
+    return this.store.listEvents(opts);
+  }
+
   savedLayout(): LayoutTile[] {
     return this.store
       .listActiveTerminals()
@@ -103,6 +109,16 @@ export class PersistenceManager {
           rows: 24,
           restore: true
         });
+        this.queue.push(() =>
+          this.store.appendEvent({
+            id: ulid(),
+            ts: Date.now(),
+            origin: 'system',
+            type: 'session.recovered',
+            terminalId: t.id,
+            payload: { name: t.name, cwd: t.cwd, adapterId: t.adapterId }
+          })
+        );
         restored++;
       } catch {
         this.queue.push(() => this.store.archiveTerminal(t.id, Date.now()));

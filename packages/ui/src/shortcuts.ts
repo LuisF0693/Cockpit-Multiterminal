@@ -9,7 +9,8 @@ export type ShortcutAction =
   | { type: 'new-terminal' }
   | { type: 'focus-terminal'; index: number }
   | { type: 'close-terminal' }
-  | { type: 'toggle-master' };
+  | { type: 'toggle-master' }
+  | { type: 'toggle-timeline' };
 
 export interface KeyStroke {
   ctrlKey: boolean;
@@ -26,6 +27,7 @@ export function matchShortcut(e: KeyStroke): ShortcutAction | null {
   if (key === 'n') return { type: 'new-terminal' };
   if (key === 'w') return { type: 'close-terminal' };
   if (key === 'm') return { type: 'toggle-master' };
+  if (key === 't') return { type: 'toggle-timeline' };
   if (key >= '1' && key <= '9' && key.length === 1) {
     return { type: 'focus-terminal', index: Number(key) - 1 };
   }

@@ -163,6 +163,39 @@ export class SqliteStateStore implements StateStore {
       .run(e.id, e.ts, e.origin, e.type, e.terminalId ?? null, JSON.stringify(e.payload));
   }
 
+  listEvents(opts: { limit: number; terminalId?: string; type?: string }): PersistedEvent[] {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (opts.terminalId) {
+      where.push('terminal_id = ?');
+      params.push(opts.terminalId);
+    }
+    if (opts.type) {
+      where.push('type = ?');
+      params.push(opts.type);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM events ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY ts DESC LIMIT ?`
+      )
+      .all(...params, opts.limit) as Array<{
+      id: string;
+      ts: number;
+      origin: string;
+      type: string;
+      terminal_id: string | null;
+      payload_json: string;
+    }>;
+    return rows.map((r) => ({
+      id: r.id,
+      ts: r.ts,
+      origin: (['system', 'agent', 'human'].includes(r.origin) ? r.origin : 'system') as PersistedEvent['origin'],
+      type: r.type,
+      terminalId: r.terminal_id ?? undefined,
+      payload: JSON.parse(r.payload_json) as Record<string, unknown>
+    }));
+  }
+
   /** Executa um batch da WriteQueue numa transação única (atomicidade — NFR5). */
   applyBatch(batch: Array<() => void>): void {
     this.db.transaction(() => {

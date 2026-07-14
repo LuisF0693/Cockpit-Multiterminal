@@ -35,3 +35,5 @@ export {
 export { MasterDashboard } from './master-dashboard';
 export type { MasterDashboardProps } from './master-dashboard';
 export { formatDuration } from './format-duration';
+export { TimelineView } from './timeline-view';
+export type { TimelineViewProps } from './timeline-view';

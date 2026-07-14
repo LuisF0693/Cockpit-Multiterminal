@@ -24,6 +24,7 @@ export const IpcChannels = {
   /** Registro de instrução enviada via master (trilha — Story 3.2). */
   sessionInstructed: 'session.instructed',
   adapterList: 'adapter.list',
+  timelineGet: 'timeline.get',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -103,6 +104,24 @@ export const SessionEventSchema = z.object({
 });
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
 
+/** Evento da timeline (Story 3.3) — projeção da tabela events. */
+export const TimelineEventSchema = z.object({
+  id: z.string().min(1),
+  ts: z.number().int().nonnegative(),
+  origin: z.enum(['system', 'agent', 'human']),
+  type: z.string().min(1),
+  terminalId: z.string().optional(),
+  payload: z.record(z.unknown())
+});
+export type TimelineEvent = z.infer<typeof TimelineEventSchema>;
+
+export const TimelineGetRequestSchema = z.object({
+  limit: z.number().int().min(1).max(500).default(100),
+  terminalId: z.string().optional(),
+  type: z.string().optional()
+});
+export type TimelineGetRequest = z.infer<typeof TimelineGetRequestSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -157,5 +176,9 @@ export interface CockpitApi {
   adapter: {
     /** Adapters registrados no PTY Host (Story 2.1+). */
     list(): Promise<AdapterInfo[]>;
+  };
+  timeline: {
+    /** Eventos da trilha, mais recentes primeiro (Story 3.3). */
+    get(req?: Partial<TimelineGetRequest>): Promise<TimelineEvent[]>;
   };
 }

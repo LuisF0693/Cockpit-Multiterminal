@@ -11,9 +11,11 @@ import {
   Sidebar,
   StatusPulseStyles,
   TerminalTile,
+  TimelineView,
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
+import type { TimelineEvent } from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -33,10 +35,26 @@ export function App(): JSX.Element {
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
-  const [view, setView] = useState<'master' | 'canvas'>('master');
+  const [view, setView] = useState<'master' | 'canvas' | 'timeline'>('master');
   const viewRef = useRef(view);
   viewRef.current = view;
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const bootRef = useRef(false);
+
+  const refreshTimeline = (): void => {
+    void window.cockpit.timeline
+      .get({ limit: 200 })
+      .then(setTimelineEvents)
+      .catch(() => void 0);
+  };
+
+  // Timeline ativa: refresh na entrada + a cada 5s (Story 3.3).
+  useEffect(() => {
+    if (view !== 'timeline') return;
+    refreshTimeline();
+    const timer = setInterval(refreshTimeline, 5000);
+    return () => clearInterval(timer);
+  }, [view]);
 
   const sessions = useCockpitStore((s) => s.sessions);
   const layout = useCockpitStore((s) => s.layout);
@@ -111,6 +129,8 @@ export function App(): JSX.Element {
       }
       if (action.type === 'close-terminal' && st.focusedId) void closeSession(st.focusedId);
       if (action.type === 'toggle-master') setView(viewRef.current === 'master' ? 'canvas' : 'master');
+      if (action.type === 'toggle-timeline')
+        setView(viewRef.current === 'timeline' ? 'canvas' : 'timeline');
     };
     window.addEventListener('keydown', onKeyDown);
 
@@ -198,11 +218,17 @@ export function App(): JSX.Element {
       >
         <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
         <nav style={{ display: 'flex', gap: 4 }}>
-          {(['master', 'canvas'] as const).map((v) => (
+          {(
+            [
+              ['master', 'Master', 'Sessão Master (Ctrl+M)'],
+              ['canvas', 'Canvas', 'Canvas de terminais'],
+              ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)']
+            ] as const
+          ).map(([v, label, title]) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              title={v === 'master' ? 'Sessão Master (Ctrl+M)' : 'Canvas de terminais'}
+              title={title}
               style={{
                 background: view === v ? '#1F2937' : 'transparent',
                 color: view === v ? '#E5E7EB' : '#9CA3AF',
@@ -210,11 +236,10 @@ export function App(): JSX.Element {
                 borderRadius: 6,
                 padding: '3px 10px',
                 fontSize: 12,
-                cursor: 'pointer',
-                textTransform: 'capitalize'
+                cursor: 'pointer'
               }}
             >
-              {v === 'master' ? 'Master' : 'Canvas'}
+              {label}
             </button>
           ))}
         </nav>
@@ -231,19 +256,22 @@ export function App(): JSX.Element {
           ).length;
           if (waiting === 0) return null;
           return (
-            <span
-              title="Agentes aguardando sua decisão"
+            <button
+              onClick={() => setView('master')}
+              title="Ir à fila de decisões pendentes"
               style={{
                 background: statusColor('waiting-input'),
                 color: '#0B0F14',
                 fontWeight: 700,
                 fontSize: 12,
+                border: 'none',
                 borderRadius: 12,
-                padding: '3px 10px'
+                padding: '3px 10px',
+                cursor: 'pointer'
               }}
             >
               {waiting} aguardando você
-            </span>
+            </button>
           );
         })()}
         {adapters.length > 1 && (
@@ -301,6 +329,10 @@ export function App(): JSX.Element {
             onGoToTerminal={goToTerminal}
             onInstruct={instructAgent}
           />
+        )}
+
+        {view === 'timeline' && (
+          <TimelineView events={timelineEvents} sessions={sessions} onRefresh={refreshTimeline} />
         )}
 
         <section

@@ -124,6 +124,41 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(registry2.list().map((r) => r.id)).toEqual([b.id]);
   });
 
+  it('timeline lê eventos com filtros e flush prévio (Story 3.3)', async () => {
+    const { manager, registry } = makeHarness();
+    const a = await registry.create({ cols: 80, rows: 24, name: 'A' });
+    const b = await registry.create({ cols: 80, rows: 24, name: 'B' });
+    manager.recordInstruction(a.id, 'roda os testes');
+
+    // flush interno do timeline() deve enxergar tudo, mesmo sem flush manual
+    const all = manager.timeline({ limit: 100 });
+    expect(all.map((e) => e.type)).toContain('instruction.sent');
+    expect(all.map((e) => e.type).filter((t) => t === 'terminal.created')).toHaveLength(2);
+
+    const onlyA = manager.timeline({ limit: 100, terminalId: a.id });
+    expect(onlyA.every((e) => e.terminalId === a.id)).toBe(true);
+
+    const onlyInstr = manager.timeline({ limit: 100, type: 'instruction.sent' });
+    expect(onlyInstr).toHaveLength(1);
+    expect(onlyInstr[0]!.origin).toBe('human');
+    expect(onlyInstr[0]!.terminalId).toBe(a.id);
+    expect(b.id).toBeTruthy();
+  });
+
+  it('restore registra session.recovered na trilha (Story 3.3)', async () => {
+    const first = makeHarness();
+    await first.registry.create({ cols: 80, rows: 24, name: 'API' });
+    first.queue.flush();
+
+    const registry2 = new SessionRegistry(makeOps());
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    await manager2.restore(registry2);
+
+    const recovered = manager2.timeline({ limit: 10, type: 'session.recovered' });
+    expect(recovered).toHaveLength(1);
+    expect(recovered[0]!.payload['name']).toBe('API');
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

@@ -5,6 +5,7 @@ import {
   AgentStatusSchema,
   IpcChannels,
   LayoutUpdateRequestSchema,
+  TimelineGetRequestSchema,
   SessionCloseRequestSchema,
   SessionCreateRequestSchema,
   SessionRenameRequestSchema,
@@ -121,6 +122,15 @@ export function registerSessionIpc(
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
+
+  ipcMain.handle(IpcChannels.timelineGet, (_event, raw: unknown) => {
+    const req = TimelineGetRequestSchema.parse(raw ?? {});
+    return persistence.timeline({
+      limit: req.limit,
+      ...(req.terminalId !== undefined ? { terminalId: req.terminalId } : {}),
+      ...(req.type !== undefined ? { type: req.type } : {})
+    });
+  });
 
   ipcMain.handle(IpcChannels.layoutGet, () => persistence.savedLayout());
 

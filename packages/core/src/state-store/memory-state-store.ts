@@ -56,6 +56,13 @@ export class MemoryStateStore implements StateStore {
     this.events.push(event);
   }
 
+  listEvents(opts: { limit: number; terminalId?: string; type?: string }): PersistedEvent[] {
+    return this.events
+      .filter((e) => (!opts.terminalId || e.terminalId === opts.terminalId) && (!opts.type || e.type === opts.type))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, opts.limit);
+  }
+
   close(): void {
     // nada a liberar em memória
   }

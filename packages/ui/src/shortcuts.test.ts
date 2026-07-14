@@ -34,6 +34,12 @@ describe('registro central de atalhos (AC5)', () => {
     });
   });
 
+  it('Ctrl+T → alternar timeline (Story 3.3)', () => {
+    expect(matchShortcut(stroke({ ctrlKey: true, key: 't' }))).toEqual({
+      type: 'toggle-timeline'
+    });
+  });
+
   it('não captura sem Ctrl ou com modificadores extras', () => {
     expect(matchShortcut(stroke({ key: 'n' }))).toBeNull();
     expect(matchShortcut(stroke({ ctrlKey: true, shiftKey: true, key: 'n' }))).toBeNull();

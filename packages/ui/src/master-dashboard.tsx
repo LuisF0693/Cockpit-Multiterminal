@@ -3,6 +3,17 @@ import type { SessionRecord } from '@cockpit/shared';
 import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
 
+const queueButtonStyle: React.CSSProperties = {
+  background: '#111827',
+  color: '#E5E7EB',
+  border: '1px solid #1F2937',
+  borderRadius: 6,
+  padding: '3px 10px',
+  fontSize: 12,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
+};
+
 /**
  * MasterDashboard (Story 3.1) — o Conductor: visão agregada de todos os
  * agentes com envio de instruções por linha (Story 3.2). Tela inicial do app.
@@ -46,6 +57,44 @@ export function MasterDashboard({ sessions, onGoToTerminal, onInstruct }: Master
       <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>
         {sessions.length} {sessions.length === 1 ? 'agente' : 'agentes'} sob governança — Ctrl+M alterna com o canvas
       </p>
+
+      {/* Fila de decisões pendentes (Story 3.4 / FR9) */}
+      {(() => {
+        const waitingList = sessions.filter(
+          (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
+        );
+        if (waitingList.length === 0) return null;
+        return (
+          <div
+            style={{
+              marginBottom: 20,
+              padding: 14,
+              background: '#1F1A0E',
+              border: `1px solid ${statusColor('waiting-input')}`,
+              borderRadius: 8
+            }}
+          >
+            <h3 style={{ margin: '0 0 10px', fontSize: 13, color: statusColor('waiting-input') }}>
+              ⏳ Decisões pendentes ({waitingList.length})
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {waitingList.map((s) => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+                  <strong style={{ minWidth: 140 }}>{s.name}</strong>
+                  <span style={{ color: '#9CA3AF' }}>tarefa: —</span>
+                  <span style={{ color: statusColor('waiting-input'), fontFamily: 'monospace' }}>
+                    aguarda há {formatDuration(Date.now() - s.lastStatusChangeAt)}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button onClick={() => onGoToTerminal(s.id)} style={queueButtonStyle}>
+                    ir ao terminal →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {sessions.length === 0 && (
         <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>

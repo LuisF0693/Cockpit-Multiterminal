@@ -39,5 +39,7 @@ export interface StateStore {
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;
+  /** Timeline (Story 3.3): mais recentes primeiro, com filtros opcionais. */
+  listEvents(opts: { limit: number; terminalId?: string; type?: string }): PersistedEvent[];
   close(): void;
 }
