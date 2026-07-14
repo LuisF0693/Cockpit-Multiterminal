@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests",
     "spike:conpty": "tsx spike/conpty-spike.ts",
+    "spike:daemon": "tsx spike/daemon-spike.ts",
     "rebuild:native": "node scripts/rebuild-native.cjs",
     "smoke:abi": "electron smoke/abi-smoke.cjs",
     "smoke:store": "electron smoke/store-smoke.cjs",

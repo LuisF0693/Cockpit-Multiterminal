@@ -1,0 +1,12 @@
+{
+  "date": "2026-07-14T03:51:44.647Z",
+  "criteria": {
+    "a_daemonSurvivesClientExit": true,
+    "b_reattachTranscript": true,
+    "b_reattachLiveStream": true,
+    "c_echoRoundtripMs": 63,
+    "c_underBudget": true,
+    "d_orphansOnShutdown": 0
+  },
+  "verdict": "PASS"
+}
