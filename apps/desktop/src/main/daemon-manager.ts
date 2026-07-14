@@ -15,10 +15,16 @@ import type { ScrollbackConfig } from './pty-host-manager';
 
 const CONNECT_RETRIES = 20;
 const CONNECT_RETRY_MS = 300;
+/** Backoff da reconexão (6.4) — daemon vivo com conexão quebrada é raro. */
+const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+
+/** Estado do vínculo com o daemon (badge da UI — Story 6.4). */
+export type DaemonState = 'starting' | 'connected' | 'reconnecting' | 'disconnected';
 
 interface ProxiedSession {
   port1: Electron.MessagePortMain;
-  unsubData: () => void;
+  /** Entrega ao renderer — reassinada a cada (re)conexão. */
+  deliver: (bytes: Uint8Array) => void;
 }
 
 export class DaemonManager {
@@ -30,16 +36,19 @@ export class DaemonManager {
   private sessionExitListener: ((ptyId: string, exitCode: number) => void) | null = null;
   private sessionStatusListener: ((ptyId: string, status: string) => void) | null = null;
   private hostExitListener: (() => void) | null = null;
+  private stateListener: ((state: DaemonState) => void) | null = null;
 
   constructor(private readonly pipePath: string = DEFAULT_DAEMON_PIPE) {}
 
-  /** Connect-or-spawn (AC1): daemon vivo → conecta; ausente → sobe detached. */
+  /** Connect-or-spawn (6.3): daemon vivo → conecta; ausente → sobe detached. */
   async start(): Promise<void> {
     try {
       await this.connect();
       console.log('[daemon] conectado a daemon existente');
+      this.setState('connected');
       return;
     } catch {
+      this.setState('starting');
       this.spawnDaemon();
     }
     let lastError: unknown = null;
@@ -48,12 +57,23 @@ export class DaemonManager {
       try {
         await this.connect();
         console.log('[daemon] daemon iniciado e conectado');
+        this.setState('connected');
         return;
       } catch (err) {
         lastError = err;
       }
     }
+    this.setState('disconnected');
     throw new Error(`daemon não respondeu após spawn: ${String(lastError)}`);
+  }
+
+  /** Badge da UI (6.4): estados do vínculo Main↔daemon. */
+  onStateChange(cb: (state: DaemonState) => void): void {
+    this.stateListener = cb;
+  }
+
+  private setState(state: DaemonState): void {
+    this.stateListener?.(state);
   }
 
   configure(config: ScrollbackConfig): void {
@@ -154,34 +174,76 @@ export class DaemonManager {
     });
     client.onSessionStatus((id, status) => this.sessionStatusListener?.(id, status));
     client.onClose(() => {
-      if (!this.shuttingDown) this.hostExitListener?.();
+      if (!this.shuttingDown) this.onUnexpectedClose();
     });
     if (this.scrollbackConfig) this.configure(this.scrollbackConfig);
+    // Reassina os frames de dados dos proxies vivos na conexão nova (6.4).
+    for (const [id, proxy] of this.proxies) client.onData(id, proxy.deliver);
   }
 
-  /** Proxy por sessão: frames do pipe ↔ MessagePort do renderer (AC3). */
+  /** Queda inesperada (6.4): reconectar com backoff antes de declarar morte. */
+  private onUnexpectedClose(): void {
+    this.client = null;
+    this.setState('reconnecting');
+    console.warn('[daemon] conexão perdida — reconectando com backoff');
+    void this.reconnectLoop();
+  }
+
+  private async reconnectLoop(): Promise<void> {
+    for (const delay of RECONNECT_DELAYS_MS) {
+      await new Promise((r) => setTimeout(r, delay));
+      if (this.shuttingDown) return;
+      try {
+        await this.connect();
+      } catch {
+        continue;
+      }
+      // Re-attach: tailBytes 0 = só reassinar (renderer JÁ tem o histórico —
+      // replay duplicaria o xterm). Sessão sumida (daemon reiniciado) → exited.
+      for (const id of [...this.proxies.keys()]) {
+        try {
+          const { ok } = await this.requireClient().attach(id, 0);
+          if (!ok) {
+            this.sessionExitListener?.(id, -1);
+            this.disposeProxy(id);
+          }
+        } catch {
+          this.sessionExitListener?.(id, -1);
+          this.disposeProxy(id);
+        }
+      }
+      console.log('[daemon] reconectado');
+      this.setState('connected');
+      return;
+    }
+    // Exaustão: daemon realmente morto → comportamento clássico (todas exited).
+    this.setState('disconnected');
+    this.hostExitListener?.();
+  }
+
+  /** Proxy por sessão: frames do pipe ↔ MessagePort do renderer (AC3 da 6.3). */
   private buildProxy(sessionId: string): Electron.MessagePortMain {
-    const client = this.requireClient();
     this.disposeProxy(sessionId); // adoção substitui proxy anterior, se houver
     const { port1, port2 } = new MessageChannelMain();
-    const unsubData = client.onData(sessionId, (bytes) => port1.postMessage(bytes));
+    const deliver = (bytes: Uint8Array): void => port1.postMessage(bytes);
+    this.requireClient().onData(sessionId, deliver);
+    // Handlers usam this.client DINÂMICO: o proxy sobrevive à reconexão (6.4).
     port1.on('message', (e) => {
       const payload = e.data as unknown;
       if (payload instanceof Uint8Array) {
-        client.write(sessionId, payload);
+        this.client?.write(sessionId, payload);
         return;
       }
-      if (isAck(payload)) client.ack(sessionId, payload.n); // fim-a-fim (Task 1)
+      if (isAck(payload)) this.client?.ack(sessionId, payload.n); // fim-a-fim
     });
     port1.start();
-    this.proxies.set(sessionId, { port1, unsubData });
+    this.proxies.set(sessionId, { port1, deliver });
     return port2;
   }
 
   private disposeProxy(sessionId: string): void {
     const proxy = this.proxies.get(sessionId);
     if (!proxy) return;
-    proxy.unsubData();
     proxy.port1.close();
     this.proxies.delete(sessionId);
   }

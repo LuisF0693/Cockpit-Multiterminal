@@ -4,6 +4,7 @@ import { CodexAdapter } from '@cockpit/adapter-codex';
 import { GrokAdapter } from '@cockpit/adapter-grok';
 import { AdapterRegistry } from './adapter-registry';
 import { DaemonServer } from './daemon-server';
+import { DaemonClient } from './daemon-client';
 import { DEFAULT_DAEMON_PIPE } from './daemon-protocol';
 
 /**
@@ -31,8 +32,31 @@ export async function startDaemon(pipePath: string): Promise<DaemonServer> {
   return server;
 }
 
-/* istanbul ignore next -- caminho de processo real; testes usam startDaemon */
-if (process.argv[1]?.endsWith('daemon-entry.js') || process.argv.includes('--run-daemon')) {
+/**
+ * `cockpit-daemon --stop` (Story 6.4, AC1): conecta como cliente e pede
+ * shutdown gracioso — dispose de todos os PTYs, 0 órfãos. Retorna órfãos.
+ */
+export async function stopDaemon(pipePath: string): Promise<number> {
+  const client = new DaemonClient();
+  await client.connect(pipePath);
+  const { orphans } = await client.shutdownDaemon();
+  client.disconnect();
+  return orphans;
+}
+
+/* istanbul ignore next -- caminhos de processo real; testes usam as funções */
+if (process.argv.includes('--stop')) {
+  const pipePath = pipeFromArgv(process.argv);
+  void stopDaemon(pipePath)
+    .then((orphans) => {
+      console.log(`[cockpit-daemon] stop gracioso — órfãos: ${orphans}`);
+      process.exit(orphans > 0 ? 1 : 0);
+    })
+    .catch((err: unknown) => {
+      console.error('[cockpit-daemon] stop falhou (daemon fora do ar?):', err);
+      process.exit(2);
+    });
+} else if (process.argv[1]?.endsWith('daemon-entry.js') || process.argv.includes('--run-daemon')) {
   const pipePath = pipeFromArgv(process.argv);
   void startDaemon(pipePath).then((server) => {
     console.log(`[cockpit-daemon] escutando em ${pipePath} (pid ${process.pid})`);

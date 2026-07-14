@@ -31,6 +31,8 @@ export type DaemonInbound =
   | { type: 'attach'; requestId: number; id: string; tailBytes?: number }
   /** Sessões vivas no daemon (6.2) — insumo da adoção pelo app (6.3). */
   | { type: 'list-sessions'; requestId: number }
+  /** Heartbeat (6.4): prova de vida + versão sem efeitos colaterais. */
+  | { type: 'ping'; requestId: number }
   | { type: 'shutdown'; requestId: number };
 
 /** Metadados de sessão viva no daemon (list-sessions — Story 6.2). */
@@ -54,4 +56,5 @@ export type DaemonOutbound =
   | { type: 'adapters'; requestId: number; adapters: Array<{ id: string; displayName: string }> }
   | { type: 'attached'; requestId: number; id: string; ok: boolean }
   | { type: 'sessions'; requestId: number; sessions: DaemonSessionInfo[] }
+  | { type: 'pong'; requestId: number; daemonPid: number; sessions: number; protocolVersion: number }
   | { type: 'shutdown-done'; requestId: number; orphans: number };

@@ -36,9 +36,17 @@ export const IpcChannels = {
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
   layoutUpdate: 'layout.update',
+  /** Push Main → renderer com o estado do vínculo com o daemon (Story 6.4). */
+  daemonStatus: 'daemon.status',
   /** Evento Main → renderer que transfere a MessagePort de dados (tag = session id). */
   terminalPort: 'terminal.port'
 } as const;
+
+/** Estado do daemon de terminais (Story 6.4) — badge no header. */
+export const DaemonStatusSchema = z.object({
+  state: z.enum(['starting', 'connected', 'reconnecting', 'disconnected'])
+});
+export type DaemonStatus = z.infer<typeof DaemonStatusSchema>;
 
 /**
  * Status de agente (data-models.md / FR5) — detectado pelo adapter.
@@ -240,6 +248,10 @@ export interface CockpitApi {
   timeline: {
     /** Eventos da trilha, mais recentes primeiro (Story 3.3). */
     get(req?: Partial<TimelineGetRequest>): Promise<TimelineEvent[]>;
+  };
+  daemon: {
+    /** Estado do vínculo com o daemon (Story 6.4); retorna unsubscribe. */
+    onStatus(cb: (status: DaemonStatus) => void): () => void;
   };
   workspace: {
     /** Workspaces conhecidos + ativo (Story 3.6). */

@@ -230,6 +230,16 @@ export class DaemonServer {
         }
         break;
       }
+      case 'ping': {
+        this.send(socket, {
+          type: 'pong',
+          requestId: msg.requestId,
+          daemonPid: process.pid,
+          sessions: this.sessions.size,
+          protocolVersion: DAEMON_PROTOCOL_VERSION
+        });
+        break;
+      }
       case 'shutdown': {
         void this.shutdown().then((orphans) => {
           this.send(socket, { type: 'shutdown-done', requestId: msg.requestId, orphans });

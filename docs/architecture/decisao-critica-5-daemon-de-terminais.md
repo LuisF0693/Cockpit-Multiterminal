@@ -27,5 +27,15 @@ agentes; reabrir reconecta com histórico.
 
 **Rejeitada:** TCP localhost (superfície de rede desnecessária; pipe tem ACL nativa).
 
+**🔒 Segurança do pipe (Story 6.4):** o node/libuv cria o named pipe com o
+security descriptor default do token do processo — GENERIC_ALL para o usuário
+criador, Administrators e SYSTEM; **Everyone NÃO recebe GENERIC_WRITE**, e uma
+conexão duplex exige read+write ⇒ outros usuários não-admin não conseguem
+conectar. Defesa em profundidade: handshake `hello` versionado é obrigatório
+antes de qualquer comando (conexões sem hello válido são encerradas — 6.1).
+Hardening adicional (SDDL explícito por CreateNamedPipe) exigiria native addon
+— registrado como debt consciente. Validação manual: sessão de outro usuário
+Windows não deve conseguir `connect` no pipe.
+
 **Roadmap:** E3 (sessão master) pode iniciar sobre o host atual; a migração
 para daemon é um épico próprio (E-daemon) planejado antes do E4 pleno.

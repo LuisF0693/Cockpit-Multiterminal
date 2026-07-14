@@ -20,6 +20,11 @@ type Pending =
   | { kind: 'adapters'; resolve: (v: Array<{ id: string; displayName: string }>) => void; reject: (e: Error) => void }
   | { kind: 'attach'; resolve: (v: { ok: boolean }) => void; reject: (e: Error) => void }
   | { kind: 'sessions'; resolve: (v: DaemonSessionInfo[]) => void; reject: (e: Error) => void }
+  | {
+      kind: 'ping';
+      resolve: (v: { daemonPid: number; sessions: number; protocolVersion: number }) => void;
+      reject: (e: Error) => void;
+    }
   | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void };
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -147,6 +152,11 @@ export class DaemonClient {
     return await this.request('sessions', (requestId) => ({ type: 'list-sessions', requestId }));
   }
 
+  /** Heartbeat (6.4): prova de vida do daemon. */
+  async ping(): Promise<{ daemonPid: number; sessions: number; protocolVersion: number }> {
+    return await this.request('ping', (requestId) => ({ type: 'ping', requestId }));
+  }
+
   async shutdownDaemon(): Promise<{ orphans: number }> {
     return await this.request('shutdown', (requestId) => ({ type: 'shutdown', requestId }));
   }
@@ -203,6 +213,13 @@ export class DaemonClient {
       case 'sessions': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'sessions') p.resolve(msg.sessions);
+        break;
+      }
+      case 'pong': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'ping') {
+          p.resolve({ daemonPid: msg.daemonPid, sessions: msg.sessions, protocolVersion: msg.protocolVersion });
+        }
         break;
       }
       case 'shutdown-done': {

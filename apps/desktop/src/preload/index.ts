@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  DaemonStatusSchema,
   IpcChannels,
   LayoutTileSchema,
   SessionCloseResponseSchema,
@@ -89,6 +90,15 @@ const api: CockpitApi = {
     get: async (req = {}) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.timelineGet, req);
       return TimelineEventSchema.array().parse(raw);
+    }
+  },
+  daemon: {
+    onStatus: (cb) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(DaemonStatusSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.daemonStatus, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.daemonStatus, listener);
     }
   },
   workspace: {

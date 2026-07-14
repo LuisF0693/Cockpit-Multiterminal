@@ -92,6 +92,12 @@ app.whenReady().then(async () => {
   if (process.env['COCKPIT_NO_DAEMON'] !== '1') {
     try {
       const daemon = new DaemonManager();
+      // Badge da UI (6.4): estado do vínculo empurrado a todas as janelas.
+      daemon.onStateChange((state) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send(IpcChannels.daemonStatus, { state });
+        }
+      });
       await daemon.start();
       daemon.configure(scrollback);
       daemonManager = daemon;

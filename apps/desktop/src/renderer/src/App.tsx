@@ -16,7 +16,7 @@ import {
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
-import type { SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
+import type { DaemonStatus, SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -48,6 +48,9 @@ export function App(): JSX.Element {
   const [workspaces, setWorkspaces] = useState<WorkspaceList>({ names: ['Geral'], active: 'Geral' });
   const workspacesRef = useRef(workspaces);
   workspacesRef.current = workspaces;
+  // Vínculo com o daemon (6.4): 'connected' default — modo utilityProcess
+  // nunca emite e o badge fica oculto.
+  const [daemonState, setDaemonState] = useState<DaemonStatus['state']>('connected');
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -103,6 +106,8 @@ export function App(): JSX.Element {
       .list()
       .then(setWorkspaces)
       .catch(() => void 0);
+
+    const unsubDaemon = window.cockpit.daemon.onStatus((s) => setDaemonState(s.state));
 
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
@@ -170,6 +175,7 @@ export function App(): JSX.Element {
       if (persistTimer !== null) clearTimeout(persistTimer);
       unsubLayout();
       unsubscribe();
+      unsubDaemon();
     };
   }, []);
 
@@ -336,6 +342,24 @@ export function App(): JSX.Element {
           </span>
         )}
         <span style={{ flex: 1 }} />
+        {/* Badge do daemon (6.4): só aparece quando o vínculo não está saudável */}
+        {daemonState !== 'connected' && (
+          <span
+            title="Estado do daemon de terminais"
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#0B0F14',
+              background: daemonState === 'disconnected' ? '#F87171' : '#FBBF24',
+              borderRadius: 12,
+              padding: '3px 10px'
+            }}
+          >
+            {daemonState === 'starting' && '⏫ daemon subindo…'}
+            {daemonState === 'reconnecting' && '🔌 daemon: reconectando…'}
+            {daemonState === 'disconnected' && '⛔ daemon desconectado'}
+          </span>
+        )}
         {(() => {
           const waiting = sessions.filter(
             (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
