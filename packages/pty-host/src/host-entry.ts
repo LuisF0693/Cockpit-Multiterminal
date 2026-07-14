@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import type { AgentSession } from '@cockpit/adapter-contract';
 import { ShellAdapter } from '@cockpit/adapter-shell';
 import { ClaudeCodeAdapter } from '@cockpit/adapter-claude-code';
+import { CodexAdapter } from '@cockpit/adapter-codex';
 import { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import type { HostInbound, HostOutbound } from './protocol';
@@ -37,6 +38,7 @@ const registry = new AdapterRegistry();
 registry.register(new ShellAdapter());
 registry.register(new ShellAdapter({ id: 'cmd', displayName: 'CMD', shell: 'cmd.exe' }));
 registry.register(new ClaudeCodeAdapter());
+registry.register(new CodexAdapter());
 
 interface HostedSession {
   session: AgentSession;

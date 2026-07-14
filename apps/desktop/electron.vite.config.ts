@@ -25,6 +25,7 @@ const core = resolve(__dirname, '../../packages/core/src');
 const adapterContract = resolve(__dirname, '../../packages/adapter-contract/src');
 const adapterShell = resolve(__dirname, '../../packages/adapters/shell/src');
 const adapterClaude = resolve(__dirname, '../../packages/adapters/claude-code/src');
+const adapterCodex = resolve(__dirname, '../../packages/adapters/codex/src');
 
 export default defineConfig({
   main: {
@@ -35,7 +36,8 @@ export default defineConfig({
         '@cockpit/core': core,
         '@cockpit/adapter-contract': adapterContract,
         '@cockpit/adapter-shell': adapterShell,
-        '@cockpit/adapter-claude-code': adapterClaude
+        '@cockpit/adapter-claude-code': adapterClaude,
+        '@cockpit/adapter-codex': adapterCodex
       }
     },
     build: {
