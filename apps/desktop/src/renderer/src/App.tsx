@@ -142,6 +142,13 @@ export function App(): JSX.Element {
       });
     });
 
+    // Roteamento automático de revisão (Story 7.2, FR17) — o Main decide
+    // QUANDO rotear; só o renderer escreve na PTY (decisão crítica 4), daí
+    // instructAgent aqui em vez de no Main.
+    const unsubSdc = window.cockpit.sdc.onReviewRequested((event) => {
+      for (const reviewerId of event.reviewerIds) instructAgent(reviewerId, event.message);
+    });
+
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
       const data = event.data as Partial<TerminalPortMessage> | undefined;
@@ -212,6 +219,7 @@ export function App(): JSX.Element {
       unsubscribe();
       unsubDaemon();
       unsubTasks();
+      unsubSdc();
     };
   }, []);
 

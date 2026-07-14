@@ -45,6 +45,8 @@ export const IpcChannels = {
   taskDecide: 'task.decide',
   /** Push Main → renderer com eventos de domínio de tarefa. */
   taskEvent: 'task.event',
+  /** Push Main → renderer: roteamento automático escritor→revisores (Story 7.2). */
+  sdcReviewRequested: 'sdc.reviewRequested',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -283,7 +285,21 @@ export const TaskDecisionRequestSchema = z
   });
 export type TaskDecisionRequest = z.infer<typeof TaskDecisionRequestSchema>;
 
-/** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
+/**
+ * Push Main -> renderer (Story 7.2, FR17): roteamento automatico de revisao.
+ * `message` ja vem pronta (montada no Main, unica fonte da redacao) - o
+ * renderer so precisa chamar instructAgent por reviewerId (decisao critica 4:
+ * so o renderer escreve na PTY).
+ */
+export const SdcReviewRequestedEventSchema = z.object({
+  taskId: z.string().min(1),
+  writerId: z.string().min(1),
+  reviewerIds: z.string().min(1).array().min(1),
+  message: z.string().min(1)
+});
+export type SdcReviewRequestedEvent = z.infer<typeof SdcReviewRequestedEventSchema>;
+
+/** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelável. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
   active: z.string().min(1)
@@ -392,5 +408,9 @@ export interface CockpitApi {
     onEvent(cb: (event: TaskEvent) => void): () => void;
     /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
     decide(req: TaskDecisionRequest): Promise<Task>;
+  };
+  sdc: {
+    /** Roteamento automático de revisão (Story 7.2, FR17); retorna unsubscribe. */
+    onReviewRequested(cb: (event: SdcReviewRequestedEvent) => void): () => void;
   };
 }

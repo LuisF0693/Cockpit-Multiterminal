@@ -12,6 +12,7 @@ import {
   SessionRecordSchema,
   SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
+  SdcReviewRequestedEventSchema,
   TaskEventSchema,
   TaskSchema,
   TimelineEventSchema,
@@ -26,6 +27,7 @@ import {
   type SessionRenameRequest,
   type SessionReportRequest,
   type SessionResizeRequest,
+  type SdcReviewRequestedEvent,
   type TaskCreateRequest,
   type TaskDecisionRequest,
   type TaskEvent,
@@ -166,6 +168,15 @@ const api: CockpitApi = {
     decide: async (req: TaskDecisionRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskDecide, req);
       return TaskSchema.parse(raw);
+    }
+  },
+  sdc: {
+    onReviewRequested: (cb: (event: SdcReviewRequestedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(SdcReviewRequestedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.sdcReviewRequested, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.sdcReviewRequested, listener);
     }
   }
 };

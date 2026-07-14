@@ -103,6 +103,20 @@ export class PersistenceManager {
     );
   }
 
+  /** Roteamento automático de revisão (Story 7.2, FR17) — trilha auditável, origem system. */
+  recordSdcReviewRequest(reviewerId: string, payload: { taskId: string; writerId: string }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'sdc.review_requested',
+        terminalId: reviewerId,
+        payload
+      })
+    );
+  }
+
   /** Layout do canvas (debounced no renderer) → tiles persistidos. */
   persistLayout(tiles: LayoutTile[]): void {
     this.queue.push(() => {

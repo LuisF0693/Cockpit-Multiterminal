@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
-import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, type StateStore } from '@cockpit/core';
+import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, planSdcReviewRouting, type StateStore } from '@cockpit/core';
 import {
   AgentStatusSchema,
   IpcChannels,
@@ -132,6 +132,32 @@ export function registerSessionIpc(
   registry.onEvent((event: SessionEvent) => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcChannels.sessionEvent, event);
+    }
+  });
+
+  // Roteamento automático escritor → revisores (Story 7.2, FR17). AC4
+  // (idempotência) é DE GRAÇA: markAgentStatus só emite 'status' quando o
+  // valor REALMENTE muda (guard desde a 2.1) — este listener só roda em
+  // transições reais, nunca em toda checagem de status. `emit()` do
+  // registry não isola exceções entre listeners — try/catch obrigatório
+  // para não derrubar a persistência/espelho da UI que também escutam.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    try {
+      const s = event.session;
+      const task = s.taskId ? taskManager.find(s.taskId) : null;
+      const routing = planSdcReviewRouting(s, task, registry.list());
+      if (!routing) return;
+
+      taskManager.updateState(routing.taskId, 'awaiting_decision', 'system');
+      for (const reviewerId of routing.reviewerIds) {
+        persistence.recordSdcReviewRequest(reviewerId, { taskId: routing.taskId, writerId: routing.writerId });
+      }
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IpcChannels.sdcReviewRequested, routing);
+      }
+    } catch (err) {
+      console.error('[sdc] roteamento automático de revisão falhou:', err);
     }
   });
 
