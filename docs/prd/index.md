@@ -12,5 +12,6 @@
 8. [Epic 3 — Sessão Master](./epic-3-sessao-master.md)
 9. [Epic 4 — Persistência & Recuperação Total](./epic-4-persistencia-recuperacao-total.md)
 10. [Epic 5 — Lifecycle & Governança](./epic-5-lifecycle-governanca.md)
-11. [Checklist Results Report](./checklist-results-report.md)
-12. [Next Steps](./next-steps.md)
+11. [Epic 6 — Daemon de Terminais](./epic-6-daemon-de-terminais.md)
+12. [Checklist Results Report](./checklist-results-report.md)
+13. [Next Steps](./next-steps.md)
