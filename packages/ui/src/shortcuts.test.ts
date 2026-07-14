@@ -28,6 +28,12 @@ describe('registro central de atalhos (AC5)', () => {
     });
   });
 
+  it('Ctrl+M → alternar master (Story 3.1)', () => {
+    expect(matchShortcut(stroke({ ctrlKey: true, key: 'm' }))).toEqual({
+      type: 'toggle-master'
+    });
+  });
+
   it('não captura sem Ctrl ou com modificadores extras', () => {
     expect(matchShortcut(stroke({ key: 'n' }))).toBeNull();
     expect(matchShortcut(stroke({ ctrlKey: true, shiftKey: true, key: 'n' }))).toBeNull();

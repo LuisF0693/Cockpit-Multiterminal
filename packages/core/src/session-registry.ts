@@ -68,7 +68,8 @@ export class SessionRegistry {
       pid,
       createdAt: Date.now(),
       adapterId,
-      agentStatus: 'working'
+      agentStatus: 'working',
+      lastStatusChangeAt: Date.now()
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -100,7 +101,7 @@ export class SessionRegistry {
   markExited(ptyId: string): void {
     for (const session of this.sessions.values()) {
       if (session.ptyId === ptyId && session.record.status === 'running') {
-        session.record = { ...session.record, status: 'exited' };
+        session.record = { ...session.record, status: 'exited', lastStatusChangeAt: Date.now() };
         this.emit({ type: 'exited', session: session.record });
         return;
       }
@@ -111,7 +112,7 @@ export class SessionRegistry {
   markAgentStatus(ptyId: string, agentStatus: SessionRecord['agentStatus']): void {
     for (const session of this.sessions.values()) {
       if (session.ptyId === ptyId && session.record.agentStatus !== agentStatus) {
-        session.record = { ...session.record, agentStatus };
+        session.record = { ...session.record, agentStatus, lastStatusChangeAt: Date.now() };
         this.emit({ type: 'status', session: session.record });
         return;
       }

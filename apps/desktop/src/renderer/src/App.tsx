@@ -6,7 +6,14 @@ import {
   type CockpitApi,
   type TerminalPortMessage
 } from '@cockpit/shared';
-import { Sidebar, StatusPulseStyles, TerminalTile, matchShortcut, statusColor } from '@cockpit/ui';
+import {
+  MasterDashboard,
+  Sidebar,
+  StatusPulseStyles,
+  TerminalTile,
+  matchShortcut,
+  statusColor
+} from '@cockpit/ui';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -25,6 +32,10 @@ export function App(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
+  // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
+  const [view, setView] = useState<'master' | 'canvas'>('master');
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const bootRef = useRef(false);
 
   const sessions = useCockpitStore((s) => s.sessions);
@@ -93,9 +104,13 @@ export function App(): JSX.Element {
       if (action.type === 'new-terminal') void newTerminal();
       if (action.type === 'focus-terminal') {
         const target = st.sessions[action.index];
-        if (target) st.focus(target.id);
+        if (target) {
+          st.focus(target.id);
+          setView('canvas');
+        }
       }
       if (action.type === 'close-terminal' && st.focusedId) void closeSession(st.focusedId);
+      if (action.type === 'toggle-master') setView(viewRef.current === 'master' ? 'canvas' : 'master');
     };
     window.addEventListener('keydown', onKeyDown);
 
@@ -118,6 +133,28 @@ export function App(): JSX.Element {
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
+  };
+
+  const goToTerminal = (id: string): void => {
+    useCockpitStore.getState().focus(id);
+    setView('canvas');
+  };
+
+  /** Story 3.2: instrução via master — mesma porta binária do tile (FR7). */
+  const instructAgent = (id: string, text: string): boolean => {
+    const st = useCockpitStore.getState();
+    const session = st.sessions.find((s) => s.id === id);
+    const port = st.ports.get(id);
+    if (!session || !port) return false;
+    if (
+      (session.agentStatus === 'error' || session.agentStatus === 'done') &&
+      !window.confirm(`"${session.name}" está em estado ${session.agentStatus}. Enviar mesmo assim?`)
+    ) {
+      return false;
+    }
+    port.postMessage(new TextEncoder().encode(`${text}\r`));
+    void window.cockpit.session.instructed({ id, text }); // trilha (AC3)
+    return true;
   };
 
   const closeSession = async (id: string): Promise<void> => {
@@ -160,6 +197,27 @@ export function App(): JSX.Element {
         }}
       >
         <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
+        <nav style={{ display: 'flex', gap: 4 }}>
+          {(['master', 'canvas'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              title={v === 'master' ? 'Sessão Master (Ctrl+M)' : 'Canvas de terminais'}
+              style={{
+                background: view === v ? '#1F2937' : 'transparent',
+                color: view === v ? '#E5E7EB' : '#9CA3AF',
+                border: '1px solid #1F2937',
+                borderRadius: 6,
+                padding: '3px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                textTransform: 'capitalize'
+              }}
+            >
+              {v === 'master' ? 'Master' : 'Canvas'}
+            </button>
+          ))}
+        </nav>
         {info && (
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#9CA3AF' }}>
             v{info.version} · {info.platform} · {sessions.length}{' '}
@@ -233,11 +291,29 @@ export function App(): JSX.Element {
         <Sidebar
           sessions={sessions}
           focusedId={focusedId}
-          onSelect={(id) => useCockpitStore.getState().focus(id)}
+          onSelect={(id) => goToTerminal(id)}
           onNewTerminal={() => void newTerminal()}
         />
 
-        <section style={{ flex: 1, position: 'relative', overflow: 'auto', minWidth: 0 }}>
+        {view === 'master' && (
+          <MasterDashboard
+            sessions={sessions}
+            onGoToTerminal={goToTerminal}
+            onInstruct={instructAgent}
+          />
+        )}
+
+        <section
+          style={{
+            flex: 1,
+            position: 'relative',
+            overflow: 'auto',
+            minWidth: 0,
+            // Canvas fica MONTADO quando o master está ativo (desmontar
+            // mataria xterm/portas) — apenas escondido.
+            display: view === 'canvas' ? 'block' : 'none'
+          }}
+        >
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;

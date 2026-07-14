@@ -57,6 +57,20 @@ export class PersistenceManager {
     });
   }
 
+  /** Instrução enviada via master (Story 3.2, AC3) — trilha auditável. */
+  recordInstruction(sessionId: string, text: string): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'human',
+        type: 'instruction.sent',
+        terminalId: sessionId,
+        payload: { text: text.slice(0, 500), via: 'master' }
+      })
+    );
+  }
+
   /** Layout do canvas (debounced no renderer) → tiles persistidos. */
   persistLayout(tiles: LayoutTile[]): void {
     this.queue.push(() => {

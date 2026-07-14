@@ -1,6 +1,11 @@
-# Epic 3 — Sessão Master
+# Epic 3 — Sessão Master (Conductor)
 
 Entregar o painel de comando que diferencia o produto: visão agregada de todos os agentes, envio de instruções sem trocar de contexto, timeline auditável e fila de decisões pendentes.
+
+> **Revisão 2026-07-14 (@pm):** épico atualizado à luz da visão do fundador
+> (docs/prd/visao-do-fundador-cockpit-aiox.md) — o "conductor/copilot central".
+> Stories 3.5 (relatórios de sessão) e 3.6 (workspaces) adicionadas; sub-sessões
+> e distribuição formal de tarefas ficam para o E5 (lifecycle) onde Task já existe.
 
 ### Story 3.1 — Dashboard master com visão agregada
 
@@ -53,3 +58,27 @@ so that nenhuma pendência humana fique esquecida e o fluxo nunca trave silencio
 2. Item da fila mostra agente, tarefa vinculada e há quanto tempo aguarda.
 3. Ação direta do item: ir ao terminal ou responder via campo de instrução.
 4. Notificação visual (badge/contador) visível de qualquer tela do app.
+
+### Story 3.5 — Relatórios de sessão (visão do fundador)
+
+As a desenvolvedor multi-agente,
+I want relatórios por sessão (duração, eventos, instruções, transições de status),
+so that eu entenda o que cada agente fez sem reler o terminal inteiro.
+
+#### Acceptance Criteria
+
+1. Cada sessão acumula métricas: duração, contagem de transições de status, instruções recebidas via master, exit code.
+2. Painel de detalhe da sessão exibe o relatório + últimos eventos da timeline.
+3. Base extensível para tokens/tools por adapter (quando os CLIs expuserem — registrar como campos opcionais).
+
+### Story 3.6 — Workspaces (multi-projetos, visão do fundador)
+
+As a desenvolvedor multi-agente,
+I want agrupar terminais por workspace/projeto com troca rápida,
+so that eu opere 4+ projetos simultâneos sem misturar contextos.
+
+#### Acceptance Criteria
+
+1. Sessão pertence a um workspace (default: "Geral"); criar/renomear workspaces.
+2. Canvas filtra por workspace ativo; sidebar agrupa por workspace.
+3. Workspace persiste (state store) e restaura com as sessões.

@@ -48,6 +48,9 @@ const api: CockpitApi = {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionList);
       return SessionRecordSchema.array().parse(raw);
     },
+    instructed: async (req: { id: string; text: string }) => {
+      await ipcRenderer.invoke(IpcChannels.sessionInstructed, req);
+    },
     onEvent: (cb: (event: SessionEvent) => void) => {
       const listener = (_e: unknown, raw: unknown): void => {
         cb(SessionEventSchema.parse(raw));

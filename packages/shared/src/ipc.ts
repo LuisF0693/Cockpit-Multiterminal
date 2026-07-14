@@ -21,6 +21,8 @@ export const IpcChannels = {
   sessionClose: 'session.close',
   sessionResize: 'session.resize',
   sessionList: 'session.list',
+  /** Registro de instrução enviada via master (trilha — Story 3.2). */
+  sessionInstructed: 'session.instructed',
   adapterList: 'adapter.list',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
@@ -58,7 +60,9 @@ export const SessionRecordSchema = z.object({
   /** Adapter que hospeda a sessão (Story 2.1); 'shell' é o default. */
   adapterId: z.string().min(1),
   /** Status do agente (transiente — não persiste). */
-  agentStatus: AgentStatusSchema
+  agentStatus: AgentStatusSchema,
+  /** Época da última mudança de agentStatus (tempo no status — Story 3.1). */
+  lastStatusChangeAt: z.number().int().nonnegative()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
@@ -141,6 +145,8 @@ export interface CockpitApi {
     list(): Promise<SessionRecord[]>;
     /** Assina eventos de domínio; retorna unsubscribe. */
     onEvent(cb: (event: SessionEvent) => void): () => void;
+    /** Registra na trilha uma instrução enviada via master (Story 3.2). */
+    instructed(req: { id: string; text: string }): Promise<void>;
   };
   layout: {
     /** Layout salvo da última execução (vazio na primeira). */

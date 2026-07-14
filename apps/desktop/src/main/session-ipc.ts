@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { z } from 'zod';
 import { PersistenceManager, SessionRegistry, WriteQueue, type StateStore } from '@cockpit/core';
 import {
   AgentStatusSchema,
@@ -112,6 +113,11 @@ export function registerSessionIpc(
     const records = registry.list();
     for (const record of records) deliverPort(record.id, event.sender);
     return records;
+  });
+
+  ipcMain.handle(IpcChannels.sessionInstructed, (_event, raw: unknown) => {
+    const req = z.object({ id: z.string().min(1), text: z.string() }).parse(raw);
+    persistence.recordInstruction(req.id, req.text);
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
