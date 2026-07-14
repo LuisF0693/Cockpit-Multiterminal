@@ -164,6 +164,10 @@ const api: CockpitApi = {
     setActive: async (req: ProjectSetActiveRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectSetActive, req);
       return ProjectListSchema.parse(raw);
+    },
+    pickFolder: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectPickFolder);
+      return z.string().nullable().parse(raw);
     }
   },
   recovery: {

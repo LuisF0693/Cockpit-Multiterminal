@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { z } from 'zod';
 import {
@@ -194,7 +194,9 @@ export function registerSessionIpc(
 
   ipcMain.handle(IpcChannels.sessionCreate, async (event, raw: unknown) => {
     const req = SessionCreateRequestSchema.parse(raw);
-    const record = await registry.create(req);
+    // Projeto ativo (Story 8.2, FR22) — todo terminal novo nasce nele.
+    const { activeId } = persistence.projects();
+    const record = await registry.create({ ...req, projectId: activeId });
     deliverPort(record.id, event.sender);
     return record;
   });
@@ -275,12 +277,23 @@ export function registerSessionIpc(
     const req = ProjectSetActiveRequestSchema.parse(raw);
     return persistence.setActiveProject(req.id);
   });
+  // Diálogo nativo de pasta (Story 8.2, AC4) — null se o usuário cancelar.
+  ipcMain.handle(IpcChannels.projectPickFolder, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = win
+      ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+  });
 
   // Tarefas (Story 5.1)
   ipcMain.handle(IpcChannels.taskCreate, (_event, raw: unknown) => {
     const req = TaskCreateRequestSchema.parse(raw);
+    // Projeto ativo (Story 8.2, FR22) — toda tarefa nova nasce nele.
+    const { activeId } = persistence.projects();
     return taskManager.create({
       title: req.title,
+      projectId: activeId,
       ...(req.description !== undefined ? { description: req.description } : {})
     });
   });
@@ -395,6 +408,7 @@ export function registerSessionIpc(
           workspace: t.workspace,
           taskId: t.taskId,
           taskRole: t.taskRole,
+          projectId: t.projectId,
           pid: live.pid,
           createdAt: t.createdAt
         });

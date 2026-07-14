@@ -23,6 +23,7 @@ export class MemoryStateStore implements StateStore {
       workspace: t.workspace || prev?.workspace || 'Geral',
       taskId: t.taskId ?? null,
       taskRole: t.taskRole ?? null,
+      projectId: t.projectId ?? null,
       tile: t.tile ?? prev?.tile ?? null
     });
   }
@@ -61,6 +62,15 @@ export class MemoryStateStore implements StateStore {
   setTerminalTask(id: string, taskId: string | null, role?: TaskRole | null): void {
     const t = this.terminals.get(id);
     if (t) this.terminals.set(id, { ...t, taskId, taskRole: taskId === null ? null : (role ?? null) });
+  }
+
+  backfillProjectId(projectId: string): void {
+    for (const [id, t] of this.terminals) {
+      if (t.projectId === null) this.terminals.set(id, { ...t, projectId });
+    }
+    for (const [id, t] of this.tasks) {
+      if (t.projectId === null) this.tasks.set(id, { ...t, projectId });
+    }
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {

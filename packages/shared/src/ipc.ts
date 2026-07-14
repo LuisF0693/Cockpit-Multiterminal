@@ -40,6 +40,8 @@ export const IpcChannels = {
   projectUpdate: 'project.update',
   projectRemove: 'project.remove',
   projectSetActive: 'project.setActive',
+  /** Diálogo nativo de seleção de pasta (Story 8.2, AC4). */
+  projectPickFolder: 'project.pickFolder',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -111,7 +113,9 @@ export const SessionRecordSchema = z.object({
   /** Tarefa vinculada (Story 5.2) — null = sem vínculo; um terminal aponta p/ no máx. 1 tarefa. */
   taskId: z.string().min(1).nullable(),
   /** Papel na tarefa (Story 7.1, FR16) — null = vínculo neutro (sem three-brain). */
-  taskRole: z.enum(['writer', 'reviewer']).nullable()
+  taskRole: z.enum(['writer', 'reviewer']).nullable(),
+  /** Projeto dono do terminal (Story 8.2, FR22) — null = sessão pré-Épico-8, herda o ativo. */
+  projectId: z.string().min(1).nullable()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export type TaskRole = NonNullable<SessionRecord['taskRole']>;
@@ -256,7 +260,9 @@ export const TaskSchema = z.object({
   description: z.string().max(2000),
   state: TaskStateSchema,
   createdAt: z.number().int().nonnegative(),
-  updatedAt: z.number().int().nonnegative()
+  updatedAt: z.number().int().nonnegative(),
+  /** Projeto dono da tarefa (Story 8.2, FR22) — null = tarefa pré-Épico-8, herda o ativo. */
+  projectId: z.string().min(1).nullable()
 });
 export type Task = z.infer<typeof TaskSchema>;
 
@@ -482,6 +488,8 @@ export interface CockpitApi {
     /** Rejeita remover o último projeto restante (AC4). */
     remove(req: ProjectRemoveRequest): Promise<ProjectList>;
     setActive(req: ProjectSetActiveRequest): Promise<ProjectList>;
+    /** Diálogo nativo de pasta (Story 8.2, AC4) — null se o usuário cancelar. */
+    pickFolder(): Promise<string | null>;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

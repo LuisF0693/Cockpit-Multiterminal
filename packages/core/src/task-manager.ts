@@ -35,7 +35,7 @@ export class TaskManager {
     for (const t of this.store.listTasks()) this.tasks.set(t.id, t);
   }
 
-  create(opts: { title: string; description?: string }): TaskRecord {
+  create(opts: { title: string; description?: string; projectId?: string | null }): TaskRecord {
     const now = Date.now();
     const record: TaskRecord = {
       id: ulid(),
@@ -43,7 +43,8 @@ export class TaskManager {
       description: opts.description ?? '',
       state: 'planned',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      projectId: opts.projectId ?? null
     };
     this.tasks.set(record.id, record);
     this.queue.push(() => {

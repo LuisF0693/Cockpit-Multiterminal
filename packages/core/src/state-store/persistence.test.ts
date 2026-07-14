@@ -301,6 +301,16 @@ describe('PersistenceManager (Story 1.4)', () => {
       expect(() => manager.removeProject(projects[0]!.id)).toThrow();
     });
 
+    it('ensureDefaultProject faz backfill de terminais/tarefas pré-Épico-8 (projectId NULL)', async () => {
+      const { manager, registry, store, queue } = makeHarness();
+      const s = await registry.create({ cols: 80, rows: 24, name: 'API' }); // sem projectId — simula dado pré-8.2
+      queue.flush();
+      expect(store.terminals.get(s.id)!.projectId).toBeNull();
+
+      const list = manager.ensureDefaultProject('C:/repo');
+      expect(store.terminals.get(s.id)!.projectId).toBe(list.projects[0]!.id);
+    });
+
     it('removeProject: se o removido era o ativo, ativo cai para o primeiro restante', () => {
       const { manager } = makeHarness();
       const first = manager.ensureDefaultProject('C:/repo');

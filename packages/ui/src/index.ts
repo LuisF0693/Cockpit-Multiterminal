@@ -53,3 +53,5 @@ export {
 } from './task-lifecycle-ui';
 export { ReviewPanel } from './review-panel';
 export type { ReviewPanelProps } from './review-panel';
+export { ProjectSidebar } from './project-sidebar';
+export type { ProjectSidebarProps } from './project-sidebar';

@@ -25,6 +25,7 @@ function session(overrides: Partial<SessionRecord>): SessionRecord {
     workspace: 'Geral',
     taskId: null,
     taskRole: null,
+    projectId: null,
     ...overrides
   };
 }
@@ -37,6 +38,7 @@ function task(overrides: Partial<TaskRecord>): TaskRecord {
     state: 'in_progress',
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    projectId: null,
     ...overrides
   };
 }

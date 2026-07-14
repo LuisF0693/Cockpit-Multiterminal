@@ -34,6 +34,7 @@ export class PersistenceManager {
               workspace: s.workspace,
               taskId: s.taskId,
               taskRole: s.taskRole,
+              projectId: s.projectId,
               tile: null,
               createdAt: s.createdAt,
               archivedAt: null
@@ -201,6 +202,7 @@ export class PersistenceManager {
           workspace: t.workspace,
           taskId: t.taskId,
           taskRole: t.taskRole,
+          projectId: t.projectId,
           cols: 80,
           rows: 24,
           restore: true
@@ -279,13 +281,16 @@ export class PersistenceManager {
   /**
    * Primeiro boot: cria o projeto "Padrão" apontando pro cwd atual do
    * processo — mesmo cwd que sessões sem projeto já usavam (zero regressão).
-   * Idempotente: no-op se já existe algum projeto.
+   * Idempotente: no-op se já existe algum projeto. Absorve terminais/tarefas
+   * pré-Épico-8 (project_id NULL) via `backfillProjectId` — sem isso eles
+   * desapareceriam de todo filtro por projeto.
    */
   ensureDefaultProject(defaultRootPath: string): ProjectList {
     if (this.parseProjectsMeta().length > 0) return this.projects();
     const project: Project = { id: ulid(), name: 'Padrão', color: '#3B82F6', rootPath: defaultRootPath };
     this.store.setMeta('projects', JSON.stringify([project]));
     this.store.setMeta('active_project', project.id);
+    this.store.backfillProjectId(project.id);
     return this.projects();
   }
 
