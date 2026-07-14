@@ -24,6 +24,7 @@ const ptyHost = resolve(__dirname, '../../packages/pty-host/src');
 const core = resolve(__dirname, '../../packages/core/src');
 const adapterContract = resolve(__dirname, '../../packages/adapter-contract/src');
 const adapterShell = resolve(__dirname, '../../packages/adapters/shell/src');
+const adapterClaude = resolve(__dirname, '../../packages/adapters/claude-code/src');
 
 export default defineConfig({
   main: {
@@ -33,7 +34,8 @@ export default defineConfig({
         '@cockpit/pty-host': ptyHost,
         '@cockpit/core': core,
         '@cockpit/adapter-contract': adapterContract,
-        '@cockpit/adapter-shell': adapterShell
+        '@cockpit/adapter-shell': adapterShell,
+        '@cockpit/adapter-claude-code': adapterClaude
       }
     },
     build: {

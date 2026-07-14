@@ -13,6 +13,7 @@
 import { join } from 'node:path';
 import type { AgentSession } from '@cockpit/adapter-contract';
 import { ShellAdapter } from '@cockpit/adapter-shell';
+import { ClaudeCodeAdapter } from '@cockpit/adapter-claude-code';
 import { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import type { HostInbound, HostOutbound } from './protocol';
@@ -33,6 +34,7 @@ const parentPort = (process as unknown as { parentPort: PortMainLike }).parentPo
 
 const registry = new AdapterRegistry();
 registry.register(new ShellAdapter());
+registry.register(new ClaudeCodeAdapter());
 
 interface HostedSession {
   session: AgentSession;

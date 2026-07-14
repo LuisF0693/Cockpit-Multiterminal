@@ -1,5 +1,5 @@
 {
-  "name": "@cockpit/pty-host",
+  "name": "@cockpit/adapter-claude-code",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cockpit/adapter-claude-code": "workspace:*",
     "@cockpit/adapter-contract": "workspace:*",
-    "@cockpit/adapter-shell": "workspace:*",
     "@cockpit/shared": "workspace:*",
     "node-pty": "^1.0.0"
   },
