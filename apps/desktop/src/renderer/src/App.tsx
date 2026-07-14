@@ -8,6 +8,7 @@ import {
   type TerminalPortMessage
 } from '@cockpit/shared';
 import {
+  FileExplorer,
   LifecycleBoard,
   MasterDashboard,
   ProjectSidebar,
@@ -54,7 +55,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -546,7 +547,8 @@ export function App(): JSX.Element {
               ['canvas', 'Canvas', 'Canvas de terminais'],
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
-              ['board', 'Board', 'Lifecycle Board (Story 5.4)']
+              ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
+              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -741,6 +743,16 @@ export function App(): JSX.Element {
             onCreate={createTask}
             onMove={transitionTask}
             onOpenReview={goToReview}
+          />
+        )}
+
+        {view === 'files' && (
+          <FileExplorer
+            projectId={activeProjectId}
+            rootLabel={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
+            onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
+            onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
+            onBack={() => setView('master')}
           />
         )}
 

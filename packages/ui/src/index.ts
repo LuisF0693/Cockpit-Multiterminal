@@ -55,3 +55,5 @@ export { ReviewPanel } from './review-panel';
 export type { ReviewPanelProps } from './review-panel';
 export { ProjectSidebar } from './project-sidebar';
 export type { ProjectSidebarProps } from './project-sidebar';
+export { FileExplorer } from './file-explorer';
+export type { FileExplorerProps } from './file-explorer';

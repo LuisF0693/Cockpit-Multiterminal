@@ -20,6 +20,8 @@ import {
   TimelineEventSchema,
   WorkspaceListSchema,
   ProjectListSchema,
+  ProjectDirEntrySchema,
+  ProjectReadFileResponseSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -45,7 +47,9 @@ import {
   type ProjectCreateRequest,
   type ProjectUpdateRequest,
   type ProjectRemoveRequest,
-  type ProjectSetActiveRequest
+  type ProjectSetActiveRequest,
+  type ProjectReadDirRequest,
+  type ProjectReadFileRequest
 } from '@cockpit/shared';
 
 /**
@@ -168,6 +172,14 @@ const api: CockpitApi = {
     pickFolder: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectPickFolder);
       return z.string().nullable().parse(raw);
+    },
+    readDir: async (req: ProjectReadDirRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadDir, req);
+      return ProjectDirEntrySchema.array().parse(raw);
+    },
+    readFile: async (req: ProjectReadFileRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadFile, req);
+      return raw === null ? null : ProjectReadFileResponseSchema.parse(raw);
     }
   },
   recovery: {

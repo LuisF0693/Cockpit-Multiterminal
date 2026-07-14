@@ -42,6 +42,9 @@ export const IpcChannels = {
   projectSetActive: 'project.setActive',
   /** Diálogo nativo de seleção de pasta (Story 8.2, AC4). */
   projectPickFolder: 'project.pickFolder',
+  /** Explorador de arquivos (Story 8.4) — leitura no Main (node:fs). */
+  projectReadDir: 'project.readDir',
+  projectReadFile: 'project.readFile',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -406,6 +409,37 @@ export type ProjectRemoveRequest = z.infer<typeof ProjectRemoveRequestSchema>;
 export const ProjectSetActiveRequestSchema = z.object({ id: z.string().min(1) });
 export type ProjectSetActiveRequest = z.infer<typeof ProjectSetActiveRequestSchema>;
 
+/**
+ * Explorador de arquivos (Story 8.4, FR23) — leitura acontece no Main
+ * (node:fs); o renderer só navega a árvore e pede preview de texto (AC4).
+ */
+export const ProjectDirEntrySchema = z.object({
+  name: z.string().min(1),
+  path: z.string().min(1),
+  isDirectory: z.boolean()
+});
+export type ProjectDirEntry = z.infer<typeof ProjectDirEntrySchema>;
+
+export const ProjectReadDirRequestSchema = z.object({
+  /** Projeto de origem — default o ativo. */
+  projectId: z.string().min(1).optional(),
+  /** Subpasta a listar — default a raiz do projeto (rootPath). */
+  dirPath: z.string().min(1).optional()
+});
+export type ProjectReadDirRequest = z.infer<typeof ProjectReadDirRequestSchema>;
+
+export const ProjectReadFileRequestSchema = z.object({
+  path: z.string().min(1),
+  maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
+});
+export type ProjectReadFileRequest = z.infer<typeof ProjectReadFileRequestSchema>;
+
+export const ProjectReadFileResponseSchema = z.object({
+  content: z.string(),
+  truncated: z.boolean()
+});
+export type ProjectReadFileResponse = z.infer<typeof ProjectReadFileResponseSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -497,6 +531,10 @@ export interface CockpitApi {
     setActive(req: ProjectSetActiveRequest): Promise<ProjectList>;
     /** Diálogo nativo de pasta (Story 8.2, AC4) — null se o usuário cancelar. */
     pickFolder(): Promise<string | null>;
+    /** Árvore de arquivos do projeto (Story 8.4, AC1/AC3) — respeita .gitignore. */
+    readDir(req: ProjectReadDirRequest): Promise<ProjectDirEntry[]>;
+    /** Preview de leitura de um arquivo de texto (Story 8.4, AC2) — null se binário/erro. */
+    readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

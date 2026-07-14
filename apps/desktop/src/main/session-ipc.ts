@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
-import { join } from 'node:path';
+import { readdir, readFile as fsReadFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
   PersistenceManager,
@@ -9,6 +10,10 @@ import {
   planSdcReviewRouting,
   planSdcCorrectionRouting,
   planSdcRedirect,
+  ALWAYS_HIDDEN_NAMES,
+  isGitignored,
+  isPathWithin,
+  parseGitignorePatterns,
   type StateStore
 } from '@cockpit/core';
 import {
@@ -35,6 +40,9 @@ import {
   ProjectUpdateRequestSchema,
   ProjectRemoveRequestSchema,
   ProjectSetActiveRequestSchema,
+  ProjectReadDirRequestSchema,
+  ProjectReadFileRequestSchema,
+  type ProjectDirEntry,
   type SessionEvent,
   type TaskEvent
 } from '@cockpit/shared';
@@ -292,6 +300,69 @@ export function registerSessionIpc(
       ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
       : await dialog.showOpenDialog({ properties: ['openDirectory'] });
     return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+  });
+
+  // Explorador de arquivos (Story 8.4, FR23) — leitura no Main (node:fs),
+  // nunca no renderer (AC4). Contenção de caminho (isPathWithin) é defesa
+  // em profundidade — o renderer só navega o que o Main já devolveu.
+  const loadGitignore = async (rootPath: string): Promise<string[]> => {
+    try {
+      const content = await fsReadFile(join(rootPath, '.gitignore'), 'utf-8');
+      return parseGitignorePatterns(content);
+    } catch {
+      return [];
+    }
+  };
+
+  ipcMain.handle(IpcChannels.projectReadDir, async (_event, raw: unknown) => {
+    const req = ProjectReadDirRequestSchema.parse(raw);
+    const { projects, activeId } = persistence.projects();
+    const project = projects.find((p) => p.id === (req.projectId ?? activeId));
+    if (!project) return [];
+
+    const root = resolve(project.rootPath);
+    const target = resolve(req.dirPath ?? project.rootPath);
+    if (!isPathWithin(root, target)) return [];
+
+    const patterns = await loadGitignore(root);
+    let dirents;
+    try {
+      dirents = await readdir(target, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+
+    const entries: ProjectDirEntry[] = [];
+    for (const entry of dirents) {
+      if (ALWAYS_HIDDEN_NAMES.has(entry.name)) continue;
+      const fullPath = join(target, entry.name);
+      const relPath = relative(root, fullPath).split('\\').join('/');
+      const isDirectory = entry.isDirectory();
+      if (isGitignored(relPath, isDirectory, patterns)) continue;
+      entries.push({ name: entry.name, path: fullPath, isDirectory });
+    }
+    return entries.sort((a, b) =>
+      a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1
+    );
+  });
+
+  ipcMain.handle(IpcChannels.projectReadFile, async (_event, raw: unknown) => {
+    const req = ProjectReadFileRequestSchema.parse(raw);
+    const { projects } = persistence.projects();
+    const target = resolve(req.path);
+    if (!projects.some((p) => isPathWithin(resolve(p.rootPath), target))) return null;
+
+    try {
+      const buf = await fsReadFile(target);
+      // Heurística simples de binário: byte nulo nos primeiros 8000 bytes.
+      if (buf.subarray(0, 8000).includes(0)) return null;
+      return {
+        content: buf.subarray(0, req.maxBytes).toString('utf-8'),
+        truncated: buf.byteLength > req.maxBytes
+      };
+    } catch {
+      return null;
+    }
   });
 
   // Tarefas (Story 5.1)
