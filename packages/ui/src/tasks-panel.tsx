@@ -24,6 +24,8 @@ export interface TasksPanelProps {
   onUnlink: (terminalId: string) => void;
   /** Envia a mesma instrução a todos os terminais vinculados (Story 5.2, AC3). */
   onInstruct: (taskId: string, text: string) => void;
+  /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
+  onOpenReview: (taskId: string) => void;
 }
 
 export function TasksPanel({
@@ -32,7 +34,8 @@ export function TasksPanel({
   onCreate,
   onTransition,
   onUnlink,
-  onInstruct
+  onInstruct,
+  onOpenReview
 }: TasksPanelProps): JSX.Element {
   const [title, setTitle] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -118,9 +121,18 @@ export function TasksPanel({
                   {t.title}
                 </strong>
                 {isThreeBrain && (
-                  <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 12 }}>
-                    🧠
-                  </span>
+                  <>
+                    <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 12 }}>
+                      🧠
+                    </span>
+                    <button
+                      onClick={() => onOpenReview(t.id)}
+                      style={buttonStyle}
+                      title="painel de revisão lado a lado (Story 7.3)"
+                    >
+                      revisão
+                    </button>
+                  </>
                 )}
                 <span style={{ color: '#9CA3AF', fontSize: 12 }}>{TASK_STATE_LABEL[t.state]}</span>
                 <span style={{ display: 'flex', gap: 6 }}>

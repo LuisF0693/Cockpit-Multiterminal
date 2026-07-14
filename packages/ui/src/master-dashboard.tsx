@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { SessionRecord, Task, TaskRole } from '@cockpit/shared';
+import { classifyTaskRoles, type SessionRecord, type Task, type TaskRole } from '@cockpit/shared';
 
 /** Espelho leve de TaskDecisionRequestSchema['action'] (Story 5.3). */
 export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
@@ -38,6 +38,8 @@ export interface MasterDashboardProps {
   onLinkTask: (terminalId: string, taskId: string | null, role?: TaskRole | null) => void;
   /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
   onDecide: (taskId: string, action: TaskDecisionAction, opts?: { justification?: string; redirectTo?: string }) => void;
+  /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
+  onOpenReview: (taskId: string) => void;
 }
 
 export function MasterDashboard({
@@ -47,7 +49,8 @@ export function MasterDashboard({
   onInstruct,
   onOpenReport,
   onLinkTask,
-  onDecide
+  onDecide,
+  onOpenReview
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -123,6 +126,15 @@ export function MasterDashboard({
                   <strong style={{ minWidth: 140 }}>{t.title}</strong>
                   <span style={{ color: '#9CA3AF' }}>aguardando decisão</span>
                   <span style={{ flex: 1 }} />
+                  {classifyTaskRoles(sessions, t.id).isThreeBrain && (
+                    <button
+                      onClick={() => onOpenReview(t.id)}
+                      style={queueButtonStyle}
+                      title="painel de revisão lado a lado (Story 7.3)"
+                    >
+                      🧠 revisão
+                    </button>
+                  )}
                   <button onClick={() => onDecide(t.id, 'approve')} style={queueButtonStyle} title="aprovar → revisada">
                     ✓ aprovar
                   </button>

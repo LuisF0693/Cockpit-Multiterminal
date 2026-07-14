@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, planSdcReviewRouting, type StateStore } from '@cockpit/core';
 import {
@@ -12,6 +13,7 @@ import {
   SessionRenameRequestSchema,
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
+  SdcTranscriptTailRequestSchema,
   TaskCreateRequestSchema,
   TaskDecisionRequestSchema,
   TaskLinkRequestSchema,
@@ -22,7 +24,7 @@ import {
   type SessionEvent,
   type TaskEvent
 } from '@cockpit/shared';
-import type { DaemonSessionInfo } from '@cockpit/pty-host';
+import { readScrollbackTail, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * Cola entre SessionRegistry (fonte de verdade, @cockpit/core) e o mundo:
@@ -71,7 +73,9 @@ export interface SessionIpcHandle {
 export function registerSessionIpc(
   ptyHost: PtyBackend,
   store: StateStore,
-  applyBatch: (batch: Array<() => void>) => void
+  applyBatch: (batch: Array<() => void>) => void,
+  /** Story 7.3: diretório de scrollback (mesma config de 1.4/6.x) — leitura passiva de trecho recente. */
+  opts?: { scrollbackDir?: string }
 ): SessionIpcHandle {
   // Porta de cada createPty fica estacionada até o registry devolver o session id.
   const parkedPorts = new Map<string, Electron.MessagePortMain>();
@@ -256,6 +260,16 @@ export function registerSessionIpc(
       registry.linkTask(req.redirectTo, req.taskId);
     }
     return updated;
+  });
+
+  // Painel de revisão (Story 7.3, AC1): trecho recente do scrollback
+  // PERSISTIDO (mesmo arquivo da 1.4/6.2) — leitura passiva, nunca abre uma
+  // segunda MessagePort concorrente com o tile real (decisão crítica 4).
+  ipcMain.handle(IpcChannels.sdcTranscriptTail, (_event, raw: unknown) => {
+    const req = SdcTranscriptTailRequestSchema.parse(raw);
+    if (!opts?.scrollbackDir) return '';
+    const file = join(opts.scrollbackDir, `${req.terminalId}.log`);
+    return new TextDecoder().decode(readScrollbackTail(file, req.maxBytes));
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());

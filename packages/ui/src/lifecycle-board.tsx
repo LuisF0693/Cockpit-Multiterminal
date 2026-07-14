@@ -22,9 +22,17 @@ export interface LifecycleBoardProps {
   onCreate: (title: string) => void;
   /** Move a tarefa para o novo estado — só chamado quando a transição é válida (AC2). */
   onMove: (taskId: string, to: TaskState) => void;
+  /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
+  onOpenReview: (taskId: string) => void;
 }
 
-export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleBoardProps): JSX.Element {
+export function LifecycleBoard({
+  tasks,
+  sessions,
+  onCreate,
+  onMove,
+  onOpenReview
+}: LifecycleBoardProps): JSX.Element {
   const [title, setTitle] = useState('');
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskState | null>(null);
@@ -164,9 +172,19 @@ export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleB
                         {t.title}
                       </strong>
                       {classifyTaskRoles(sessions, t.id).isThreeBrain && (
-                        <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 11 }}>
+                        <button
+                          onClick={() => onOpenReview(t.id)}
+                          title="painel de revisão lado a lado (Story 7.3) — Modo three-brain: 1 escritor + 2+ revisores"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            padding: 0
+                          }}
+                        >
                           🧠
-                        </span>
+                        </button>
                       )}
                     </span>
                     {linked.length === 0 ? (

@@ -47,6 +47,8 @@ export const IpcChannels = {
   taskEvent: 'task.event',
   /** Push Main → renderer: roteamento automático escritor→revisores (Story 7.2). */
   sdcReviewRequested: 'sdc.reviewRequested',
+  /** Trecho recente do scrollback persistido de um terminal (Story 7.3). */
+  sdcTranscriptTail: 'sdc.transcriptTail',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -299,6 +301,17 @@ export const SdcReviewRequestedEventSchema = z.object({
 });
 export type SdcReviewRequestedEvent = z.infer<typeof SdcReviewRequestedEventSchema>;
 
+/**
+ * Trecho recente do scrollback persistido de um terminal (Story 7.3, AC1) —
+ * lê do ARQUIVO (mesma fonte da 1.4/6.2), nunca da PTY ao vivo. `maxBytes`
+ * pequeno por padrão: é um TRECHO, não o scrollback inteiro.
+ */
+export const SdcTranscriptTailRequestSchema = z.object({
+  terminalId: z.string().min(1),
+  maxBytes: z.number().int().positive().max(65536).default(4096)
+});
+export type SdcTranscriptTailRequest = z.infer<typeof SdcTranscriptTailRequestSchema>;
+
 /** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelável. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
@@ -412,5 +425,7 @@ export interface CockpitApi {
   sdc: {
     /** Roteamento automático de revisão (Story 7.2, FR17); retorna unsubscribe. */
     onReviewRequested(cb: (event: SdcReviewRequestedEvent) => void): () => void;
+    /** Trecho recente do scrollback persistido de um terminal (Story 7.3, AC1). */
+    transcriptTail(req: SdcTranscriptTailRequest): Promise<string>;
   };
 }

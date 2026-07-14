@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
@@ -28,6 +29,7 @@ import {
   type SessionReportRequest,
   type SessionResizeRequest,
   type SdcReviewRequestedEvent,
+  type SdcTranscriptTailRequest,
   type TaskCreateRequest,
   type TaskDecisionRequest,
   type TaskEvent,
@@ -177,6 +179,10 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.sdcReviewRequested, listener);
       return () => ipcRenderer.removeListener(IpcChannels.sdcReviewRequested, listener);
+    },
+    transcriptTail: async (req: SdcTranscriptTailRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sdcTranscriptTail, req);
+      return z.string().parse(raw);
     }
   }
 };

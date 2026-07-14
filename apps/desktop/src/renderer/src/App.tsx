@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   TERMINAL_PORT_MESSAGE,
+  classifyTaskRoles,
   type AdapterInfo,
   type AppInfo,
   type CockpitApi,
@@ -10,6 +11,7 @@ import {
   LifecycleBoard,
   MasterDashboard,
   RecoveryScreen,
+  ReviewPanel,
   SessionReportView,
   Sidebar,
   StatusPulseStyles,
@@ -50,7 +52,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -102,6 +104,37 @@ export function App(): JSX.Element {
     const timer = setInterval(() => refreshReport(reportId), 5000);
     return () => clearInterval(timer);
   }, [view, reportId]);
+
+  // Painel de revisão (Story 7.3): escritor + tarefa em modo three-brain.
+  const [reviewTaskId, setReviewTaskId] = useState<string | null>(null);
+  const [transcripts, setTranscripts] = useState<Record<string, string>>({});
+
+  const refreshTranscripts = (taskId: string): void => {
+    const roles = classifyTaskRoles(useCockpitStore.getState().sessions, taskId);
+    const ids = (roles.writer ? [roles.writer, ...roles.reviewers] : roles.reviewers).map((s) => s.id);
+    void Promise.all(
+      ids.map((id) =>
+        window.cockpit.sdc
+          .transcriptTail({ terminalId: id, maxBytes: 4096 })
+          .then((text): [string, string] => [id, text])
+      )
+    )
+      .then((pairs) => setTranscripts(Object.fromEntries(pairs)))
+      .catch(() => void 0);
+  };
+
+  // Revisão ativa (Story 7.3): mesmo padrão de refresh-na-entrada + 5s.
+  useEffect(() => {
+    if (view !== 'review' || !reviewTaskId) return;
+    refreshTranscripts(reviewTaskId);
+    const timer = setInterval(() => refreshTranscripts(reviewTaskId), 5000);
+    return () => clearInterval(timer);
+  }, [view, reviewTaskId]);
+
+  const goToReview = (taskId: string): void => {
+    setReviewTaskId(taskId);
+    setView('review');
+  };
 
   const sessions = useCockpitStore((s) => s.sessions);
   const layout = useCockpitStore((s) => s.layout);
@@ -586,6 +619,17 @@ export function App(): JSX.Element {
             }}
             onLinkTask={linkTask}
             onDecide={decideTask}
+            onOpenReview={goToReview}
+          />
+        )}
+
+        {view === 'review' && (
+          <ReviewPanel
+            task={tasks.find((t) => t.id === reviewTaskId) ?? null}
+            sessions={sessions}
+            transcripts={transcripts}
+            onBack={() => setView('master')}
+            onRefresh={() => reviewTaskId && refreshTranscripts(reviewTaskId)}
           />
         )}
 
@@ -610,11 +654,18 @@ export function App(): JSX.Element {
             onTransition={transitionTask}
             onUnlink={(terminalId) => linkTask(terminalId, null)}
             onInstruct={instructTaskAgents}
+            onOpenReview={goToReview}
           />
         )}
 
         {view === 'board' && (
-          <LifecycleBoard tasks={tasks} sessions={sessions} onCreate={createTask} onMove={transitionTask} />
+          <LifecycleBoard
+            tasks={tasks}
+            sessions={sessions}
+            onCreate={createTask}
+            onMove={transitionTask}
+            onOpenReview={goToReview}
+          />
         )}
 
         <section
