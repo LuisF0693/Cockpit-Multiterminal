@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { SessionRecord } from '@cockpit/shared';
+import { statusColor, statusLabel } from './status-colors';
 
 /**
  * Sidebar de navegação em árvore (escopo mínimo da 1.3: só sessões).
@@ -65,12 +66,33 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
               cursor: 'pointer'
             }}
           >
-            <span style={{ fontSize: 10, color: s.status === 'running' ? '#34D399' : '#F87171' }}>
+            <span
+              title={statusLabel(s.agentStatus)}
+              style={{
+                fontSize: 10,
+                color: s.status === 'exited' ? '#F87171' : statusColor(s.agentStatus)
+              }}
+            >
               ●
             </span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {s.name}
             </span>
+            {s.agentStatus === 'waiting-input' && s.status === 'running' && (
+              <span
+                title="aguardando você"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: '#0B0F14',
+                  background: statusColor('waiting-input'),
+                  borderRadius: 8,
+                  padding: '0 6px'
+                }}
+              >
+                !
+              </span>
+            )}
             {i < 9 && <kbd style={{ fontSize: 10, color: '#6B7280' }}>⌃{i + 1}</kbd>}
           </button>
         ))}

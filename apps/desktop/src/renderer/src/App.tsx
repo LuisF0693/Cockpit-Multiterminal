@@ -6,7 +6,7 @@ import {
   type CockpitApi,
   type TerminalPortMessage
 } from '@cockpit/shared';
-import { Sidebar, TerminalTile, matchShortcut } from '@cockpit/ui';
+import { Sidebar, StatusPulseStyles, TerminalTile, matchShortcut, statusColor } from '@cockpit/ui';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -148,6 +148,7 @@ export function App(): JSX.Element {
         overflow: 'hidden'
       }}
     >
+      <StatusPulseStyles />
       <header
         style={{
           display: 'flex',
@@ -166,6 +167,27 @@ export function App(): JSX.Element {
           </span>
         )}
         <span style={{ flex: 1 }} />
+        {(() => {
+          const waiting = sessions.filter(
+            (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
+          ).length;
+          if (waiting === 0) return null;
+          return (
+            <span
+              title="Agentes aguardando sua decisão"
+              style={{
+                background: statusColor('waiting-input'),
+                color: '#0B0F14',
+                fontWeight: 700,
+                fontSize: 12,
+                borderRadius: 12,
+                padding: '3px 10px'
+              }}
+            >
+              {waiting} aguardando você
+            </span>
+          );
+        })()}
         {adapters.length > 1 && (
           <select
             value={selectedAdapter}

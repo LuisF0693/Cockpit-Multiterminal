@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SessionRecord } from '@cockpit/shared';
 import { TerminalView } from './terminal-view';
+import { statusColor, statusLabel } from './status-colors';
 import type { TileLayout } from './layout';
 
 /**
@@ -23,15 +24,6 @@ export interface TerminalTileProps {
   onResizeTile: (width: number, height: number) => void;
   onResizePty: (size: { cols: number; rows: number }) => void;
 }
-
-/** Código de cores de status (front-end spec — base do painel da 2.5). */
-const STATUS_COLORS: Record<string, string> = {
-  idle: '#6B7280',
-  working: '#34D399',
-  'waiting-input': '#FBBF24',
-  done: '#60A5FA',
-  error: '#F87171'
-};
 
 type DragState =
   | { kind: 'move'; startX: number; startY: number; originX: number; originY: number }
@@ -108,7 +100,10 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
   };
 
   const exited = session.status === 'exited';
-  const statusColor = STATUS_COLORS[session.agentStatus] ?? '#6B7280';
+  const dotColor = statusColor(session.agentStatus);
+  // Destaque proeminente de waiting-input (Story 2.5 / FR9): pulso âmbar
+  // que vence o focus ring — visível mesmo em tile desfocado.
+  const waiting = session.agentStatus === 'waiting-input' && !exited;
 
   return (
     <section
@@ -123,9 +118,18 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         display: 'flex',
         flexDirection: 'column',
         background: '#0B0F14',
-        border: focused ? '1px solid #22D3EE' : '1px solid #1F2937',
+        border: waiting
+          ? `1px solid ${dotColor}`
+          : focused
+            ? '1px solid #22D3EE'
+            : '1px solid #1F2937',
         borderRadius: 8,
-        boxShadow: focused ? '0 0 0 1px #22D3EE55, 0 8px 24px #00000066' : '0 4px 16px #00000044',
+        boxShadow: waiting
+          ? undefined
+          : focused
+            ? '0 0 0 1px #22D3EE55, 0 8px 24px #00000066'
+            : '0 4px 16px #00000044',
+        animation: waiting ? 'cockpit-waiting-pulse 1.2s ease-in-out infinite' : undefined,
         overflow: 'hidden'
       }}
     >
@@ -148,8 +152,12 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         }}
       >
         <span
-          title={`${session.adapterId} · ${session.agentStatus}`}
-          style={{ fontSize: 11, color: exited ? '#F87171' : statusColor }}
+          title={`${session.adapterId} · ${statusLabel(session.agentStatus)}`}
+          style={{
+            fontSize: waiting ? 14 : 11,
+            color: exited ? '#F87171' : dotColor,
+            transition: 'font-size 150ms'
+          }}
         >
           ●
         </span>

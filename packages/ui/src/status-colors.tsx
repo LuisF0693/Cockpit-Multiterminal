@@ -1,0 +1,42 @@
+import type { AgentStatus } from '@cockpit/shared';
+
+/**
+ * Código de cores de status (Story 2.5, AC1) — fonte de verdade ÚNICA:
+ * tile, sidebar e header consomem daqui (front-end spec: tokens-first).
+ */
+
+export const STATUS_COLORS: Record<AgentStatus, string> = {
+  idle: '#6B7280',
+  working: '#34D399',
+  'waiting-input': '#FBBF24',
+  done: '#60A5FA',
+  error: '#F87171'
+};
+
+export const STATUS_LABELS: Record<AgentStatus, string> = {
+  idle: 'ocioso',
+  working: 'trabalhando',
+  'waiting-input': 'aguardando você',
+  done: 'concluído',
+  error: 'erro'
+};
+
+export function statusColor(status: AgentStatus): string {
+  return STATUS_COLORS[status];
+}
+
+export function statusLabel(status: AgentStatus): string {
+  return STATUS_LABELS[status];
+}
+
+/** Keyframes do pulso de waiting-input — renderizar UMA vez (App). */
+export function StatusPulseStyles(): JSX.Element {
+  return (
+    <style>{`
+      @keyframes cockpit-waiting-pulse {
+        0%, 100% { box-shadow: 0 0 0 1px ${STATUS_COLORS['waiting-input']}66, 0 0 12px 2px ${STATUS_COLORS['waiting-input']}44; }
+        50% { box-shadow: 0 0 0 2px ${STATUS_COLORS['waiting-input']}CC, 0 0 20px 6px ${STATUS_COLORS['waiting-input']}77; }
+      }
+    `}</style>
+  );
+}
