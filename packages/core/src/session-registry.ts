@@ -48,6 +48,8 @@ export class SessionRegistry {
     adapterId?: string | undefined;
     /** Workspace (3.6): default 'Geral'. */
     workspace?: string | undefined;
+    /** Tarefa vinculada (5.2) — preservada no relançamento/restore. */
+    taskId?: string | null | undefined;
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
@@ -72,7 +74,8 @@ export class SessionRegistry {
       adapterId,
       agentStatus: 'working',
       lastStatusChangeAt: Date.now(),
-      workspace: opts.workspace ?? 'Geral'
+      workspace: opts.workspace ?? 'Geral',
+      taskId: opts.taskId ?? null
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -83,6 +86,14 @@ export class SessionRegistry {
     const session = this.get(id);
     session.record = { ...session.record, name };
     this.emit({ type: 'renamed', session: session.record });
+    return session.record;
+  }
+
+  /** Vincula/desvincula tarefa (Story 5.2, AC1) — taskId=null desvincula. */
+  linkTask(id: string, taskId: string | null): SessionRecord {
+    const session = this.get(id);
+    session.record = { ...session.record, taskId };
+    this.emit({ type: 'task_linked', session: session.record });
     return session.record;
   }
 
@@ -140,6 +151,7 @@ export class SessionRegistry {
     workspace: string;
     pid: number;
     createdAt?: number;
+    taskId?: string | null;
   }): SessionRecord {
     const record: SessionRecord = {
       id: opts.id,
@@ -151,7 +163,8 @@ export class SessionRegistry {
       adapterId: opts.adapterId,
       agentStatus: 'working',
       lastStatusChangeAt: Date.now(),
-      workspace: opts.workspace
+      workspace: opts.workspace,
+      taskId: opts.taskId ?? null
     };
     // ptyId = id da sessão no daemon (tag) — decisão da 6.1.
     this.sessions.set(record.id, { record, ptyId: opts.id });

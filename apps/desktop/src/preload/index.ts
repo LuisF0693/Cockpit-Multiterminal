@@ -28,6 +28,7 @@ import {
   type SessionResizeRequest,
   type TaskCreateRequest,
   type TaskEvent,
+  type TaskLinkRequest,
   type TaskUpdateStateRequest,
   type TerminalPortMessage,
   type WorkspaceCreateRequest,
@@ -70,6 +71,10 @@ const api: CockpitApi = {
     report: async (req: SessionReportRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionReport, req);
       return raw === null ? null : SessionReportSchema.parse(raw);
+    },
+    linkTask: async (req: TaskLinkRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionLinkTask, req);
+      return SessionRecordSchema.parse(raw);
     },
     onEvent: (cb: (event: SessionEvent) => void) => {
       const listener = (_e: unknown, raw: unknown): void => {

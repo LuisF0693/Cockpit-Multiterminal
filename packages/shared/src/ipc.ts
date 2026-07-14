@@ -23,6 +23,8 @@ export const IpcChannels = {
   sessionList: 'session.list',
   /** Registro de instrução enviada via master (trilha — Story 3.2). */
   sessionInstructed: 'session.instructed',
+  /** Vincula/desvincula tarefa a um terminal (Story 5.2). */
+  sessionLinkTask: 'session.linkTask',
   /** Relatório de sessão (Story 3.5) — projeção da trilha de eventos. */
   sessionReport: 'session.report',
   adapterList: 'adapter.list',
@@ -91,7 +93,9 @@ export const SessionRecordSchema = z.object({
   /** Exit code do processo quando exited (Story 3.5) — ausente enquanto running. */
   exitCode: z.number().int().optional(),
   /** Workspace/projeto da sessão (Story 3.6) — default 'Geral'. */
-  workspace: z.string().min(1)
+  workspace: z.string().min(1),
+  /** Tarefa vinculada (Story 5.2) — null = sem vínculo; um terminal aponta p/ no máx. 1 tarefa. */
+  taskId: z.string().min(1).nullable()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
@@ -129,10 +133,17 @@ export const SessionResizeRequestSchema = z.object({
 export type SessionResizeRequest = z.infer<typeof SessionResizeRequestSchema>;
 
 export const SessionEventSchema = z.object({
-  type: z.enum(['created', 'renamed', 'closed', 'exited', 'status']),
+  type: z.enum(['created', 'renamed', 'closed', 'exited', 'status', 'task_linked']),
   session: SessionRecordSchema
 });
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
+
+/** Vincular/desvincular tarefa a um terminal (Story 5.2, AC1) — taskId=null desvincula. */
+export const TaskLinkRequestSchema = z.object({
+  terminalId: z.string().min(1),
+  taskId: z.string().min(1).nullable()
+});
+export type TaskLinkRequest = z.infer<typeof TaskLinkRequestSchema>;
 
 /** Evento da timeline (Story 3.3) — projeção da tabela events. */
 export const TimelineEventSchema = z.object({
@@ -314,6 +325,8 @@ export interface CockpitApi {
     instructed(req: { id: string; text: string }): Promise<void>;
     /** Relatório da sessão (Story 3.5) — null se a sessão nunca persistiu. */
     report(req: SessionReportRequest): Promise<SessionReport | null>;
+    /** Vincula/desvincula tarefa (Story 5.2, AC1) — taskId=null desvincula. */
+    linkTask(req: TaskLinkRequest): Promise<SessionRecord>;
   };
   layout: {
     /** Layout salvo da última execução (vazio na primeira). */

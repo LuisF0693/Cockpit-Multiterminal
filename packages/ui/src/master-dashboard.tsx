@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { SessionRecord } from '@cockpit/shared';
+import { useEffect, useMemo, useState } from 'react';
+import type { SessionRecord, Task } from '@cockpit/shared';
 import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
 
@@ -17,11 +17,12 @@ const queueButtonStyle: React.CSSProperties = {
 /**
  * MasterDashboard (Story 3.1) — o Conductor: visão agregada de todos os
  * agentes com envio de instruções por linha (Story 3.2). Tela inicial do app.
- * Coluna "tarefa" nasce com "—" (vínculo Task chega no E5).
+ * Coluna "tarefa" vincula/mostra tarefas reais desde a Story 5.2.
  */
 
 export interface MasterDashboardProps {
   sessions: SessionRecord[];
+  tasks: Task[];
   onGoToTerminal: (id: string) => void;
   /**
    * Envia instrução ao agente (Story 3.2). Retorna false se o envio foi
@@ -30,17 +31,25 @@ export interface MasterDashboardProps {
   onInstruct: (id: string, text: string) => boolean;
   /** Abre o relatório da sessão (Story 3.5). */
   onOpenReport: (id: string) => void;
+  /** Vincula/desvincula tarefa ao terminal (Story 5.2, AC1/AC2). */
+  onLinkTask: (terminalId: string, taskId: string | null) => void;
 }
 
 export function MasterDashboard({
   sessions,
+  tasks,
   onGoToTerminal,
   onInstruct,
-  onOpenReport
+  onOpenReport,
+  onLinkTask
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sentAt, setSentAt] = useState<Record<string, number>>({});
+  const taskTitle = useMemo(() => {
+    const byId = new Map(tasks.map((t) => [t.id, t.title]));
+    return (id: string | null): string => (id ? (byId.get(id) ?? '—') : '—');
+  }, [tasks]);
 
   // Tempo no status precisa andar sozinho (tick 1s).
   useEffect(() => {
@@ -88,7 +97,7 @@ export function MasterDashboard({
               {waitingList.map((s) => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
                   <strong style={{ minWidth: 140 }}>{s.name}</strong>
-                  <span style={{ color: '#9CA3AF' }}>tarefa: —</span>
+                  <span style={{ color: '#9CA3AF' }}>tarefa: {taskTitle(s.taskId)}</span>
                   <span style={{ color: statusColor('waiting-input'), fontFamily: 'monospace' }}>
                     aguarda há {formatDuration(Date.now() - s.lastStatusChangeAt)}
                   </span>
@@ -140,9 +149,27 @@ export function MasterDashboard({
               >
                 {formatDuration(Date.now() - s.lastStatusChangeAt)}
               </span>
-              <span style={{ fontSize: 12, color: '#4B5563' }} title="tarefa vinculada (E5)">
-                —
-              </span>
+              <select
+                value={s.taskId ?? ''}
+                onChange={(e) => onLinkTask(s.id, e.target.value || null)}
+                title="Tarefa vinculada (Story 5.2)"
+                style={{
+                  background: '#111827',
+                  color: s.taskId ? '#E5E7EB' : '#6B7280',
+                  border: '1px solid #1F2937',
+                  borderRadius: 6,
+                  padding: '4px 6px',
+                  fontSize: 11,
+                  maxWidth: '100%'
+                }}
+              >
+                <option value="">— sem tarefa —</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
               <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input
                   value={drafts[s.id] ?? ''}

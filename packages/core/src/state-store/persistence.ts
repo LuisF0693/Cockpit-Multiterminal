@@ -24,6 +24,7 @@ export class PersistenceManager {
         switch (event.type) {
           case 'created':
           case 'renamed':
+          case 'task_linked':
             this.store.upsertTerminal({
               id: s.id,
               name: s.name,
@@ -31,6 +32,7 @@ export class PersistenceManager {
               status: s.status,
               adapterId: s.adapterId,
               workspace: s.workspace,
+              taskId: s.taskId,
               tile: null,
               createdAt: s.createdAt,
               archivedAt: null
@@ -64,7 +66,8 @@ export class PersistenceManager {
           payload: {
             name: s.name,
             cwd: s.cwd,
-            ...(event.type === 'exited' && s.exitCode !== undefined ? { exitCode: s.exitCode } : {})
+            ...(event.type === 'exited' && s.exitCode !== undefined ? { exitCode: s.exitCode } : {}),
+            ...(event.type === 'task_linked' ? { taskId: s.taskId } : {})
           }
         });
       });
@@ -167,6 +170,7 @@ export class PersistenceManager {
           cwd: t.cwd,
           adapterId: t.adapterId,
           workspace: t.workspace,
+          taskId: t.taskId,
           cols: 80,
           rows: 24,
           restore: true

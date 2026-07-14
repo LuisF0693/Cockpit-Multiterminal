@@ -364,6 +364,54 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(trail[0]!.payload).toMatchObject({ choice: 'selective', restored: 1, archived: 2, adopted: 0 });
   });
 
+  it('linkTask vincula/desvincula, persiste e grava trilha (Story 5.2, AC1)', async () => {
+    const { store, queue, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24, name: 'Build' });
+    expect(s.taskId).toBeNull(); // default
+
+    const linked = registry.linkTask(s.id, 'task-abc');
+    queue.flush();
+    expect(linked.taskId).toBe('task-abc');
+    expect(store.terminals.get(s.id)!.taskId).toBe('task-abc'); // persistido
+
+    const unlinked = registry.linkTask(s.id, null);
+    queue.flush();
+    expect(unlinked.taskId).toBeNull();
+    expect(store.terminals.get(s.id)!.taskId).toBeNull();
+
+    const trail = store.listEvents({ limit: 10, type: 'terminal.task_linked' });
+    expect(trail).toHaveLength(2);
+    // mesmo ms → ordem entre iguais não é garantida; comparar como conjunto
+    expect(trail.map((e) => e.payload['taskId']).sort()).toEqual([null, 'task-abc'].sort());
+    expect(trail.every((e) => e.terminalId === s.id)).toBe(true);
+  });
+
+  it('linkTask preserva os demais campos do terminal (nome/cwd/workspace/adapter)', async () => {
+    const { store, queue, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24, name: 'API', cwd: 'C:/api', workspace: 'Alpha' });
+    queue.flush();
+
+    registry.linkTask(s.id, 'task-xyz');
+    queue.flush();
+
+    const row = store.terminals.get(s.id)!;
+    expect(row).toMatchObject({ name: 'API', cwd: 'C:/api', workspace: 'Alpha', adapterId: 'shell', taskId: 'task-xyz' });
+  });
+
+  it('vínculo sobrevive ao relaunch clássico do restore() (Story 5.2)', async () => {
+    const first = makeHarness();
+    const s = await first.registry.create({ cols: 80, rows: 24, name: 'API' });
+    first.registry.linkTask(s.id, 'task-persist');
+    first.queue.flush();
+
+    const registry2 = new SessionRegistry(makeOps());
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    manager2.wire(registry2);
+    await manager2.restore(registry2);
+
+    expect(registry2.list()[0]!.taskId).toBe('task-persist');
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

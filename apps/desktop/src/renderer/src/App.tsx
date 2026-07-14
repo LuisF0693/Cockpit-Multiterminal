@@ -314,6 +314,20 @@ export function App(): JSX.Element {
     return true;
   };
 
+  /** Vincula/desvincula tarefa a um terminal (Story 5.2, AC1) — o push (session.onEvent) atualiza a UI. */
+  const linkTask = (terminalId: string, taskId: string | null): void => {
+    void window.cockpit.session
+      .linkTask({ terminalId, taskId })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /** Instrui TODOS os terminais vinculados à tarefa (Story 5.2, AC3) — reusa instructAgent. */
+  const instructTaskAgents = (taskId: string, text: string): void => {
+    for (const s of useCockpitStore.getState().sessions) {
+      if (s.taskId === taskId) instructAgent(s.id, text);
+    }
+  };
+
   const closeSession = async (id: string): Promise<void> => {
     const session = useCockpitStore.getState().sessions.find((s) => s.id === id);
     if (!session) return;
@@ -517,12 +531,14 @@ export function App(): JSX.Element {
         {view === 'master' && (
           <MasterDashboard
             sessions={sessions}
+            tasks={tasks}
             onGoToTerminal={goToTerminal}
             onInstruct={instructAgent}
             onOpenReport={(id) => {
               setReportId(id);
               setView('report');
             }}
+            onLinkTask={linkTask}
           />
         )}
 
@@ -539,7 +555,16 @@ export function App(): JSX.Element {
           <TimelineView events={timelineEvents} sessions={sessions} onRefresh={refreshTimeline} />
         )}
 
-        {view === 'tasks' && <TasksPanel tasks={tasks} onCreate={createTask} onTransition={transitionTask} />}
+        {view === 'tasks' && (
+          <TasksPanel
+            tasks={tasks}
+            sessions={sessions}
+            onCreate={createTask}
+            onTransition={transitionTask}
+            onUnlink={(terminalId) => linkTask(terminalId, null)}
+            onInstruct={instructTaskAgents}
+          />
+        )}
 
         <section
           style={{

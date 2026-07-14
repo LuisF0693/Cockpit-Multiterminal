@@ -21,6 +21,7 @@ export class MemoryStateStore implements StateStore {
       ...t,
       adapterId: t.adapterId || prev?.adapterId || 'shell',
       workspace: t.workspace || prev?.workspace || 'Geral',
+      taskId: t.taskId ?? null,
       tile: t.tile ?? prev?.tile ?? null
     });
   }
@@ -54,6 +55,11 @@ export class MemoryStateStore implements StateStore {
     for (const [id, t] of this.terminals) {
       if (t.workspace === from) this.terminals.set(id, { ...t, workspace: to });
     }
+  }
+
+  setTerminalTask(id: string, taskId: string | null): void {
+    const t = this.terminals.get(id);
+    if (t) this.terminals.set(id, { ...t, taskId });
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {

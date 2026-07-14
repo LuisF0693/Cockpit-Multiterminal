@@ -13,6 +13,7 @@ import {
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
   TaskCreateRequestSchema,
+  TaskLinkRequestSchema,
   TaskUpdateStateRequestSchema,
   WorkspaceCreateRequestSchema,
   WorkspaceRenameRequestSchema,
@@ -176,6 +177,11 @@ export function registerSessionIpc(
     persistence.recordInstruction(req.id, req.text);
   });
 
+  ipcMain.handle(IpcChannels.sessionLinkTask, (_event, raw: unknown) => {
+    const req = TaskLinkRequestSchema.parse(raw);
+    return registry.linkTask(req.terminalId, req.taskId);
+  });
+
   ipcMain.handle(IpcChannels.sessionReport, (_event, raw: unknown) => {
     const req = SessionReportRequestSchema.parse(raw);
     return persistence.sessionReport(req.id);
@@ -251,6 +257,7 @@ export function registerSessionIpc(
           cwd: t.cwd,
           adapterId: t.adapterId,
           workspace: t.workspace,
+          taskId: t.taskId,
           pid: live.pid,
           createdAt: t.createdAt
         });

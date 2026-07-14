@@ -15,6 +15,8 @@ export interface PersistedTerminal {
   adapterId: string;
   /** Workspace/projeto (schema v3 — Story 3.6); default 'Geral'. */
   workspace: string;
+  /** Tarefa vinculada (schema v5 — Story 5.2); null = sem vínculo. */
+  taskId: string | null;
   tile: LayoutTile | null;
   createdAt: number;
   archivedAt: number | null;
@@ -56,6 +58,8 @@ export interface StateStore {
   countEvents(opts: { terminalId?: string; type?: string }): number;
   /** Renomeia workspace em TODAS as linhas, arquivadas inclusive (Story 3.6). */
   renameWorkspace(from: string, to: string): void;
+  /** Vincula/desvincula tarefa ao terminal (Story 5.2); null desvincula. */
+  setTerminalTask(id: string, taskId: string | null): void;
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;

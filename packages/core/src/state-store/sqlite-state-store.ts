@@ -22,7 +22,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '4';
+const SCHEMA_VERSION = '5';
 
 interface TerminalRow {
   id: string;
@@ -31,6 +31,7 @@ interface TerminalRow {
   status: string;
   adapter_id: string;
   workspace: string | null;
+  task_id: string | null;
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
@@ -124,16 +125,29 @@ export class SqliteStateStore implements StateStore {
     }
     // v3 → v4 (Story 5.1): tabela tasks é NOVA — CREATE TABLE IF NOT EXISTS
     // acima já cobre instalações antigas e novas; nenhum ALTER necessário.
+    // v4 → v5 (Story 5.2): coluna task_id — mesmo padrão do ALTER idempotente.
+    const hasTaskIdColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('terminals') WHERE name = 'task_id'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasTaskIdColumn) {
+      this.db.exec(`ALTER TABLE terminals ADD COLUMN task_id TEXT`);
+      if (current === '4') {
+        console.log('[state] schema migrado v4 → v5 (task_id)');
+      }
+    }
   }
 
   upsertTerminal(t: PersistedTerminal): void {
     this.db
       .prepare(
-        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, tile_json, created_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, task_id, tile_json, created_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, cwd = excluded.cwd, status = excluded.status,
            adapter_id = excluded.adapter_id, workspace = excluded.workspace,
+           task_id = excluded.task_id,
            tile_json = COALESCE(excluded.tile_json, terminals.tile_json),
            archived_at = excluded.archived_at`
       )
@@ -144,6 +158,7 @@ export class SqliteStateStore implements StateStore {
         t.status,
         t.adapterId,
         t.workspace,
+        t.taskId,
         t.tile ? JSON.stringify(t.tile) : null,
         t.createdAt,
         t.archivedAt
@@ -177,6 +192,7 @@ export class SqliteStateStore implements StateStore {
       status: r.status === 'exited' ? 'exited' : 'running',
       adapterId: r.adapter_id ?? 'shell',
       workspace: r.workspace ?? 'Geral',
+      taskId: r.task_id ?? null,
       tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
       createdAt: r.created_at,
       archivedAt: r.archived_at
@@ -190,6 +206,10 @@ export class SqliteStateStore implements StateStore {
 
   renameWorkspace(from: string, to: string): void {
     this.db.prepare('UPDATE terminals SET workspace = ? WHERE workspace = ?').run(to, from);
+  }
+
+  setTerminalTask(id: string, taskId: string | null): void {
+    this.db.prepare('UPDATE terminals SET task_id = ? WHERE id = ?').run(taskId, id);
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {
