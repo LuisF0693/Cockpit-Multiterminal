@@ -12,9 +12,17 @@ export interface ProjectSidebarProps {
   activeId: string;
   onSelect: (id: string) => void;
   onCreate: () => void;
+  /** Cria um terminal NESSE projeto sem trocar o ativo (Story 8.3, AC3). */
+  onCreateTerminalIn: (id: string) => void;
 }
 
-export function ProjectSidebar({ projects, activeId, onSelect, onCreate }: ProjectSidebarProps): JSX.Element {
+export function ProjectSidebar({
+  projects,
+  activeId,
+  onSelect,
+  onCreate,
+  onCreateTerminalIn
+}: ProjectSidebarProps): JSX.Element {
   return (
     <aside
       style={{
@@ -33,7 +41,8 @@ export function ProjectSidebar({ projects, activeId, onSelect, onCreate }: Proje
         <button
           key={p.id}
           onClick={() => onSelect(p.id)}
-          title={`${p.name} — ${p.rootPath}`}
+          onDoubleClick={() => onCreateTerminalIn(p.id)}
+          title={`${p.name} — ${p.rootPath}\n(duplo-clique: novo terminal aqui, sem trocar de projeto)`}
           style={{
             width: 32,
             height: 32,

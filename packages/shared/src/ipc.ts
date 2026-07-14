@@ -127,7 +127,14 @@ export const SessionCreateRequestSchema = z.object({
   cwd: z.string().optional(),
   adapterId: z.string().min(1).optional(),
   /** Workspace de destino (Story 3.6) — default 'Geral'. */
-  workspace: z.string().min(1).optional()
+  workspace: z.string().min(1).optional(),
+  /**
+   * Projeto de destino (Story 8.3, AC3) — default o projeto ATIVO. Passar um
+   * id específico cria o terminal ali SEM trocar o ativo (atalho de
+   * conveniência a partir da barra lateral). Determina o cwd default (AC1)
+   * quando `cwd` não é passado explicitamente.
+   */
+  projectId: z.string().min(1).optional()
 });
 export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 

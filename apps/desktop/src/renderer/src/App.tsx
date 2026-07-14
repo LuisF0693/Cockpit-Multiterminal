@@ -312,7 +312,7 @@ export function App(): JSX.Element {
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
-  const newTerminal = async (adapterId?: string): Promise<void> => {
+  const newTerminal = async (adapterId?: string, opts?: { projectId?: string }): Promise<void> => {
     try {
       await window.cockpit.session.create({
         cols: 80,
@@ -320,11 +320,18 @@ export function App(): JSX.Element {
         adapterId: adapterId ?? selectedAdapter,
         // Novo terminal nasce no workspace ativo (3.6); ref evita stale closure
         // no atalho Ctrl+N registrado no mount.
-        workspace: workspacesRef.current.active
+        workspace: workspacesRef.current.active,
+        // Projeto de destino (Story 8.3, AC3) — omitido = projeto ativo (Main decide).
+        ...(opts?.projectId !== undefined ? { projectId: opts.projectId } : {})
       });
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
+  };
+
+  /** Atalho da barra lateral (Story 8.3, AC3): cria SEM trocar o projeto ativo. */
+  const newTerminalInProject = (projectId: string): void => {
+    void newTerminal(undefined, { projectId });
   };
 
   /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
@@ -655,7 +662,13 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <ProjectSidebar projects={projects} activeId={activeProjectId} onSelect={switchProject} onCreate={createProject} />
+        <ProjectSidebar
+          projects={projects}
+          activeId={activeProjectId}
+          onSelect={switchProject}
+          onCreate={createProject}
+          onCreateTerminalIn={newTerminalInProject}
+        />
 
         <Sidebar
           sessions={projectSessions}

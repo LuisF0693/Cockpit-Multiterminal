@@ -194,9 +194,17 @@ export function registerSessionIpc(
 
   ipcMain.handle(IpcChannels.sessionCreate, async (event, raw: unknown) => {
     const req = SessionCreateRequestSchema.parse(raw);
-    // Projeto ativo (Story 8.2, FR22) — todo terminal novo nasce nele.
-    const { activeId } = persistence.projects();
-    const record = await registry.create({ ...req, projectId: activeId });
+    // Projeto de destino (Story 8.2/8.3): ativo por padrão, ou um id
+    // específico (AC3 — atalho a partir da barra lateral, sem trocar o
+    // ativo). rootPath vira o cwd default quando o chamador não passa cwd.
+    const { projects, activeId } = persistence.projects();
+    const projectId = req.projectId ?? activeId;
+    const project = projects.find((p) => p.id === projectId);
+    const record = await registry.create({
+      ...req,
+      projectId,
+      cwd: req.cwd ?? project?.rootPath
+    });
     deliverPort(record.id, event.sender);
     return record;
   });
