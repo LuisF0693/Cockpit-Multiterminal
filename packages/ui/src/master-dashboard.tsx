@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SessionRecord, Task } from '@cockpit/shared';
+
+/** Espelho leve de TaskDecisionRequestSchema['action'] (Story 5.3). */
+export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
 import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
 
@@ -33,6 +36,8 @@ export interface MasterDashboardProps {
   onOpenReport: (id: string) => void;
   /** Vincula/desvincula tarefa ao terminal (Story 5.2, AC1/AC2). */
   onLinkTask: (terminalId: string, taskId: string | null) => void;
+  /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
+  onDecide: (taskId: string, action: TaskDecisionAction, opts?: { justification?: string; redirectTo?: string }) => void;
 }
 
 export function MasterDashboard({
@@ -41,15 +46,18 @@ export function MasterDashboard({
   onGoToTerminal,
   onInstruct,
   onOpenReport,
-  onLinkTask
+  onLinkTask,
+  onDecide
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sentAt, setSentAt] = useState<Record<string, number>>({});
+  const [redirectTargets, setRedirectTargets] = useState<Record<string, string>>({});
   const taskTitle = useMemo(() => {
     const byId = new Map(tasks.map((t) => [t.id, t.title]));
     return (id: string | null): string => (id ? (byId.get(id) ?? '—') : '—');
   }, [tasks]);
+  const runningSessions = useMemo(() => sessions.filter((s) => s.status === 'running'), [sessions]);
 
   // Tempo no status precisa andar sozinho (tick 1s).
   useEffect(() => {
@@ -74,12 +82,15 @@ export function MasterDashboard({
         {sessions.length} {sessions.length === 1 ? 'agente' : 'agentes'} sob governança — Ctrl+M alterna com o canvas
       </p>
 
-      {/* Fila de decisões pendentes (Story 3.4 / FR9) */}
+      {/* Fila de decisões pendentes (Story 3.4/FR9) — unificada com tarefas
+          em awaiting_decision desde a Story 5.3, AC3 */}
       {(() => {
         const waitingList = sessions.filter(
           (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
         );
-        if (waitingList.length === 0) return null;
+        const decidingTasks = tasks.filter((t) => t.state === 'awaiting_decision');
+        const total = waitingList.length + decidingTasks.length;
+        if (total === 0) return null;
         return (
           <div
             style={{
@@ -91,7 +102,7 @@ export function MasterDashboard({
             }}
           >
             <h3 style={{ margin: '0 0 10px', fontSize: 13, color: statusColor('waiting-input') }}>
-              ⏳ Decisões pendentes ({waitingList.length})
+              ⏳ Decisões pendentes ({total})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {waitingList.map((s) => (
@@ -104,6 +115,59 @@ export function MasterDashboard({
                   <span style={{ flex: 1 }} />
                   <button onClick={() => onGoToTerminal(s.id)} style={queueButtonStyle}>
                     ir ao terminal →
+                  </button>
+                </div>
+              ))}
+              {decidingTasks.map((t) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <strong style={{ minWidth: 140 }}>{t.title}</strong>
+                  <span style={{ color: '#9CA3AF' }}>aguardando decisão</span>
+                  <span style={{ flex: 1 }} />
+                  <button onClick={() => onDecide(t.id, 'approve')} style={queueButtonStyle} title="aprovar → revisada">
+                    ✓ aprovar
+                  </button>
+                  <button
+                    onClick={() => {
+                      const justification = window.prompt('Motivo da rejeição (opcional):') ?? undefined;
+                      onDecide(t.id, 'reject', justification ? { justification } : {});
+                    }}
+                    style={queueButtonStyle}
+                    title="rejeitar → em execução, com feedback"
+                  >
+                    ✗ rejeitar
+                  </button>
+                  <select
+                    value={redirectTargets[t.id] ?? ''}
+                    onChange={(e) => setRedirectTargets((d) => ({ ...d, [t.id]: e.target.value }))}
+                    title="Novo agente para redirecionar"
+                    style={{
+                      background: '#111827',
+                      color: '#E5E7EB',
+                      border: '1px solid #1F2937',
+                      borderRadius: 6,
+                      padding: '3px 6px',
+                      fontSize: 11
+                    }}
+                  >
+                    <option value="">redirecionar para…</option>
+                    {runningSessions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      const redirectTo = redirectTargets[t.id];
+                      if (!redirectTo) return;
+                      onDecide(t.id, 'redirect', { redirectTo });
+                      setRedirectTargets((d) => ({ ...d, [t.id]: '' }));
+                    }}
+                    disabled={!redirectTargets[t.id]}
+                    style={queueButtonStyle}
+                    title="redirecionar → outro agente"
+                  >
+                    → redirecionar
                   </button>
                 </div>
               ))}

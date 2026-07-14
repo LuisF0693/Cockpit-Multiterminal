@@ -89,4 +89,56 @@ describe('TaskManager (Story 5.1, FR13)', () => {
     const done = manager.updateState(task.id, 'done');
     expect(done.state).toBe('done');
   });
+
+  it('decide("approve") leva a reviewed e grava a decisão auditável (Story 5.3, AC1/AC2)', () => {
+    const { store, queue, manager } = makeHarness();
+    const task = manager.create({ title: 'Z' });
+    manager.updateState(task.id, 'in_progress');
+    manager.updateState(task.id, 'awaiting_decision');
+
+    const approved = manager.decide(task.id, 'approve');
+    queue.flush();
+
+    expect(approved.state).toBe('reviewed');
+    const decisions = store.listEvents({ limit: 10, type: 'task.decision' });
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]!.origin).toBe('human');
+    expect(decisions[0]!.payload).toEqual({ taskId: task.id, action: 'approve' }); // sem justificativa
+  });
+
+  it('decide("reject", justificativa) leva a in_progress e grava o feedback (Story 5.3, AC1/AC2)', () => {
+    const { store, queue, manager } = makeHarness();
+    const task = manager.create({ title: 'Z' });
+    manager.updateState(task.id, 'in_progress');
+    manager.updateState(task.id, 'awaiting_decision');
+
+    const rejected = manager.decide(task.id, 'reject', 'faltou tratar o caso X');
+    queue.flush();
+
+    expect(rejected.state).toBe('in_progress');
+    const decisions = store.listEvents({ limit: 10, type: 'task.decision' });
+    expect(decisions[0]!.payload).toEqual({
+      taskId: task.id,
+      action: 'reject',
+      justification: 'faltou tratar o caso X'
+    });
+  });
+
+  it('decide("redirect") leva a in_progress e registra a decisão (Story 5.3, AC1) — o vínculo é responsabilidade do Main', () => {
+    const { manager } = makeHarness();
+    const task = manager.create({ title: 'Z' });
+    manager.updateState(task.id, 'in_progress');
+    manager.updateState(task.id, 'awaiting_decision');
+
+    const redirected = manager.decide(task.id, 'redirect');
+    expect(redirected.state).toBe('in_progress');
+  });
+
+  it('decide() reusa a validação do core: lança se a tarefa não está em awaiting_decision', () => {
+    const { manager } = makeHarness();
+    const task = manager.create({ title: 'Z' }); // planned
+
+    expect(() => manager.decide(task.id, 'approve')).toThrow(/planned.*reviewed/);
+    expect(manager.get(task.id).state).toBe('planned');
+  });
 });

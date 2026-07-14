@@ -27,6 +27,7 @@ import {
   type SessionReportRequest,
   type SessionResizeRequest,
   type TaskCreateRequest,
+  type TaskDecisionRequest,
   type TaskEvent,
   type TaskLinkRequest,
   type TaskUpdateStateRequest,
@@ -161,6 +162,10 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.taskEvent, listener);
       return () => ipcRenderer.removeListener(IpcChannels.taskEvent, listener);
+    },
+    decide: async (req: TaskDecisionRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskDecide, req);
+      return TaskSchema.parse(raw);
     }
   }
 };

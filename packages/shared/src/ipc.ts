@@ -41,6 +41,8 @@ export const IpcChannels = {
   taskCreate: 'task.create',
   taskUpdateState: 'task.updateState',
   taskList: 'task.list',
+  /** Decisao humana em ponto de decisao (Story 5.3). */
+  taskDecide: 'task.decide',
   /** Push Main → renderer com eventos de domínio de tarefa. */
   taskEvent: 'task.event',
   /** Push Main → renderer com eventos de domínio de sessão. */
@@ -260,6 +262,22 @@ export const TaskEventSchema = z.object({
 });
 export type TaskEvent = z.infer<typeof TaskEventSchema>;
 
+/**
+ * Decisao humana em ponto de decisao (Story 5.3, FR15). redirectTo
+ * (terminalId de destino) e obrigatorio apenas quando action='redirect'.
+ */
+export const TaskDecisionRequestSchema = z
+  .object({
+    taskId: z.string().min(1),
+    action: z.enum(['approve', 'reject', 'redirect']),
+    justification: z.string().max(2000).optional(),
+    redirectTo: z.string().min(1).optional()
+  })
+  .refine((v) => v.action !== 'redirect' || v.redirectTo !== undefined, {
+    message: 'redirectTo obrigatorio quando action redirect'
+  });
+export type TaskDecisionRequest = z.infer<typeof TaskDecisionRequestSchema>;
+
 /** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
@@ -367,5 +385,7 @@ export interface CockpitApi {
     list(): Promise<Task[]>;
     /** Assina eventos de domínio de tarefa; retorna unsubscribe. */
     onEvent(cb: (event: TaskEvent) => void): () => void;
+    /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
+    decide(req: TaskDecisionRequest): Promise<Task>;
   };
 }

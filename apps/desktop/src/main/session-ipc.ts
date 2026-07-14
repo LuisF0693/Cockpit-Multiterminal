@@ -13,6 +13,7 @@ import {
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
   TaskCreateRequestSchema,
+  TaskDecisionRequestSchema,
   TaskLinkRequestSchema,
   TaskUpdateStateRequestSchema,
   WorkspaceCreateRequestSchema,
@@ -215,6 +216,21 @@ export function registerSessionIpc(
     return taskManager.updateState(req.id, req.state);
   });
   ipcMain.handle(IpcChannels.taskList, () => taskManager.list());
+
+  // Decisao humana (Story 5.3): estado da tarefa (TaskManager) +, no
+  // redirect, transferencia do vinculo (SessionRegistry) — so o Main enxerga
+  // os dois lados. registry.list() e a fonte VIVA (nao o store).
+  ipcMain.handle(IpcChannels.taskDecide, (_event, raw: unknown) => {
+    const req = TaskDecisionRequestSchema.parse(raw);
+    const updated = taskManager.decide(req.taskId, req.action, req.justification);
+    if (req.action === 'redirect' && req.redirectTo) {
+      for (const s of registry.list()) {
+        if (s.taskId === req.taskId && s.id !== req.redirectTo) registry.linkTask(s.id, null);
+      }
+      registry.linkTask(req.redirectTo, req.taskId);
+    }
+    return updated;
+  });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
 

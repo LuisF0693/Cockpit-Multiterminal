@@ -14,5 +14,5 @@ export { MemoryStateStore } from './state-store/memory-state-store';
 export { PersistenceManager } from './state-store/persistence';
 export type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './state-store/types';
 export { TaskManager } from './task-manager';
-export type { TaskEvent, TaskListener, TaskRecord } from './task-manager';
+export type { TaskDecisionAction, TaskEvent, TaskListener, TaskRecord } from './task-manager';
 export { assertTransition, canTransition } from './task-lifecycle';

@@ -11,6 +11,9 @@ export type TaskEvent =
 
 export type TaskListener = (event: TaskEvent) => void;
 
+/** Decisão humana em ponto de decisão (Story 5.3, FR15). */
+export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
+
 /**
  * TaskManager (Story 5.1, FR13) — fonte de verdade das tarefas. Diferente do
  * SessionRegistry (que decorre I/O de PTY real e por isso separa registro de
@@ -80,6 +83,29 @@ export class TaskManager {
       });
     });
     this.emit({ type: 'state_changed', task: updated, from });
+    return updated;
+  }
+
+  /**
+   * Decisão humana em ponto de decisão (Story 5.3, FR15) — aprovar leva a
+   * `reviewed`; rejeitar/redirecionar levam a `in_progress` (ambas já
+   * válidas no lifecycle da 5.1, nenhuma aresta nova). A transição reusa
+   * `updateState` (mesma validação do core); a DECISÃO em si — autor,
+   * timestamp, justificativa — é gravada como evento separado (`task.decision`),
+   * distinto do `task.state_changed` mecânico, para auditoria completa (AC2).
+   */
+  decide(taskId: string, action: TaskDecisionAction, justification?: string): TaskRecord {
+    const to: TaskState = action === 'approve' ? 'reviewed' : 'in_progress';
+    const updated = this.updateState(taskId, to, 'human');
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'human',
+        type: 'task.decision',
+        payload: { taskId, action, ...(justification !== undefined ? { justification } : {}) }
+      })
+    );
     return updated;
   }
 

@@ -328,6 +328,34 @@ export function App(): JSX.Element {
     }
   };
 
+  /**
+   * Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. O
+   * redirect bem-sucedido dispara a instrução inicial no NOVO agente (AC4);
+   * o Main nunca escreve PTY diretamente (decisão crítica 4), por isso o
+   * envio acontece aqui via instructAgent, já existente da 3.2.
+   */
+  const decideTask = (
+    taskId: string,
+    action: 'approve' | 'reject' | 'redirect',
+    opts?: { justification?: string; redirectTo?: string }
+  ): void => {
+    const task = tasks.find((t) => t.id === taskId);
+    void window.cockpit.task
+      .decide({
+        taskId,
+        action,
+        ...(opts?.justification !== undefined ? { justification: opts.justification } : {}),
+        ...(opts?.redirectTo !== undefined ? { redirectTo: opts.redirectTo } : {})
+      })
+      .then(() => {
+        if (action === 'redirect' && opts?.redirectTo) {
+          const intro = `Você foi designado para a tarefa: "${task?.title ?? taskId}".`;
+          instructAgent(opts.redirectTo, opts.justification ? `${intro} ${opts.justification}` : intro);
+        }
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
   const closeSession = async (id: string): Promise<void> => {
     const session = useCockpitStore.getState().sessions.find((s) => s.id === id);
     if (!session) return;
@@ -449,9 +477,11 @@ export function App(): JSX.Element {
           </span>
         )}
         {(() => {
-          const waiting = sessions.filter(
-            (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
-          ).length;
+          // Badge unificado (Story 5.3, AC3): agentes aguardando input +
+          // tarefas em awaiting_decision.
+          const waiting =
+            sessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
+            tasks.filter((t) => t.state === 'awaiting_decision').length;
           if (waiting === 0) return null;
           return (
             <button
@@ -539,6 +569,7 @@ export function App(): JSX.Element {
               setView('report');
             }}
             onLinkTask={linkTask}
+            onDecide={decideTask}
           />
         )}
 
