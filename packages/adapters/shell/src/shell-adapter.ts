@@ -50,16 +50,33 @@ const defaultSpawn: ShellSpawnFn = (shell, config) =>
     env: { ...(process.env as Record<string, string>), ...(config.env ?? {}) }
   });
 
-export class ShellAdapter implements AgentAdapter {
-  readonly id = 'shell';
-  readonly displayName = 'Shell';
-  readonly statusStrategy = 'process-only' as const;
+export interface ShellAdapterOptions {
+  /** Id estável ('shell' = PowerShell default; 'cmd'; futuros: 'pwsh', 'bash'). */
+  id?: string;
+  displayName?: string;
+  /** Executável do shell (nome no PATH ou caminho absoluto). */
+  shell?: string;
+  spawnFn?: ShellSpawnFn;
+  graceMs?: number;
+}
 
-  constructor(
-    private readonly spawnFn: ShellSpawnFn = defaultSpawn,
-    private readonly shell: string = DEFAULT_SHELL,
-    private readonly graceMs: number = KILL_GRACE_MS
-  ) {}
+export class ShellAdapter implements AgentAdapter {
+  readonly id: string;
+  readonly displayName: string;
+  readonly statusStrategy = 'process-only' as const;
+  private readonly shell: string;
+  private readonly spawnFn: ShellSpawnFn;
+  private readonly graceMs: number;
+
+  constructor(opts: ShellAdapterOptions = {}) {
+    // 'shell' permanece o id do PowerShell por compatibilidade com sessões
+    // persistidas antes da variante cmd existir (schema v2, adapter_id).
+    this.id = opts.id ?? 'shell';
+    this.displayName = opts.displayName ?? 'PowerShell';
+    this.shell = opts.shell ?? DEFAULT_SHELL;
+    this.spawnFn = opts.spawnFn ?? defaultSpawn;
+    this.graceMs = opts.graceMs ?? KILL_GRACE_MS;
+  }
 
   async detectAvailability(): Promise<AdapterAvailability> {
     if (this.shell.includes('/') || this.shell.includes('\\')) {
@@ -69,8 +86,11 @@ export class ShellAdapter implements AgentAdapter {
     }
     const systemRoot = process.env['SystemRoot'];
     if (process.platform === 'win32' && systemRoot) {
-      const known = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', this.shell);
-      if (existsSync(known)) return { available: true };
+      const knownLocations = [
+        join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', this.shell),
+        join(systemRoot, 'System32', this.shell)
+      ];
+      if (knownLocations.some((p) => existsSync(p))) return { available: true };
     }
     // Sem resolução de PATH manual: o spawn falhará com erro claro se faltar.
     return { available: true };

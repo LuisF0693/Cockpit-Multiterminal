@@ -40,14 +40,30 @@ function makeFakePty(pid = 999_991): ShellPtyLike & {
   return fake;
 }
 
-function makeAdapter(): { adapter: ShellAdapter; ptys: Array<ReturnType<typeof makeFakePty>> } {
+function makeAdapter(shell = 'powershell.exe', id?: string, displayName?: string): {
+  adapter: ShellAdapter;
+  ptys: Array<ReturnType<typeof makeFakePty>>;
+  spawnedShells: string[];
+} {
   const ptys: Array<ReturnType<typeof makeFakePty>> = [];
-  const spawnFn: ShellSpawnFn = () => {
+  const spawnedShells: string[] = [];
+  const spawnFn: ShellSpawnFn = (spawnedShell) => {
+    spawnedShells.push(spawnedShell);
     const fake = makeFakePty(999_990 + ptys.length);
     ptys.push(fake);
     return fake;
   };
-  return { adapter: new ShellAdapter(spawnFn, 'powershell.exe', 10), ptys };
+  return {
+    adapter: new ShellAdapter({
+      spawnFn,
+      shell,
+      graceMs: 10,
+      ...(id !== undefined ? { id } : {}),
+      ...(displayName !== undefined ? { displayName } : {})
+    }),
+    ptys,
+    spawnedShells
+  };
 }
 
 const CONFIG = { cwd: 'C:/work', cols: 80, rows: 24 };
@@ -56,8 +72,17 @@ describe('ShellAdapter (contrato — Story 2.1)', () => {
   it('expõe identidade e estratégia process-only do contrato', () => {
     const { adapter } = makeAdapter();
     expect(adapter.id).toBe('shell');
-    expect(adapter.displayName).toBe('Shell');
+    expect(adapter.displayName).toBe('PowerShell');
     expect(adapter.statusStrategy).toBe('process-only');
+  });
+
+  it('variante CMD: id/displayName próprios e spawn do cmd.exe', async () => {
+    const { adapter, spawnedShells } = makeAdapter('cmd.exe', 'cmd', 'CMD');
+    expect(adapter.id).toBe('cmd');
+    expect(adapter.displayName).toBe('CMD');
+    await adapter.spawn(CONFIG);
+    expect(spawnedShells).toEqual(['cmd.exe']);
+    await expect(adapter.detectAvailability()).resolves.toMatchObject({ available: true });
   });
 
   it('detectAvailability aprova o shell default do Windows', async () => {

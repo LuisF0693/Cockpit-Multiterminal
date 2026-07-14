@@ -33,7 +33,9 @@ interface PortMainLike {
 const parentPort = (process as unknown as { parentPort: PortMainLike }).parentPort;
 
 const registry = new AdapterRegistry();
+// 'shell' = PowerShell (id histórico, compatível com sessões persistidas)
 registry.register(new ShellAdapter());
+registry.register(new ShellAdapter({ id: 'cmd', displayName: 'CMD', shell: 'cmd.exe' }));
 registry.register(new ClaudeCodeAdapter());
 
 interface HostedSession {
