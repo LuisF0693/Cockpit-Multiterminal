@@ -119,6 +119,11 @@ export class TaskManager {
     return t;
   }
 
+  /** Lookup seguro (Story 7.2) — null em vez de lançar, para orquestração defensiva. */
+  find(id: string): TaskRecord | null {
+    return this.tasks.get(id) ?? null;
+  }
+
   onEvent(listener: TaskListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

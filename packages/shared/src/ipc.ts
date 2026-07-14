@@ -45,6 +45,12 @@ export const IpcChannels = {
   taskDecide: 'task.decide',
   /** Push Main → renderer com eventos de domínio de tarefa. */
   taskEvent: 'task.event',
+  /** Push Main → renderer: roteamento automático escritor→revisores (Story 7.2). */
+  sdcReviewRequested: 'sdc.reviewRequested',
+  /** Trecho recente do scrollback persistido de um terminal (Story 7.3). */
+  sdcTranscriptTail: 'sdc.transcriptTail',
+  /** Push Main → renderer: correção agregada ao escritor após rejeição (Story 7.4). */
+  sdcCorrectionRequested: 'sdc.correctionRequested',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -97,9 +103,12 @@ export const SessionRecordSchema = z.object({
   /** Workspace/projeto da sessão (Story 3.6) — default 'Geral'. */
   workspace: z.string().min(1),
   /** Tarefa vinculada (Story 5.2) — null = sem vínculo; um terminal aponta p/ no máx. 1 tarefa. */
-  taskId: z.string().min(1).nullable()
+  taskId: z.string().min(1).nullable(),
+  /** Papel na tarefa (Story 7.1, FR16) — null = vínculo neutro (sem three-brain). */
+  taskRole: z.enum(['writer', 'reviewer']).nullable()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+export type TaskRole = NonNullable<SessionRecord['taskRole']>;
 
 export const SessionCreateRequestSchema = z.object({
   name: z.string().min(1).max(60).optional(),
@@ -143,7 +152,9 @@ export type SessionEvent = z.infer<typeof SessionEventSchema>;
 /** Vincular/desvincular tarefa a um terminal (Story 5.2, AC1) — taskId=null desvincula. */
 export const TaskLinkRequestSchema = z.object({
   terminalId: z.string().min(1),
-  taskId: z.string().min(1).nullable()
+  taskId: z.string().min(1).nullable(),
+  /** Papel na tarefa (Story 7.1) — ignorado quando taskId=null (desvincular limpa o papel). */
+  role: z.enum(['writer', 'reviewer']).optional()
 });
 export type TaskLinkRequest = z.infer<typeof TaskLinkRequestSchema>;
 
@@ -278,7 +289,44 @@ export const TaskDecisionRequestSchema = z
   });
 export type TaskDecisionRequest = z.infer<typeof TaskDecisionRequestSchema>;
 
-/** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
+/**
+ * Push Main -> renderer (Story 7.2, FR17): roteamento automatico de revisao.
+ * `message` ja vem pronta (montada no Main, unica fonte da redacao) - o
+ * renderer so precisa chamar instructAgent por reviewerId (decisao critica 4:
+ * so o renderer escreve na PTY).
+ */
+export const SdcReviewRequestedEventSchema = z.object({
+  taskId: z.string().min(1),
+  writerId: z.string().min(1),
+  reviewerIds: z.string().min(1).array().min(1),
+  message: z.string().min(1)
+});
+export type SdcReviewRequestedEvent = z.infer<typeof SdcReviewRequestedEventSchema>;
+
+/**
+ * Trecho recente do scrollback persistido de um terminal (Story 7.3, AC1) —
+ * lê do ARQUIVO (mesma fonte da 1.4/6.2), nunca da PTY ao vivo. `maxBytes`
+ * pequeno por padrão: é um TRECHO, não o scrollback inteiro.
+ */
+export const SdcTranscriptTailRequestSchema = z.object({
+  terminalId: z.string().min(1),
+  maxBytes: z.number().int().positive().max(65536).default(4096)
+});
+export type SdcTranscriptTailRequest = z.infer<typeof SdcTranscriptTailRequestSchema>;
+
+/**
+ * Push Main -> renderer (Story 7.4, FR19): correção agregada ao escritor
+ * após rejeição numa tarefa three-brain. Mesmo padrão do 7.2: `message` já
+ * vem pronta do Main; o renderer só chama instructAgent (decisão crítica 4).
+ */
+export const SdcCorrectionRequestedEventSchema = z.object({
+  taskId: z.string().min(1),
+  writerId: z.string().min(1),
+  message: z.string().min(1)
+});
+export type SdcCorrectionRequestedEvent = z.infer<typeof SdcCorrectionRequestedEventSchema>;
+
+/** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelável. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
   active: z.string().min(1)
@@ -387,5 +435,13 @@ export interface CockpitApi {
     onEvent(cb: (event: TaskEvent) => void): () => void;
     /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
     decide(req: TaskDecisionRequest): Promise<Task>;
+  };
+  sdc: {
+    /** Roteamento automático de revisão (Story 7.2, FR17); retorna unsubscribe. */
+    onReviewRequested(cb: (event: SdcReviewRequestedEvent) => void): () => void;
+    /** Trecho recente do scrollback persistido de um terminal (Story 7.3, AC1). */
+    transcriptTail(req: SdcTranscriptTailRequest): Promise<string>;
+    /** Correção agregada ao escritor após rejeição (Story 7.4, FR19); retorna unsubscribe. */
+    onCorrectionRequested(cb: (event: SdcCorrectionRequestedEvent) => void): () => void;
   };
 }

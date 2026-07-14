@@ -33,6 +33,7 @@ export class PersistenceManager {
               adapterId: s.adapterId,
               workspace: s.workspace,
               taskId: s.taskId,
+              taskRole: s.taskRole,
               tile: null,
               createdAt: s.createdAt,
               archivedAt: null
@@ -67,7 +68,7 @@ export class PersistenceManager {
             name: s.name,
             cwd: s.cwd,
             ...(event.type === 'exited' && s.exitCode !== undefined ? { exitCode: s.exitCode } : {}),
-            ...(event.type === 'task_linked' ? { taskId: s.taskId } : {})
+            ...(event.type === 'task_linked' ? { taskId: s.taskId, taskRole: s.taskRole } : {})
           }
         });
       });
@@ -98,6 +99,34 @@ export class PersistenceManager {
         type: 'instruction.sent',
         terminalId: sessionId,
         payload: { text: text.slice(0, 500), via: 'master' }
+      })
+    );
+  }
+
+  /** Roteamento automático de revisão (Story 7.2, FR17) — trilha auditável, origem system. */
+  recordSdcReviewRequest(reviewerId: string, payload: { taskId: string; writerId: string }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'sdc.review_requested',
+        terminalId: reviewerId,
+        payload
+      })
+    );
+  }
+
+  /** Correção agregada automática ao escritor após rejeição (Story 7.4, FR19) — trilha auditável, origem system. */
+  recordSdcCorrectionRequest(writerId: string, payload: { taskId: string; reviewerIds: string[] }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'sdc.correction_requested',
+        terminalId: writerId,
+        payload
       })
     );
   }
@@ -171,6 +200,7 @@ export class PersistenceManager {
           adapterId: t.adapterId,
           workspace: t.workspace,
           taskId: t.taskId,
+          taskRole: t.taskRole,
           cols: 80,
           rows: 24,
           restore: true

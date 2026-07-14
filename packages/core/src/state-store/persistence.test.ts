@@ -412,6 +412,36 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(registry2.list()[0]!.taskId).toBe('task-persist');
   });
 
+  it('linkTask com role persiste e sobrevive a "restart" (Story 7.1, FR16)', async () => {
+    const first = makeHarness();
+    const s = await first.registry.create({ cols: 80, rows: 24, name: 'API' });
+    const linked = first.registry.linkTask(s.id, 'task-7-1', 'writer');
+    first.queue.flush();
+
+    expect(linked.taskRole).toBe('writer');
+    expect(first.store.terminals.get(s.id)!.taskRole).toBe('writer');
+
+    const registry2 = new SessionRegistry(makeOps());
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    manager2.wire(registry2);
+    await manager2.restore(registry2);
+
+    expect(registry2.list()[0]!).toMatchObject({ taskId: 'task-7-1', taskRole: 'writer' });
+  });
+
+  it('desvincular (taskId=null) limpa o papel implicitamente (Story 7.1)', async () => {
+    const { store, queue, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24 });
+    registry.linkTask(s.id, 'task-x', 'reviewer');
+    queue.flush();
+    expect(store.terminals.get(s.id)!.taskRole).toBe('reviewer');
+
+    const unlinked = registry.linkTask(s.id, null);
+    queue.flush();
+    expect(unlinked.taskRole).toBeNull();
+    expect(store.terminals.get(s.id)!.taskRole).toBeNull();
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

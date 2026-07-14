@@ -1,6 +1,16 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { join } from 'node:path';
 import { z } from 'zod';
-import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, type StateStore } from '@cockpit/core';
+import {
+  PersistenceManager,
+  SessionRegistry,
+  TaskManager,
+  WriteQueue,
+  planSdcReviewRouting,
+  planSdcCorrectionRouting,
+  planSdcRedirect,
+  type StateStore
+} from '@cockpit/core';
 import {
   AgentStatusSchema,
   IpcChannels,
@@ -12,6 +22,8 @@ import {
   SessionRenameRequestSchema,
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
+  SdcTranscriptTailRequestSchema,
+  classifyTaskRoles,
   TaskCreateRequestSchema,
   TaskDecisionRequestSchema,
   TaskLinkRequestSchema,
@@ -22,7 +34,7 @@ import {
   type SessionEvent,
   type TaskEvent
 } from '@cockpit/shared';
-import type { DaemonSessionInfo } from '@cockpit/pty-host';
+import { readScrollbackTail, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * Cola entre SessionRegistry (fonte de verdade, @cockpit/core) e o mundo:
@@ -71,7 +83,9 @@ export interface SessionIpcHandle {
 export function registerSessionIpc(
   ptyHost: PtyBackend,
   store: StateStore,
-  applyBatch: (batch: Array<() => void>) => void
+  applyBatch: (batch: Array<() => void>) => void,
+  /** Story 7.3: diretório de scrollback (mesma config de 1.4/6.x) — leitura passiva de trecho recente. */
+  opts?: { scrollbackDir?: string }
 ): SessionIpcHandle {
   // Porta de cada createPty fica estacionada até o registry devolver o session id.
   const parkedPorts = new Map<string, Electron.MessagePortMain>();
@@ -135,6 +149,32 @@ export function registerSessionIpc(
     }
   });
 
+  // Roteamento automático escritor → revisores (Story 7.2, FR17). AC4
+  // (idempotência) é DE GRAÇA: markAgentStatus só emite 'status' quando o
+  // valor REALMENTE muda (guard desde a 2.1) — este listener só roda em
+  // transições reais, nunca em toda checagem de status. `emit()` do
+  // registry não isola exceções entre listeners — try/catch obrigatório
+  // para não derrubar a persistência/espelho da UI que também escutam.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    try {
+      const s = event.session;
+      const task = s.taskId ? taskManager.find(s.taskId) : null;
+      const routing = planSdcReviewRouting(s, task, registry.list());
+      if (!routing) return;
+
+      taskManager.updateState(routing.taskId, 'awaiting_decision', 'system');
+      for (const reviewerId of routing.reviewerIds) {
+        persistence.recordSdcReviewRequest(reviewerId, { taskId: routing.taskId, writerId: routing.writerId });
+      }
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IpcChannels.sdcReviewRequested, routing);
+      }
+    } catch (err) {
+      console.error('[sdc] roteamento automático de revisão falhou:', err);
+    }
+  });
+
   const deliverPort = (sessionId: string, target: Electron.WebContents): boolean => {
     const port = parkedPorts.get(sessionId);
     if (!port) return false;
@@ -180,7 +220,7 @@ export function registerSessionIpc(
 
   ipcMain.handle(IpcChannels.sessionLinkTask, (_event, raw: unknown) => {
     const req = TaskLinkRequestSchema.parse(raw);
-    return registry.linkTask(req.terminalId, req.taskId);
+    return registry.linkTask(req.terminalId, req.taskId, req.role);
   });
 
   ipcMain.handle(IpcChannels.sessionReport, (_event, raw: unknown) => {
@@ -219,17 +259,64 @@ export function registerSessionIpc(
 
   // Decisao humana (Story 5.3): estado da tarefa (TaskManager) +, no
   // redirect, transferencia do vinculo (SessionRegistry) — so o Main enxerga
-  // os dois lados. registry.list() e a fonte VIVA (nao o store).
+  // os dois lados. registry.list() e a fonte VIVA (nao o store). Story 7.4
+  // estende os dois ramos p/ preservar (redirect) e alimentar (reject) o
+  // modo three-brain — papeis ANTES da decisao, pois reject nao muda vinculo
+  // mas redirect precisa saber quem era o escritor antigo.
   ipcMain.handle(IpcChannels.taskDecide, (_event, raw: unknown) => {
     const req = TaskDecisionRequestSchema.parse(raw);
+    const sessionsBefore = registry.list();
+    const rolesBefore = classifyTaskRoles(sessionsBefore, req.taskId);
     const updated = taskManager.decide(req.taskId, req.action, req.justification);
+
     if (req.action === 'redirect' && req.redirectTo) {
-      for (const s of registry.list()) {
-        if (s.taskId === req.taskId && s.id !== req.redirectTo) registry.linkTask(s.id, null);
-      }
-      registry.linkTask(req.redirectTo, req.taskId);
+      const allLinkedIds = sessionsBefore.filter((s) => s.taskId === req.taskId).map((s) => s.id);
+      const plan = planSdcRedirect(rolesBefore, allLinkedIds, req.redirectTo);
+      for (const id of plan.unlinkIds) registry.linkTask(id, null);
+      registry.linkTask(plan.link.id, req.taskId, plan.link.role);
     }
+
+    if (req.action === 'reject') {
+      try {
+        const transcripts: Record<string, string> = {};
+        if (opts?.scrollbackDir) {
+          for (const r of rolesBefore.reviewers) {
+            const file = join(opts.scrollbackDir, `${r.id}.log`);
+            transcripts[r.id] = new TextDecoder().decode(readScrollbackTail(file, 4096));
+          }
+        }
+        const correction = planSdcCorrectionRouting(
+          req.taskId,
+          updated.title,
+          rolesBefore,
+          transcripts,
+          req.justification
+        );
+        if (correction) {
+          persistence.recordSdcCorrectionRequest(correction.writerId, {
+            taskId: correction.taskId,
+            reviewerIds: correction.reviewerIds
+          });
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send(IpcChannels.sdcCorrectionRequested, correction);
+          }
+        }
+      } catch (err) {
+        console.error('[sdc] correção agregada falhou:', err);
+      }
+    }
+
     return updated;
+  });
+
+  // Painel de revisão (Story 7.3, AC1): trecho recente do scrollback
+  // PERSISTIDO (mesmo arquivo da 1.4/6.2) — leitura passiva, nunca abre uma
+  // segunda MessagePort concorrente com o tile real (decisão crítica 4).
+  ipcMain.handle(IpcChannels.sdcTranscriptTail, (_event, raw: unknown) => {
+    const req = SdcTranscriptTailRequestSchema.parse(raw);
+    if (!opts?.scrollbackDir) return '';
+    const file = join(opts.scrollbackDir, `${req.terminalId}.log`);
+    return new TextDecoder().decode(readScrollbackTail(file, req.maxBytes));
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
@@ -274,6 +361,7 @@ export function registerSessionIpc(
           adapterId: t.adapterId,
           workspace: t.workspace,
           taskId: t.taskId,
+          taskRole: t.taskRole,
           pid: live.pid,
           createdAt: t.createdAt
         });

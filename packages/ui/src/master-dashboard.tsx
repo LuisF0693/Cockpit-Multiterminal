@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { SessionRecord, Task } from '@cockpit/shared';
+import { classifyTaskRoles, type SessionRecord, type Task, type TaskRole } from '@cockpit/shared';
 
 /** Espelho leve de TaskDecisionRequestSchema['action'] (Story 5.3). */
 export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
@@ -34,10 +34,12 @@ export interface MasterDashboardProps {
   onInstruct: (id: string, text: string) => boolean;
   /** Abre o relatório da sessão (Story 3.5). */
   onOpenReport: (id: string) => void;
-  /** Vincula/desvincula tarefa ao terminal (Story 5.2, AC1/AC2). */
-  onLinkTask: (terminalId: string, taskId: string | null) => void;
+  /** Vincula/desvincula tarefa ao terminal (Story 5.2, AC1/AC2). Papel opcional (Story 7.1). */
+  onLinkTask: (terminalId: string, taskId: string | null, role?: TaskRole | null) => void;
   /** Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. */
   onDecide: (taskId: string, action: TaskDecisionAction, opts?: { justification?: string; redirectTo?: string }) => void;
+  /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
+  onOpenReview: (taskId: string) => void;
 }
 
 export function MasterDashboard({
@@ -47,7 +49,8 @@ export function MasterDashboard({
   onInstruct,
   onOpenReport,
   onLinkTask,
-  onDecide
+  onDecide,
+  onOpenReview
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -123,6 +126,15 @@ export function MasterDashboard({
                   <strong style={{ minWidth: 140 }}>{t.title}</strong>
                   <span style={{ color: '#9CA3AF' }}>aguardando decisão</span>
                   <span style={{ flex: 1 }} />
+                  {classifyTaskRoles(sessions, t.id).isThreeBrain && (
+                    <button
+                      onClick={() => onOpenReview(t.id)}
+                      style={queueButtonStyle}
+                      title="painel de revisão lado a lado (Story 7.3)"
+                    >
+                      🧠 revisão
+                    </button>
+                  )}
                   <button onClick={() => onDecide(t.id, 'approve')} style={queueButtonStyle} title="aprovar → revisada">
                     ✓ aprovar
                   </button>
@@ -213,27 +225,54 @@ export function MasterDashboard({
               >
                 {formatDuration(Date.now() - s.lastStatusChangeAt)}
               </span>
-              <select
-                value={s.taskId ?? ''}
-                onChange={(e) => onLinkTask(s.id, e.target.value || null)}
-                title="Tarefa vinculada (Story 5.2)"
-                style={{
-                  background: '#111827',
-                  color: s.taskId ? '#E5E7EB' : '#6B7280',
-                  border: '1px solid #1F2937',
-                  borderRadius: 6,
-                  padding: '4px 6px',
-                  fontSize: 11,
-                  maxWidth: '100%'
-                }}
-              >
-                <option value="">— sem tarefa —</option>
-                {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
+              <span style={{ display: 'flex', gap: 4, minWidth: 0 }}>
+                <select
+                  value={s.taskId ?? ''}
+                  onChange={(e) => onLinkTask(s.id, e.target.value || null, s.taskRole)}
+                  title="Tarefa vinculada (Story 5.2)"
+                  style={{
+                    background: '#111827',
+                    color: s.taskId ? '#E5E7EB' : '#6B7280',
+                    border: '1px solid #1F2937',
+                    borderRadius: 6,
+                    padding: '4px 6px',
+                    fontSize: 11,
+                    minWidth: 0,
+                    flex: 1
+                  }}
+                >
+                  <option value="">— sem tarefa —</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                {/* Papel na tarefa (Story 7.1, FR16) — só faz sentido com tarefa vinculada. */}
+                <select
+                  value={s.taskRole ?? ''}
+                  onChange={(e) => onLinkTask(s.id, s.taskId, (e.target.value || null) as TaskRole | null)}
+                  disabled={!s.taskId}
+                  title="Papel na tarefa (escritor/revisor — Story 7.1)"
+                  style={{
+                    background: '#111827',
+                    color: s.taskRole ? '#E5E7EB' : '#6B7280',
+                    border: '1px solid #1F2937',
+                    borderRadius: 6,
+                    padding: '4px 4px',
+                    fontSize: 11,
+                    width: 34
+                  }}
+                >
+                  <option value="">—</option>
+                  <option value="writer" title="escritor">
+                    ✍
                   </option>
-                ))}
-              </select>
+                  <option value="reviewer" title="revisor">
+                    👁
+                  </option>
+                </select>
+              </span>
               <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input
                   value={drafts[s.id] ?? ''}

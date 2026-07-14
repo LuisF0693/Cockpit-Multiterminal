@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { SessionRecord, Task, TaskState } from '@cockpit/shared';
+import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
 import { statusColor, statusLabel } from './status-colors';
 import { TASK_STATE_LABEL, TASK_STATE_ORDER, canTransitionTask } from './task-lifecycle-ui';
+
+const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
 
 /**
  * LifecycleBoard (Story 5.4) — colunas por estado do lifecycle (AC1); mover
@@ -20,9 +22,17 @@ export interface LifecycleBoardProps {
   onCreate: (title: string) => void;
   /** Move a tarefa para o novo estado — só chamado quando a transição é válida (AC2). */
   onMove: (taskId: string, to: TaskState) => void;
+  /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
+  onOpenReview: (taskId: string) => void;
 }
 
-export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleBoardProps): JSX.Element {
+export function LifecycleBoard({
+  tasks,
+  sessions,
+  onCreate,
+  onMove,
+  onOpenReview
+}: LifecycleBoardProps): JSX.Element {
   const [title, setTitle] = useState('');
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskState | null>(null);
@@ -149,17 +159,34 @@ export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleB
                       cursor: 'grab'
                     }}
                   >
-                    <strong
-                      style={{
-                        display: 'block',
-                        marginBottom: linked.length > 0 ? 4 : 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {t.title}
-                    </strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: linked.length > 0 ? 4 : 0 }}>
+                      <strong
+                        style={{
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flex: 1
+                        }}
+                      >
+                        {t.title}
+                      </strong>
+                      {classifyTaskRoles(sessions, t.id).isThreeBrain && (
+                        <button
+                          onClick={() => onOpenReview(t.id)}
+                          title="painel de revisão lado a lado (Story 7.3) — Modo three-brain: 1 escritor + 2+ revisores"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            padding: 0
+                          }}
+                        >
+                          🧠
+                        </button>
+                      )}
+                    </span>
                     {linked.length === 0 ? (
                       <span style={{ fontSize: 11, color: '#4B5563' }}>sem agente vinculado</span>
                     ) : (
@@ -170,6 +197,7 @@ export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleB
                             style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#9CA3AF' }}
                           >
                             <span style={{ color: statusColor(s.agentStatus) }}>●</span>
+                            {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
                             {s.name} · {statusLabel(s.agentStatus)}
                           </span>
                         ))}

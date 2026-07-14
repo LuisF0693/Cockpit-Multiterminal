@@ -1,4 +1,4 @@
-import type { LayoutTile } from '@cockpit/shared';
+import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './types';
 
 /**
@@ -22,7 +22,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '5';
+const SCHEMA_VERSION = '6';
 
 interface TerminalRow {
   id: string;
@@ -32,6 +32,7 @@ interface TerminalRow {
   adapter_id: string;
   workspace: string | null;
   task_id: string | null;
+  task_role: string | null;
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
@@ -137,17 +138,29 @@ export class SqliteStateStore implements StateStore {
         console.log('[state] schema migrado v4 → v5 (task_id)');
       }
     }
+    // v5 → v6 (Story 7.1): coluna task_role — mesmo padrão do ALTER idempotente.
+    const hasTaskRoleColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('terminals') WHERE name = 'task_role'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasTaskRoleColumn) {
+      this.db.exec(`ALTER TABLE terminals ADD COLUMN task_role TEXT`);
+      if (current === '5') {
+        console.log('[state] schema migrado v5 → v6 (task_role)');
+      }
+    }
   }
 
   upsertTerminal(t: PersistedTerminal): void {
     this.db
       .prepare(
-        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, task_id, tile_json, created_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, task_id, task_role, tile_json, created_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, cwd = excluded.cwd, status = excluded.status,
            adapter_id = excluded.adapter_id, workspace = excluded.workspace,
-           task_id = excluded.task_id,
+           task_id = excluded.task_id, task_role = excluded.task_role,
            tile_json = COALESCE(excluded.tile_json, terminals.tile_json),
            archived_at = excluded.archived_at`
       )
@@ -159,6 +172,7 @@ export class SqliteStateStore implements StateStore {
         t.adapterId,
         t.workspace,
         t.taskId,
+        t.taskRole,
         t.tile ? JSON.stringify(t.tile) : null,
         t.createdAt,
         t.archivedAt
@@ -193,6 +207,7 @@ export class SqliteStateStore implements StateStore {
       adapterId: r.adapter_id ?? 'shell',
       workspace: r.workspace ?? 'Geral',
       taskId: r.task_id ?? null,
+      taskRole: (r.task_role as TaskRole | null) ?? null,
       tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
       createdAt: r.created_at,
       archivedAt: r.archived_at
@@ -208,8 +223,11 @@ export class SqliteStateStore implements StateStore {
     this.db.prepare('UPDATE terminals SET workspace = ? WHERE workspace = ?').run(to, from);
   }
 
-  setTerminalTask(id: string, taskId: string | null): void {
-    this.db.prepare('UPDATE terminals SET task_id = ? WHERE id = ?').run(taskId, id);
+  setTerminalTask(id: string, taskId: string | null, role?: TaskRole | null): void {
+    // Desvincular (taskId=null) limpa o papel implicitamente — papel sem tarefa não faz sentido.
+    this.db
+      .prepare('UPDATE terminals SET task_id = ?, task_role = ? WHERE id = ?')
+      .run(taskId, taskId === null ? null : (role ?? null), id);
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {

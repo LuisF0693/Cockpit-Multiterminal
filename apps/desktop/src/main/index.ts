@@ -112,9 +112,9 @@ app.whenReady().then(async () => {
 
   // markBootStart() roda DENTRO de registerSessionIpc (precisa resolver
   // crashDetected antes do primeiro IPC) — não chamar de novo aqui.
-  sessionIpc = registerSessionIpc(backend, stateStore, (batch) =>
-    stateStore.applyBatch(batch)
-  );
+  sessionIpc = registerSessionIpc(backend, stateStore, (batch) => stateStore.applyBatch(batch), {
+    scrollbackDir: scrollback.scrollbackDir
+  });
 
   if (sessionIpc.crashDetected) {
     // Story 4.3: boot NÃO relança/adota sozinho — a janela sobe imediatamente

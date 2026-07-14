@@ -51,3 +51,5 @@ export {
   TASK_STATE_ORDER,
   canTransitionTask
 } from './task-lifecycle-ui';
+export { ReviewPanel } from './review-panel';
+export type { ReviewPanelProps } from './review-panel';

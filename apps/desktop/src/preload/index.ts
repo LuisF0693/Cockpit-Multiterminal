@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
@@ -12,6 +13,8 @@ import {
   SessionRecordSchema,
   SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
+  SdcCorrectionRequestedEventSchema,
+  SdcReviewRequestedEventSchema,
   TaskEventSchema,
   TaskSchema,
   TimelineEventSchema,
@@ -26,6 +29,9 @@ import {
   type SessionRenameRequest,
   type SessionReportRequest,
   type SessionResizeRequest,
+  type SdcCorrectionRequestedEvent,
+  type SdcReviewRequestedEvent,
+  type SdcTranscriptTailRequest,
   type TaskCreateRequest,
   type TaskDecisionRequest,
   type TaskEvent,
@@ -166,6 +172,26 @@ const api: CockpitApi = {
     decide: async (req: TaskDecisionRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskDecide, req);
       return TaskSchema.parse(raw);
+    }
+  },
+  sdc: {
+    onReviewRequested: (cb: (event: SdcReviewRequestedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(SdcReviewRequestedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.sdcReviewRequested, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.sdcReviewRequested, listener);
+    },
+    transcriptTail: async (req: SdcTranscriptTailRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sdcTranscriptTail, req);
+      return z.string().parse(raw);
+    },
+    onCorrectionRequested: (cb: (event: SdcCorrectionRequestedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(SdcCorrectionRequestedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.sdcCorrectionRequested, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.sdcCorrectionRequested, listener);
     }
   }
 };
