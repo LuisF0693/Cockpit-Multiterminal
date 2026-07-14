@@ -180,7 +180,7 @@ export function registerSessionIpc(
 
   ipcMain.handle(IpcChannels.sessionLinkTask, (_event, raw: unknown) => {
     const req = TaskLinkRequestSchema.parse(raw);
-    return registry.linkTask(req.terminalId, req.taskId);
+    return registry.linkTask(req.terminalId, req.taskId, req.role);
   });
 
   ipcMain.handle(IpcChannels.sessionReport, (_event, raw: unknown) => {
@@ -274,6 +274,7 @@ export function registerSessionIpc(
           adapterId: t.adapterId,
           workspace: t.workspace,
           taskId: t.taskId,
+          taskRole: t.taskRole,
           pid: live.pid,
           createdAt: t.createdAt
         });

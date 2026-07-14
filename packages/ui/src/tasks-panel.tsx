@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { SessionRecord, Task, TaskState } from '@cockpit/shared';
+import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
 import { TASK_NEXT_STATES, TASK_STATE_LABEL } from './task-lifecycle-ui';
+
+const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
 
 /**
  * TasksPanel (Story 5.1) — superfície mínima do CRUD/lifecycle (AC1/2/3):
@@ -96,6 +98,7 @@ export function TasksPanel({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tasks.map((t) => {
           const linked = linkedByTask.get(t.id) ?? [];
+          const isThreeBrain = classifyTaskRoles(sessions, t.id).isThreeBrain;
           return (
             <article
               key={t.id}
@@ -114,6 +117,11 @@ export function TasksPanel({
                 <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t.title}
                 </strong>
+                {isThreeBrain && (
+                  <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 12 }}>
+                    🧠
+                  </span>
+                )}
                 <span style={{ color: '#9CA3AF', fontSize: 12 }}>{TASK_STATE_LABEL[t.state]}</span>
                 <span style={{ display: 'flex', gap: 6 }}>
                   {TASK_NEXT_STATES[t.state].map((next) => (
@@ -145,6 +153,7 @@ export function TasksPanel({
                         fontSize: 11
                       }}
                     >
+                      {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
                       {s.name}
                       <button
                         onClick={() => onUnlink(s.id)}

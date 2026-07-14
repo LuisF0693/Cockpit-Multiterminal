@@ -1,4 +1,4 @@
-import type { SessionEvent, SessionRecord } from '@cockpit/shared';
+import type { SessionEvent, SessionRecord, TaskRole } from '@cockpit/shared';
 import { ulid } from './ulid';
 
 /**
@@ -50,6 +50,8 @@ export class SessionRegistry {
     workspace?: string | undefined;
     /** Tarefa vinculada (5.2) — preservada no relançamento/restore. */
     taskId?: string | null | undefined;
+    /** Papel na tarefa (7.1) — preservado no relançamento/restore. */
+    taskRole?: TaskRole | null | undefined;
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
@@ -75,7 +77,8 @@ export class SessionRegistry {
       agentStatus: 'working',
       lastStatusChangeAt: Date.now(),
       workspace: opts.workspace ?? 'Geral',
-      taskId: opts.taskId ?? null
+      taskId: opts.taskId ?? null,
+      taskRole: opts.taskId ? (opts.taskRole ?? null) : null
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -89,10 +92,14 @@ export class SessionRegistry {
     return session.record;
   }
 
-  /** Vincula/desvincula tarefa (Story 5.2, AC1) — taskId=null desvincula. */
-  linkTask(id: string, taskId: string | null): SessionRecord {
+  /**
+   * Vincula/desvincula tarefa (Story 5.2, AC1) — taskId=null desvincula.
+   * `role` (Story 7.1) só se aplica ao vincular; desvincular limpa o papel
+   * implicitamente (papel sem tarefa não faz sentido).
+   */
+  linkTask(id: string, taskId: string | null, role?: TaskRole | null): SessionRecord {
     const session = this.get(id);
-    session.record = { ...session.record, taskId };
+    session.record = { ...session.record, taskId, taskRole: taskId === null ? null : (role ?? null) };
     this.emit({ type: 'task_linked', session: session.record });
     return session.record;
   }
@@ -152,6 +159,7 @@ export class SessionRegistry {
     pid: number;
     createdAt?: number;
     taskId?: string | null;
+    taskRole?: TaskRole | null;
   }): SessionRecord {
     const record: SessionRecord = {
       id: opts.id,
@@ -164,7 +172,8 @@ export class SessionRegistry {
       agentStatus: 'working',
       lastStatusChangeAt: Date.now(),
       workspace: opts.workspace,
-      taskId: opts.taskId ?? null
+      taskId: opts.taskId ?? null,
+      taskRole: opts.taskId ? (opts.taskRole ?? null) : null
     };
     // ptyId = id da sessão no daemon (tag) — decisão da 6.1.
     this.sessions.set(record.id, { record, ptyId: opts.id });

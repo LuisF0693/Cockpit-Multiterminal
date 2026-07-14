@@ -1,4 +1,4 @@
-import type { LayoutTile } from '@cockpit/shared';
+import type { LayoutTile, TaskRole } from '@cockpit/shared';
 
 /**
  * State store (decisão crítica 2): SQLite WAL como verdade estrutural.
@@ -17,6 +17,8 @@ export interface PersistedTerminal {
   workspace: string;
   /** Tarefa vinculada (schema v5 — Story 5.2); null = sem vínculo. */
   taskId: string | null;
+  /** Papel na tarefa (schema v6 — Story 7.1); null = vínculo neutro. */
+  taskRole: TaskRole | null;
   tile: LayoutTile | null;
   createdAt: number;
   archivedAt: number | null;
@@ -58,8 +60,12 @@ export interface StateStore {
   countEvents(opts: { terminalId?: string; type?: string }): number;
   /** Renomeia workspace em TODAS as linhas, arquivadas inclusive (Story 3.6). */
   renameWorkspace(from: string, to: string): void;
-  /** Vincula/desvincula tarefa ao terminal (Story 5.2); null desvincula. */
-  setTerminalTask(id: string, taskId: string | null): void;
+  /**
+   * Vincula/desvincula tarefa ao terminal (Story 5.2); null desvincula.
+   * `role` (Story 7.1) só se aplica ao vincular — desvincular limpa o papel
+   * implicitamente (papel sem tarefa não faz sentido).
+   */
+  setTerminalTask(id: string, taskId: string | null, role?: TaskRole | null): void;
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;

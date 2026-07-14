@@ -97,9 +97,12 @@ export const SessionRecordSchema = z.object({
   /** Workspace/projeto da sessão (Story 3.6) — default 'Geral'. */
   workspace: z.string().min(1),
   /** Tarefa vinculada (Story 5.2) — null = sem vínculo; um terminal aponta p/ no máx. 1 tarefa. */
-  taskId: z.string().min(1).nullable()
+  taskId: z.string().min(1).nullable(),
+  /** Papel na tarefa (Story 7.1, FR16) — null = vínculo neutro (sem three-brain). */
+  taskRole: z.enum(['writer', 'reviewer']).nullable()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+export type TaskRole = NonNullable<SessionRecord['taskRole']>;
 
 export const SessionCreateRequestSchema = z.object({
   name: z.string().min(1).max(60).optional(),
@@ -143,7 +146,9 @@ export type SessionEvent = z.infer<typeof SessionEventSchema>;
 /** Vincular/desvincular tarefa a um terminal (Story 5.2, AC1) — taskId=null desvincula. */
 export const TaskLinkRequestSchema = z.object({
   terminalId: z.string().min(1),
-  taskId: z.string().min(1).nullable()
+  taskId: z.string().min(1).nullable(),
+  /** Papel na tarefa (Story 7.1) — ignorado quando taskId=null (desvincular limpa o papel). */
+  role: z.enum(['writer', 'reviewer']).optional()
 });
 export type TaskLinkRequest = z.infer<typeof TaskLinkRequestSchema>;
 

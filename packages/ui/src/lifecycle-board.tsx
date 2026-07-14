@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { SessionRecord, Task, TaskState } from '@cockpit/shared';
+import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
 import { statusColor, statusLabel } from './status-colors';
 import { TASK_STATE_LABEL, TASK_STATE_ORDER, canTransitionTask } from './task-lifecycle-ui';
+
+const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
 
 /**
  * LifecycleBoard (Story 5.4) — colunas por estado do lifecycle (AC1); mover
@@ -149,17 +151,24 @@ export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleB
                       cursor: 'grab'
                     }}
                   >
-                    <strong
-                      style={{
-                        display: 'block',
-                        marginBottom: linked.length > 0 ? 4 : 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {t.title}
-                    </strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: linked.length > 0 ? 4 : 0 }}>
+                      <strong
+                        style={{
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flex: 1
+                        }}
+                      >
+                        {t.title}
+                      </strong>
+                      {classifyTaskRoles(sessions, t.id).isThreeBrain && (
+                        <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 11 }}>
+                          🧠
+                        </span>
+                      )}
+                    </span>
                     {linked.length === 0 ? (
                       <span style={{ fontSize: 11, color: '#4B5563' }}>sem agente vinculado</span>
                     ) : (
@@ -170,6 +179,7 @@ export function LifecycleBoard({ tasks, sessions, onCreate, onMove }: LifecycleB
                             style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#9CA3AF' }}
                           >
                             <span style={{ color: statusColor(s.agentStatus) }}>●</span>
+                            {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
                             {s.name} · {statusLabel(s.agentStatus)}
                           </span>
                         ))}

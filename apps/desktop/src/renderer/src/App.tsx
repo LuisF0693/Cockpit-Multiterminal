@@ -24,6 +24,7 @@ import type {
   DaemonStatus,
   SessionReport,
   Task,
+  TaskRole,
   TaskState,
   TimelineEvent,
   WorkspaceList
@@ -317,10 +318,13 @@ export function App(): JSX.Element {
     return true;
   };
 
-  /** Vincula/desvincula tarefa a um terminal (Story 5.2, AC1) — o push (session.onEvent) atualiza a UI. */
-  const linkTask = (terminalId: string, taskId: string | null): void => {
+  /**
+   * Vincula/desvincula tarefa a um terminal (Story 5.2, AC1) — o push
+   * (session.onEvent) atualiza a UI. Papel opcional (Story 7.1, FR16).
+   */
+  const linkTask = (terminalId: string, taskId: string | null, role?: TaskRole | null): void => {
     void window.cockpit.session
-      .linkTask({ terminalId, taskId })
+      .linkTask({ terminalId, taskId, ...(role !== undefined && role !== null ? { role } : {}) })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
