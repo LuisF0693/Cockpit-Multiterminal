@@ -159,6 +159,57 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(recovered[0]!.payload['name']).toBe('API');
   });
 
+  it('status.changed entra na trilha com origem agent (Story 3.5)', async () => {
+    const { manager, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24 });
+    const ptyId = registry.ptyIdOf(s.id);
+    registry.markAgentStatus(ptyId, 'waiting-input');
+    registry.markAgentStatus(ptyId, 'waiting-input'); // sem mudança → não emite
+    registry.markAgentStatus(ptyId, 'working');
+
+    const changed = manager.timeline({ limit: 10, type: 'status.changed' });
+    expect(changed).toHaveLength(2);
+    expect(changed[0]!.origin).toBe('agent');
+    // mesmo ms → ordem entre iguais não é garantida; comparar como conjunto
+    expect(changed.map((e) => e.payload['status']).sort()).toEqual(['waiting-input', 'working']);
+  });
+
+  it('exited registra exitCode no payload da trilha (Story 3.5)', async () => {
+    const { manager, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24 });
+    registry.markExited(registry.ptyIdOf(s.id), 137);
+
+    const exited = manager.timeline({ limit: 10, type: 'terminal.exited' });
+    expect(exited).toHaveLength(1);
+    expect(exited[0]!.payload['exitCode']).toBe(137);
+  });
+
+  it('sessionReport projeta métricas da trilha (Story 3.5)', async () => {
+    const { manager, registry } = makeHarness();
+    const s = await registry.create({ cols: 80, rows: 24, name: 'Build', cwd: 'C:/work' });
+    const ptyId = registry.ptyIdOf(s.id);
+    registry.markAgentStatus(ptyId, 'waiting-input');
+    manager.recordInstruction(s.id, 'segue');
+    registry.markAgentStatus(ptyId, 'working');
+    registry.markExited(ptyId, 0);
+
+    const r = manager.sessionReport(s.id)!;
+    expect(r).toMatchObject({
+      terminalId: s.id,
+      name: 'Build',
+      statusTransitions: 2,
+      instructions: 1,
+      recoveries: 0,
+      exitCode: 0,
+      endedAt: null // exited ≠ closed: sessão segue restaurável
+    });
+    expect(r.durationMs).toBeGreaterThanOrEqual(0);
+
+    await registry.close(s.id);
+    expect(manager.sessionReport(s.id)!.endedAt).not.toBeNull();
+    expect(manager.sessionReport('inexistente')).toBeNull();
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

@@ -36,6 +36,10 @@ export interface StateStore {
   updateTile(id: string, tile: LayoutTile): void;
   /** Terminais não arquivados — o plano de restore do próximo boot. */
   listActiveTerminals(): PersistedTerminal[];
+  /** Linha do terminal por id, arquivado ou não (relatório — Story 3.5). */
+  getTerminal(id: string): PersistedTerminal | null;
+  /** Contagem de eventos com filtros (métricas do relatório — Story 3.5). */
+  countEvents(opts: { terminalId?: string; type?: string }): number;
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;

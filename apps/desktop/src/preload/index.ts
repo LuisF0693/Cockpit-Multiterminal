@@ -7,6 +7,7 @@ import {
   SessionCloseResponseSchema,
   SessionEventSchema,
   SessionRecordSchema,
+  SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
   TimelineEventSchema,
   type AppInfo,
@@ -16,6 +17,7 @@ import {
   type SessionCreateRequest,
   type SessionEvent,
   type SessionRenameRequest,
+  type SessionReportRequest,
   type SessionResizeRequest,
   type TerminalPortMessage
 } from '@cockpit/shared';
@@ -51,6 +53,10 @@ const api: CockpitApi = {
     },
     instructed: async (req: { id: string; text: string }) => {
       await ipcRenderer.invoke(IpcChannels.sessionInstructed, req);
+    },
+    report: async (req: SessionReportRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.sessionReport, req);
+      return raw === null ? null : SessionReportSchema.parse(raw);
     },
     onEvent: (cb: (event: SessionEvent) => void) => {
       const listener = (_e: unknown, raw: unknown): void => {

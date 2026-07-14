@@ -1,4 +1,4 @@
-import type { LayoutTile, SessionEvent } from '@cockpit/shared';
+import type { LayoutTile, SessionEvent, SessionReport } from '@cockpit/shared';
 import { ulid } from '../ulid';
 import type { SessionRegistry } from '../session-registry';
 import type { StateStore } from './types';
@@ -42,7 +42,16 @@ export class PersistenceManager {
             this.store.archiveTerminal(s.id, Date.now());
             break;
           case 'status':
-            // agentStatus é transiente (Dev Notes 2.1) — não persiste.
+            // agentStatus segue transiente na tabela terminals (Dev Notes 2.1);
+            // a TRILHA registra a transição (relatório 3.5 + AC1 da 3.3).
+            this.store.appendEvent({
+              id: ulid(),
+              ts: Date.now(),
+              origin: 'agent',
+              type: 'status.changed',
+              terminalId: s.id,
+              payload: { status: s.agentStatus }
+            });
             return;
         }
         this.store.appendEvent({
@@ -51,7 +60,11 @@ export class PersistenceManager {
           origin: 'system',
           type: `terminal.${event.type}`,
           terminalId: s.id,
-          payload: { name: s.name, cwd: s.cwd }
+          payload: {
+            name: s.name,
+            cwd: s.cwd,
+            ...(event.type === 'exited' && s.exitCode !== undefined ? { exitCode: s.exitCode } : {})
+          }
         });
       });
     });
@@ -82,6 +95,31 @@ export class PersistenceManager {
   timeline(opts: { limit: number; terminalId?: string; type?: string }): ReturnType<StateStore['listEvents']> {
     this.queue.flush();
     return this.store.listEvents(opts);
+  }
+
+  /**
+   * Relatório de sessão (3.5): projeção da linha do terminal + contagens da
+   * trilha — nenhuma tabela nova. Duração corre até agora enquanto viva.
+   */
+  sessionReport(terminalId: string): SessionReport | null {
+    this.queue.flush();
+    const t = this.store.getTerminal(terminalId);
+    if (!t) return null;
+    const exited = this.store.listEvents({ limit: 1, terminalId, type: 'terminal.exited' })[0];
+    const exitCode = exited?.payload['exitCode'];
+    return {
+      terminalId: t.id,
+      name: t.name,
+      adapterId: t.adapterId,
+      cwd: t.cwd,
+      createdAt: t.createdAt,
+      endedAt: t.archivedAt,
+      durationMs: Math.max(0, (t.archivedAt ?? Date.now()) - t.createdAt),
+      statusTransitions: this.store.countEvents({ terminalId, type: 'status.changed' }),
+      instructions: this.store.countEvents({ terminalId, type: 'instruction.sent' }),
+      recoveries: this.store.countEvents({ terminalId, type: 'session.recovered' }),
+      exitCode: typeof exitCode === 'number' ? exitCode : null
+    };
   }
 
   savedLayout(): LayoutTile[] {

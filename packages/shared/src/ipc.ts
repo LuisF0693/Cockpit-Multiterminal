@@ -23,6 +23,8 @@ export const IpcChannels = {
   sessionList: 'session.list',
   /** Registro de instrução enviada via master (trilha — Story 3.2). */
   sessionInstructed: 'session.instructed',
+  /** Relatório de sessão (Story 3.5) — projeção da trilha de eventos. */
+  sessionReport: 'session.report',
   adapterList: 'adapter.list',
   timelineGet: 'timeline.get',
   /** Push Main → renderer com eventos de domínio de sessão. */
@@ -63,7 +65,9 @@ export const SessionRecordSchema = z.object({
   /** Status do agente (transiente — não persiste). */
   agentStatus: AgentStatusSchema,
   /** Época da última mudança de agentStatus (tempo no status — Story 3.1). */
-  lastStatusChangeAt: z.number().int().nonnegative()
+  lastStatusChangeAt: z.number().int().nonnegative(),
+  /** Exit code do processo quando exited (Story 3.5) — ausente enquanto running. */
+  exitCode: z.number().int().optional()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
@@ -114,6 +118,32 @@ export const TimelineEventSchema = z.object({
   payload: z.record(z.unknown())
 });
 export type TimelineEvent = z.infer<typeof TimelineEventSchema>;
+
+/**
+ * Relatório de sessão (Story 3.5) — métricas projetadas da tabela events +
+ * linha do terminal. tokens/toolCalls são a base extensível (AC3): opcionais
+ * até os adapters exporem números reais dos CLIs.
+ */
+export const SessionReportSchema = z.object({
+  terminalId: z.string().min(1),
+  name: z.string().min(1),
+  adapterId: z.string().min(1),
+  cwd: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+  /** archivedAt quando fechada; null enquanto viva/restaurável. */
+  endedAt: z.number().int().nullable(),
+  durationMs: z.number().int().nonnegative(),
+  statusTransitions: z.number().int().nonnegative(),
+  instructions: z.number().int().nonnegative(),
+  recoveries: z.number().int().nonnegative(),
+  exitCode: z.number().int().nullable(),
+  tokens: z.number().int().optional(),
+  toolCalls: z.number().int().optional()
+});
+export type SessionReport = z.infer<typeof SessionReportSchema>;
+
+export const SessionReportRequestSchema = z.object({ id: z.string().min(1) });
+export type SessionReportRequest = z.infer<typeof SessionReportRequestSchema>;
 
 export const TimelineGetRequestSchema = z.object({
   limit: z.number().int().min(1).max(500).default(100),
@@ -166,6 +196,8 @@ export interface CockpitApi {
     onEvent(cb: (event: SessionEvent) => void): () => void;
     /** Registra na trilha uma instrução enviada via master (Story 3.2). */
     instructed(req: { id: string; text: string }): Promise<void>;
+    /** Relatório da sessão (Story 3.5) — null se a sessão nunca persistiu. */
+    report(req: SessionReportRequest): Promise<SessionReport | null>;
   };
   layout: {
     /** Layout salvo da última execução (vazio na primeira). */

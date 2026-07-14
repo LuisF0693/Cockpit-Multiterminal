@@ -44,6 +44,16 @@ export class MemoryStateStore implements StateStore {
       .sort((a, b) => a.createdAt - b.createdAt);
   }
 
+  getTerminal(id: string): PersistedTerminal | null {
+    return this.terminals.get(id) ?? null;
+  }
+
+  countEvents(opts: { terminalId?: string; type?: string }): number {
+    return this.events.filter(
+      (e) => (!opts.terminalId || e.terminalId === opts.terminalId) && (!opts.type || e.type === opts.type)
+    ).length;
+  }
+
   setMeta(key: string, value: string): void {
     this.meta.set(key, value);
   }

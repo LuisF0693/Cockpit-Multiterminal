@@ -28,9 +28,16 @@ export interface MasterDashboardProps {
    * cancelado (guarda de error/done) — usado no feedback visual.
    */
   onInstruct: (id: string, text: string) => boolean;
+  /** Abre o relatório da sessão (Story 3.5). */
+  onOpenReport: (id: string) => void;
 }
 
-export function MasterDashboard({ sessions, onGoToTerminal, onInstruct }: MasterDashboardProps): JSX.Element {
+export function MasterDashboard({
+  sessions,
+  onGoToTerminal,
+  onInstruct,
+  onOpenReport
+}: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sentAt, setSentAt] = useState<Record<string, number>>({});
@@ -161,21 +168,30 @@ export function MasterDashboard({ sessions, onGoToTerminal, onInstruct }: Master
                   </span>
                 )}
               </span>
-              <button
-                onClick={() => onGoToTerminal(s.id)}
-                style={{
-                  background: '#111827',
-                  color: '#E5E7EB',
-                  border: '1px solid #1F2937',
-                  borderRadius: 6,
-                  padding: '5px 12px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                ir ao terminal →
-              </button>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => onOpenReport(s.id)}
+                  title="relatório da sessão (Story 3.5)"
+                  style={queueButtonStyle}
+                >
+                  relatório
+                </button>
+                <button
+                  onClick={() => onGoToTerminal(s.id)}
+                  style={{
+                    background: '#111827',
+                    color: '#E5E7EB',
+                    border: '1px solid #1F2937',
+                    borderRadius: 6,
+                    padding: '5px 12px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  ir ao terminal →
+                </button>
+              </span>
             </article>
           );
         })}

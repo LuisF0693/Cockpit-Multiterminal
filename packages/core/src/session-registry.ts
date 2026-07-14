@@ -98,10 +98,15 @@ export class SessionRegistry {
   }
 
   /** Marca exit espontâneo do processo (shell saiu sozinho). */
-  markExited(ptyId: string): void {
+  markExited(ptyId: string, exitCode?: number): void {
     for (const session of this.sessions.values()) {
       if (session.ptyId === ptyId && session.record.status === 'running') {
-        session.record = { ...session.record, status: 'exited', lastStatusChangeAt: Date.now() };
+        session.record = {
+          ...session.record,
+          status: 'exited',
+          lastStatusChangeAt: Date.now(),
+          ...(exitCode !== undefined ? { exitCode } : {})
+        };
         this.emit({ type: 'exited', session: session.record });
         return;
       }

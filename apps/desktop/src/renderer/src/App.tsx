@@ -8,6 +8,7 @@ import {
 } from '@cockpit/shared';
 import {
   MasterDashboard,
+  SessionReportView,
   Sidebar,
   StatusPulseStyles,
   TerminalTile,
@@ -15,7 +16,7 @@ import {
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
-import type { TimelineEvent } from '@cockpit/shared';
+import type { SessionReport, TimelineEvent } from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -35,10 +36,14 @@ export function App(): JSX.Element {
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
-  const [view, setView] = useState<'master' | 'canvas' | 'timeline'>('master');
+  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report'>('master');
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  // Relatório de sessão (Story 3.5): id alvo + dados carregados.
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [report, setReport] = useState<SessionReport | null>(null);
+  const [reportEvents, setReportEvents] = useState<TimelineEvent[]>([]);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -55,6 +60,22 @@ export function App(): JSX.Element {
     const timer = setInterval(refreshTimeline, 5000);
     return () => clearInterval(timer);
   }, [view]);
+
+  const refreshReport = (id: string): void => {
+    void window.cockpit.session.report({ id }).then(setReport).catch(() => setReport(null));
+    void window.cockpit.timeline
+      .get({ limit: 20, terminalId: id })
+      .then(setReportEvents)
+      .catch(() => setReportEvents([]));
+  };
+
+  // Relatório ativo (Story 3.5): refresh na entrada + a cada 5s.
+  useEffect(() => {
+    if (view !== 'report' || !reportId) return;
+    refreshReport(reportId);
+    const timer = setInterval(() => refreshReport(reportId), 5000);
+    return () => clearInterval(timer);
+  }, [view, reportId]);
 
   const sessions = useCockpitStore((s) => s.sessions);
   const layout = useCockpitStore((s) => s.layout);
@@ -328,6 +349,19 @@ export function App(): JSX.Element {
             sessions={sessions}
             onGoToTerminal={goToTerminal}
             onInstruct={instructAgent}
+            onOpenReport={(id) => {
+              setReportId(id);
+              setView('report');
+            }}
+          />
+        )}
+
+        {view === 'report' && (
+          <SessionReportView
+            report={report}
+            events={reportEvents}
+            onBack={() => setView('master')}
+            onRefresh={() => reportId && refreshReport(reportId)}
           />
         )}
 

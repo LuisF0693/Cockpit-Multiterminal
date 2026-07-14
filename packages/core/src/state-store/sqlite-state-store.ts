@@ -69,6 +69,7 @@ export class SqliteStateStore implements StateStore {
       );
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts);
+      CREATE INDEX IF NOT EXISTS idx_events_terminal ON events (terminal_id, type);
     `);
     this.migrate();
     this.setMeta('schema_version', SCHEMA_VERSION);
@@ -142,6 +143,38 @@ export class SqliteStateStore implements StateStore {
       createdAt: r.created_at,
       archivedAt: r.archived_at
     }));
+  }
+
+  getTerminal(id: string): PersistedTerminal | null {
+    const r = this.db.prepare('SELECT * FROM terminals WHERE id = ?').get(id) as TerminalRow | undefined;
+    if (!r) return null;
+    return {
+      id: r.id,
+      name: r.name,
+      cwd: r.cwd,
+      status: r.status === 'exited' ? 'exited' : 'running',
+      adapterId: r.adapter_id ?? 'shell',
+      tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
+      createdAt: r.created_at,
+      archivedAt: r.archived_at
+    };
+  }
+
+  countEvents(opts: { terminalId?: string; type?: string }): number {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (opts.terminalId) {
+      where.push('terminal_id = ?');
+      params.push(opts.terminalId);
+    }
+    if (opts.type) {
+      where.push('type = ?');
+      params.push(opts.type);
+    }
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS n FROM events ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`)
+      .get(...params) as { n: number };
+    return row.n;
   }
 
   setMeta(key: string, value: string): void {

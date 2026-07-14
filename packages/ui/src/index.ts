@@ -37,3 +37,5 @@ export type { MasterDashboardProps } from './master-dashboard';
 export { formatDuration } from './format-duration';
 export { TimelineView } from './timeline-view';
 export type { TimelineViewProps } from './timeline-view';
+export { SessionReportView } from './session-report';
+export type { SessionReportViewProps } from './session-report';

@@ -9,6 +9,7 @@ import {
   SessionCloseRequestSchema,
   SessionCreateRequestSchema,
   SessionRenameRequestSchema,
+  SessionReportRequestSchema,
   SessionResizeRequestSchema,
   type SessionEvent
 } from '@cockpit/shared';
@@ -57,8 +58,9 @@ export function registerSessionIpc(
   const persistence = new PersistenceManager(store, queue);
   persistence.wire(registry);
 
-  // Exit espontâneo do shell → registro reflete; host caiu → todas exited.
-  ptyHost.onSessionExit((ptyId) => registry.markExited(ptyId));
+  // Exit espontâneo do shell → registro reflete (exitCode → relatório 3.5);
+  // host caiu → todas exited.
+  ptyHost.onSessionExit((ptyId, exitCode) => registry.markExited(ptyId, exitCode));
   // Status do agente (FR5 — Story 2.1): adapter → host → registry → UI.
   ptyHost.onSessionStatus((ptyId, status) => {
     const parsed = AgentStatusSchema.safeParse(status);
@@ -119,6 +121,11 @@ export function registerSessionIpc(
   ipcMain.handle(IpcChannels.sessionInstructed, (_event, raw: unknown) => {
     const req = z.object({ id: z.string().min(1), text: z.string() }).parse(raw);
     persistence.recordInstruction(req.id, req.text);
+  });
+
+  ipcMain.handle(IpcChannels.sessionReport, (_event, raw: unknown) => {
+    const req = SessionReportRequestSchema.parse(raw);
+    return persistence.sessionReport(req.id);
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
