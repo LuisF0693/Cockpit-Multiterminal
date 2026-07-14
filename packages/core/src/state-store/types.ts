@@ -29,6 +29,18 @@ export interface PersistedEvent {
   payload: Record<string, unknown>;
 }
 
+/** Lifecycle de tarefa (FR13 — Story 5.1): ordem canônica do fluxo. */
+export type TaskState = 'planned' | 'in_progress' | 'awaiting_decision' | 'reviewed' | 'done';
+
+export interface PersistedTask {
+  id: string;
+  title: string;
+  description: string;
+  state: TaskState;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface StateStore {
   /** Cria/migra o schema (app_meta.schema_version). */
   init(): void;
@@ -49,5 +61,10 @@ export interface StateStore {
   appendEvent(event: PersistedEvent): void;
   /** Timeline (Story 3.3): mais recentes primeiro, com filtros opcionais. */
   listEvents(opts: { limit: number; terminalId?: string; type?: string }): PersistedEvent[];
+  /** Tarefas (Story 5.1, FR13). */
+  createTask(task: PersistedTask): void;
+  updateTask(id: string, patch: { title?: string; description?: string; state?: TaskState; updatedAt: number }): void;
+  listTasks(): PersistedTask[];
+  getTask(id: string): PersistedTask | null;
   close(): void;
 }

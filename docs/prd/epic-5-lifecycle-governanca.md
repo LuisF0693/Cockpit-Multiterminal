@@ -2,6 +2,14 @@
 
 Fechar a visão de entrega agêntica: trabalho como entidades com ciclo de vida, vínculo explícito tarefa↔agente↔terminal e decisões humanas auditáveis integradas ao fluxo.
 
+> **Revisão 2026-07-14 (@pm/@po, pós-Épicos 3/4/6):** escopo CONFIRMADO sem
+> alterações — Task é a única entidade do roadmap ainda inexistente; os
+> épicos anteriores prepararam o terreno (coluna "tarefa: —" no master desde
+> a 3.1/3.4, `workspace`/`adapterId` já modelados no terminal, trilha e
+> WriteQueue resilientes desde a 4.1). Sequência 5.1→5.4 mantida — cada
+> story depende estruturalmente da anterior (entidade → vínculo → decisão →
+> board).
+
 ### Story 5.1 — Entidades de tarefa com estados de lifecycle
 
 As a desenvolvedor multi-agente,

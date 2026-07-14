@@ -12,4 +12,7 @@ export { SqliteStateStore } from './state-store/sqlite-state-store';
 export type { SqliteDatabase, SqliteStatement } from './state-store/sqlite-state-store';
 export { MemoryStateStore } from './state-store/memory-state-store';
 export { PersistenceManager } from './state-store/persistence';
-export type { PersistedEvent, PersistedTerminal, StateStore } from './state-store/types';
+export type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './state-store/types';
+export { TaskManager } from './task-manager';
+export type { TaskEvent, TaskListener, TaskRecord } from './task-manager';
+export { assertTransition, canTransition } from './task-lifecycle';

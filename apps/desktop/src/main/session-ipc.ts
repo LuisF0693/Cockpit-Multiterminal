@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
-import { PersistenceManager, SessionRegistry, WriteQueue, type StateStore } from '@cockpit/core';
+import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, type StateStore } from '@cockpit/core';
 import {
   AgentStatusSchema,
   IpcChannels,
@@ -12,10 +12,13 @@ import {
   SessionRenameRequestSchema,
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
+  TaskCreateRequestSchema,
+  TaskUpdateStateRequestSchema,
   WorkspaceCreateRequestSchema,
   WorkspaceRenameRequestSchema,
   WorkspaceSetActiveRequestSchema,
-  type SessionEvent
+  type SessionEvent,
+  type TaskEvent
 } from '@cockpit/shared';
 import type { DaemonSessionInfo } from '@cockpit/pty-host';
 
@@ -91,6 +94,16 @@ export function registerSessionIpc(
   const queue = new WriteQueue(applyBatch);
   const persistence = new PersistenceManager(store, queue);
   persistence.wire(registry);
+
+  // Tarefas (Story 5.1, FR13) — independentes do daemon/crash-recovery de
+  // sessões; carregadas direto no wiring (AC3: sobrevivem a restart).
+  const taskManager = new TaskManager(store, queue);
+  taskManager.load();
+  taskManager.onEvent((event: TaskEvent) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcChannels.taskEvent, event);
+    }
+  });
 
   // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
   // para o handle já nascer sabendo se há uma Recovery Screen a resolver.
@@ -182,6 +195,20 @@ export function registerSessionIpc(
     const req = WorkspaceSetActiveRequestSchema.parse(raw);
     return persistence.setActiveWorkspace(req.name);
   });
+
+  // Tarefas (Story 5.1)
+  ipcMain.handle(IpcChannels.taskCreate, (_event, raw: unknown) => {
+    const req = TaskCreateRequestSchema.parse(raw);
+    return taskManager.create({
+      title: req.title,
+      ...(req.description !== undefined ? { description: req.description } : {})
+    });
+  });
+  ipcMain.handle(IpcChannels.taskUpdateState, (_event, raw: unknown) => {
+    const req = TaskUpdateStateRequestSchema.parse(raw);
+    return taskManager.updateState(req.id, req.state);
+  });
+  ipcMain.handle(IpcChannels.taskList, () => taskManager.list());
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
 

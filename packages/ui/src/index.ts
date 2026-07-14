@@ -41,3 +41,5 @@ export { SessionReportView } from './session-report';
 export type { SessionReportViewProps } from './session-report';
 export { RecoveryScreen } from './recovery-screen';
 export type { RecoveryScreenProps } from './recovery-screen';
+export { TasksPanel } from './tasks-panel';
+export type { TasksPanelProps } from './tasks-panel';

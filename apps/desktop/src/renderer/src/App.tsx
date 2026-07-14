@@ -12,12 +12,21 @@ import {
   SessionReportView,
   Sidebar,
   StatusPulseStyles,
+  TasksPanel,
   TerminalTile,
   TimelineView,
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
-import type { CrashSummary, DaemonStatus, SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
+import type {
+  CrashSummary,
+  DaemonStatus,
+  SessionReport,
+  Task,
+  TaskState,
+  TimelineEvent,
+  WorkspaceList
+} from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -38,7 +47,7 @@ export function App(): JSX.Element {
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
-  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report' | 'recovery'>('master');
+  const [view, setView] = useState<'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks'>('master');
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -55,6 +64,8 @@ export function App(): JSX.Element {
   const [daemonState, setDaemonState] = useState<DaemonStatus['state']>('connected');
   // Recuperação pós-crash (Story 4.3): resumo não-nulo bloqueia o boot normal.
   const [crashSummary, setCrashSummary] = useState<CrashSummary | null>(null);
+  // Tarefas (Story 5.1): lista espelhada via push (mesmo padrão de sessões).
+  const [tasks, setTasks] = useState<Task[]>([]);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -110,6 +121,22 @@ export function App(): JSX.Element {
       .catch(() => void 0);
 
     const unsubDaemon = window.cockpit.daemon.onStatus((s) => setDaemonState(s.state));
+
+    void window.cockpit.task
+      .list()
+      .then(setTasks)
+      .catch(() => void 0);
+
+    // Espelho por push (mesmo padrão de sessões) — upsert por id.
+    const unsubTasks = window.cockpit.task.onEvent((event) => {
+      setTasks((prev) => {
+        const idx = prev.findIndex((t) => t.id === event.task.id);
+        if (idx === -1) return [...prev, event.task];
+        const next = [...prev];
+        next[idx] = event.task;
+        return next;
+      });
+    });
 
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
@@ -180,6 +207,7 @@ export function App(): JSX.Element {
       unsubLayout();
       unsubscribe();
       unsubDaemon();
+      unsubTasks();
     };
   }, []);
 
@@ -250,6 +278,17 @@ export function App(): JSX.Element {
     void window.cockpit.workspace
       .rename({ from, to })
       .then(setWorkspaces)
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /** Tarefas (Story 5.1) — o push (task.onEvent) já atualiza a lista. */
+  const createTask = (title: string): void => {
+    void window.cockpit.task.create({ title }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  const transitionTask = (id: string, to: TaskState): void => {
+    void window.cockpit.task
+      .updateState({ id, state: to })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
@@ -348,7 +387,8 @@ export function App(): JSX.Element {
             [
               ['master', 'Master', 'Sessão Master (Ctrl+M)'],
               ['canvas', 'Canvas', 'Canvas de terminais'],
-              ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)']
+              ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
+              ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -498,6 +538,8 @@ export function App(): JSX.Element {
         {view === 'timeline' && (
           <TimelineView events={timelineEvents} sessions={sessions} onRefresh={refreshTimeline} />
         )}
+
+        {view === 'tasks' && <TasksPanel tasks={tasks} onCreate={createTask} onTransition={transitionTask} />}
 
         <section
           style={{

@@ -1,5 +1,5 @@
 import type { LayoutTile } from '@cockpit/shared';
-import type { PersistedEvent, PersistedTerminal, StateStore } from './types';
+import type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './types';
 
 /**
  * Implementação em memória — testes vitest (Node) nunca importam
@@ -9,6 +9,7 @@ export class MemoryStateStore implements StateStore {
   readonly terminals = new Map<string, PersistedTerminal>();
   readonly meta = new Map<string, string>();
   readonly events: PersistedEvent[] = [];
+  readonly tasks = new Map<string, PersistedTask>();
 
   init(): void {
     this.meta.set('schema_version', '1');
@@ -78,6 +79,30 @@ export class MemoryStateStore implements StateStore {
       .filter((e) => (!opts.terminalId || e.terminalId === opts.terminalId) && (!opts.type || e.type === opts.type))
       .sort((a, b) => b.ts - a.ts)
       .slice(0, opts.limit);
+  }
+
+  createTask(t: PersistedTask): void {
+    this.tasks.set(t.id, t);
+  }
+
+  updateTask(id: string, patch: { title?: string; description?: string; state?: TaskState; updatedAt: number }): void {
+    const t = this.tasks.get(id);
+    if (!t) return;
+    this.tasks.set(id, {
+      ...t,
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.description !== undefined ? { description: patch.description } : {}),
+      ...(patch.state !== undefined ? { state: patch.state } : {}),
+      updatedAt: patch.updatedAt
+    });
+  }
+
+  listTasks(): PersistedTask[] {
+    return [...this.tasks.values()].sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  getTask(id: string): PersistedTask | null {
+    return this.tasks.get(id) ?? null;
   }
 
   close(): void {

@@ -35,6 +35,12 @@ export const IpcChannels = {
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
+  /** Tarefas (Story 5.1, FR13). */
+  taskCreate: 'task.create',
+  taskUpdateState: 'task.updateState',
+  taskList: 'task.list',
+  /** Push Main → renderer com eventos de domínio de tarefa. */
+  taskEvent: 'task.event',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -210,6 +216,39 @@ export const RecoveryResolveResponseSchema = z.object({
 });
 export type RecoveryResolveResponse = z.infer<typeof RecoveryResolveResponseSchema>;
 
+/** Lifecycle de tarefa (FR13 — Story 5.1): ordem canônica do fluxo. */
+export const TaskStateSchema = z.enum(['planned', 'in_progress', 'awaiting_decision', 'reviewed', 'done']);
+export type TaskState = z.infer<typeof TaskStateSchema>;
+
+export const TaskSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1).max(120),
+  description: z.string().max(2000),
+  state: TaskStateSchema,
+  createdAt: z.number().int().nonnegative(),
+  updatedAt: z.number().int().nonnegative()
+});
+export type Task = z.infer<typeof TaskSchema>;
+
+export const TaskCreateRequestSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().max(2000).optional()
+});
+export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>;
+
+export const TaskUpdateStateRequestSchema = z.object({
+  id: z.string().min(1),
+  state: TaskStateSchema
+});
+export type TaskUpdateStateRequest = z.infer<typeof TaskUpdateStateRequestSchema>;
+
+/** Push Main → renderer (Story 5.1) — mesmo padrão do SessionEvent. */
+export const TaskEventSchema = z.object({
+  type: z.enum(['created', 'state_changed']),
+  task: TaskSchema
+});
+export type TaskEvent = z.infer<typeof TaskEventSchema>;
+
 /** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
@@ -306,5 +345,14 @@ export interface CockpitApi {
     /** Resumo do crash pendente (Story 4.3); null quando não há recuperação a resolver. */
     summary(): Promise<CrashSummary | null>;
     resolve(req: RecoveryResolveRequest): Promise<RecoveryResolveResponse>;
+  };
+  task: {
+    /** Tarefas com lifecycle (Story 5.1, FR13). */
+    create(req: TaskCreateRequest): Promise<Task>;
+    /** Transição validada pelo core — rejeita se inválida (AC1). */
+    updateState(req: TaskUpdateStateRequest): Promise<Task>;
+    list(): Promise<Task[]>;
+    /** Assina eventos de domínio de tarefa; retorna unsubscribe. */
+    onEvent(cb: (event: TaskEvent) => void): () => void;
   };
 }

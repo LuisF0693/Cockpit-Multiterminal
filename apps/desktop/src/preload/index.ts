@@ -12,6 +12,8 @@ import {
   SessionRecordSchema,
   SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
+  TaskEventSchema,
+  TaskSchema,
   TimelineEventSchema,
   WorkspaceListSchema,
   type AppInfo,
@@ -24,6 +26,9 @@ import {
   type SessionRenameRequest,
   type SessionReportRequest,
   type SessionResizeRequest,
+  type TaskCreateRequest,
+  type TaskEvent,
+  type TaskUpdateStateRequest,
   type TerminalPortMessage,
   type WorkspaceCreateRequest,
   type WorkspaceRenameRequest,
@@ -130,6 +135,27 @@ const api: CockpitApi = {
     resolve: async (req: RecoveryResolveRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.recoveryResolve, req);
       return RecoveryResolveResponseSchema.parse(raw);
+    }
+  },
+  task: {
+    create: async (req: TaskCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskCreate, req);
+      return TaskSchema.parse(raw);
+    },
+    updateState: async (req: TaskUpdateStateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskUpdateState, req);
+      return TaskSchema.parse(raw);
+    },
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.taskList);
+      return TaskSchema.array().parse(raw);
+    },
+    onEvent: (cb: (event: TaskEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(TaskEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.taskEvent, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.taskEvent, listener);
     }
   }
 };

@@ -1,5 +1,5 @@
 import type { LayoutTile } from '@cockpit/shared';
-import type { PersistedEvent, PersistedTerminal, StateStore } from './types';
+import type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './types';
 
 /**
  * Implementação SQLite (better-sqlite3, WAL). O driver é INJETADO pelo Main:
@@ -22,7 +22,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 
 interface TerminalRow {
   id: string;
@@ -34,6 +34,15 @@ interface TerminalRow {
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
+}
+
+interface TaskRow {
+  id: string;
+  title: string;
+  description: string;
+  state: string;
+  created_at: number;
+  updated_at: number;
 }
 
 export class SqliteStateStore implements StateStore {
@@ -67,6 +76,14 @@ export class SqliteStateStore implements StateStore {
         type TEXT NOT NULL,
         terminal_id TEXT,
         payload_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts);
@@ -105,6 +122,8 @@ export class SqliteStateStore implements StateStore {
         console.log('[state] schema migrado v2 → v3 (workspace)');
       }
     }
+    // v3 → v4 (Story 5.1): tabela tasks é NOVA — CREATE TABLE IF NOT EXISTS
+    // acima já cobre instalações antigas e novas; nenhum ALTER necessário.
   }
 
   upsertTerminal(t: PersistedTerminal): void {
@@ -240,6 +259,54 @@ export class SqliteStateStore implements StateStore {
       terminalId: r.terminal_id ?? undefined,
       payload: JSON.parse(r.payload_json) as Record<string, unknown>
     }));
+  }
+
+  createTask(t: PersistedTask): void {
+    this.db
+      .prepare(
+        `INSERT INTO tasks (id, title, description, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(t.id, t.title, t.description, t.state, t.createdAt, t.updatedAt);
+  }
+
+  updateTask(id: string, patch: { title?: string; description?: string; state?: TaskState; updatedAt: number }): void {
+    const sets: string[] = ['updated_at = ?'];
+    const params: unknown[] = [patch.updatedAt];
+    if (patch.title !== undefined) {
+      sets.push('title = ?');
+      params.push(patch.title);
+    }
+    if (patch.description !== undefined) {
+      sets.push('description = ?');
+      params.push(patch.description);
+    }
+    if (patch.state !== undefined) {
+      sets.push('state = ?');
+      params.push(patch.state);
+    }
+    params.push(id);
+    this.db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  listTasks(): PersistedTask[] {
+    const rows = this.db.prepare('SELECT * FROM tasks ORDER BY created_at').all() as TaskRow[];
+    return rows.map((r) => this.rowToTask(r));
+  }
+
+  getTask(id: string): PersistedTask | null {
+    const r = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;
+    return r ? this.rowToTask(r) : null;
+  }
+
+  private rowToTask(r: TaskRow): PersistedTask {
+    return {
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      state: r.state as TaskState,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    };
   }
 
   /** Executa um batch da WriteQueue numa transação única (atomicidade — NFR5). */
