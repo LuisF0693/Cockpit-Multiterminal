@@ -34,6 +34,12 @@ export const IpcChannels = {
   workspaceCreate: 'workspace.create',
   workspaceRename: 'workspace.rename',
   workspaceSetActive: 'workspace.setActive',
+  /** Projetos (Story 8.1) — caminho raiz real no disco, diferente de workspace. */
+  projectList: 'project.list',
+  projectCreate: 'project.create',
+  projectUpdate: 'project.update',
+  projectRemove: 'project.remove',
+  projectSetActive: 'project.setActive',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -345,6 +351,48 @@ export type WorkspaceRenameRequest = z.infer<typeof WorkspaceRenameRequestSchema
 export const WorkspaceSetActiveRequestSchema = z.object({ name: z.string().min(1) });
 export type WorkspaceSetActiveRequest = z.infer<typeof WorkspaceSetActiveRequestSchema>;
 
+/**
+ * Projeto (Story 8.1, FR21) — caminho raiz real no disco, diferente de
+ * workspace (3.6, agrupamento livre de tiles DENTRO de um projeto). Um
+ * projeto tem N workspaces; um workspace pertence a exatamente 1 projeto.
+ */
+export const ProjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60),
+  color: z.string().min(1),
+  rootPath: z.string().min(1)
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
+/** Lista de projetos + ativo — sempre ao menos 1 projeto existe (FR21, AC2). */
+export const ProjectListSchema = z.object({
+  projects: ProjectSchema.array().min(1),
+  activeId: z.string().min(1)
+});
+export type ProjectList = z.infer<typeof ProjectListSchema>;
+
+export const ProjectCreateRequestSchema = z.object({
+  name: z.string().min(1).max(60),
+  color: z.string().min(1),
+  rootPath: z.string().min(1)
+});
+export type ProjectCreateRequest = z.infer<typeof ProjectCreateRequestSchema>;
+
+/** Update combinado (rename+recolor+reroot) — todos os campos opcionais. */
+export const ProjectUpdateRequestSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60).optional(),
+  color: z.string().min(1).optional(),
+  rootPath: z.string().min(1).optional()
+});
+export type ProjectUpdateRequest = z.infer<typeof ProjectUpdateRequestSchema>;
+
+export const ProjectRemoveRequestSchema = z.object({ id: z.string().min(1) });
+export type ProjectRemoveRequest = z.infer<typeof ProjectRemoveRequestSchema>;
+
+export const ProjectSetActiveRequestSchema = z.object({ id: z.string().min(1) });
+export type ProjectSetActiveRequest = z.infer<typeof ProjectSetActiveRequestSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -424,6 +472,16 @@ export interface CockpitApi {
     /** Resumo do crash pendente (Story 4.3); null quando não há recuperação a resolver. */
     summary(): Promise<CrashSummary | null>;
     resolve(req: RecoveryResolveRequest): Promise<RecoveryResolveResponse>;
+  };
+  project: {
+    /** Projetos conhecidos + ativo (Story 8.1, FR21) — sempre ao menos 1. */
+    list(): Promise<ProjectList>;
+    create(req: ProjectCreateRequest): Promise<ProjectList>;
+    /** Rename/recolor/reroot combinado — campos ausentes não mudam. */
+    update(req: ProjectUpdateRequest): Promise<ProjectList>;
+    /** Rejeita remover o último projeto restante (AC4). */
+    remove(req: ProjectRemoveRequest): Promise<ProjectList>;
+    setActive(req: ProjectSetActiveRequest): Promise<ProjectList>;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

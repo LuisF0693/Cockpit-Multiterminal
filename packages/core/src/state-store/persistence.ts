@@ -1,4 +1,4 @@
-import type { CrashSummary, LayoutTile, SessionEvent, SessionReport } from '@cockpit/shared';
+import type { CrashSummary, LayoutTile, Project, ProjectList, SessionEvent, SessionReport } from '@cockpit/shared';
 import { ulid } from '../ulid';
 import type { SessionRegistry } from '../session-registry';
 import type { StateStore } from './types';
@@ -264,6 +264,93 @@ export class PersistenceManager {
       const raw = this.store.getMeta('workspaces');
       const parsed: unknown = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string' && n.length > 0) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Projetos (Story 8.1, FR21) — caminho raiz real no disco; entidade
+   * INDEPENDENTE de workspace (não deriva de terminais, ao contrário de
+   * `workspaces()`). Lista vive em app_meta.projects (JSON); ativo em
+   * app_meta.active_project.
+   */
+
+  /**
+   * Primeiro boot: cria o projeto "Padrão" apontando pro cwd atual do
+   * processo — mesmo cwd que sessões sem projeto já usavam (zero regressão).
+   * Idempotente: no-op se já existe algum projeto.
+   */
+  ensureDefaultProject(defaultRootPath: string): ProjectList {
+    if (this.parseProjectsMeta().length > 0) return this.projects();
+    const project: Project = { id: ulid(), name: 'Padrão', color: '#3B82F6', rootPath: defaultRootPath };
+    this.store.setMeta('projects', JSON.stringify([project]));
+    this.store.setMeta('active_project', project.id);
+    return this.projects();
+  }
+
+  projects(): ProjectList {
+    this.queue.flush();
+    const projects = this.parseProjectsMeta();
+    const active = this.store.getMeta('active_project');
+    return {
+      projects,
+      activeId: active && projects.some((p) => p.id === active) ? active : (projects[0]?.id ?? '')
+    };
+  }
+
+  createProject(req: { name: string; color: string; rootPath: string }): ProjectList {
+    const project: Project = { id: ulid(), ...req };
+    this.store.setMeta('projects', JSON.stringify([...this.parseProjectsMeta(), project]));
+    return this.projects();
+  }
+
+  /** Rename/recolor/reroot combinado — campos ausentes não mudam (AC4). */
+  updateProject(req: { id: string; name?: string; color?: string; rootPath?: string }): ProjectList {
+    const projects = this.parseProjectsMeta().map((p) =>
+      p.id === req.id
+        ? {
+            ...p,
+            ...(req.name !== undefined ? { name: req.name } : {}),
+            ...(req.color !== undefined ? { color: req.color } : {}),
+            ...(req.rootPath !== undefined ? { rootPath: req.rootPath } : {})
+          }
+        : p
+    );
+    this.store.setMeta('projects', JSON.stringify(projects));
+    return this.projects();
+  }
+
+  /** Rejeita remover o último projeto restante (AC4). */
+  removeProject(id: string): ProjectList {
+    const projects = this.parseProjectsMeta();
+    if (projects.length <= 1) throw new Error('não é possível remover o último projeto restante');
+    const next = projects.filter((p) => p.id !== id);
+    this.store.setMeta('projects', JSON.stringify(next));
+    if (this.store.getMeta('active_project') === id) this.store.setMeta('active_project', next[0]!.id);
+    return this.projects();
+  }
+
+  setActiveProject(id: string): ProjectList {
+    this.store.setMeta('active_project', id);
+    return this.projects();
+  }
+
+  private parseProjectsMeta(): Project[] {
+    try {
+      const raw = this.store.getMeta('projects');
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter(
+            (p): p is Project =>
+              typeof p === 'object' &&
+              p !== null &&
+              typeof (p as Project).id === 'string' &&
+              typeof (p as Project).name === 'string' &&
+              typeof (p as Project).color === 'string' &&
+              typeof (p as Project).rootPath === 'string'
+          )
+        : [];
     } catch {
       return [];
     }

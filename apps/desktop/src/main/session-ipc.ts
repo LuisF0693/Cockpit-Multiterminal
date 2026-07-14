@@ -31,6 +31,10 @@ import {
   WorkspaceCreateRequestSchema,
   WorkspaceRenameRequestSchema,
   WorkspaceSetActiveRequestSchema,
+  ProjectCreateRequestSchema,
+  ProjectUpdateRequestSchema,
+  ProjectRemoveRequestSchema,
+  ProjectSetActiveRequestSchema,
   type SessionEvent,
   type TaskEvent
 } from '@cockpit/shared';
@@ -126,6 +130,11 @@ export function registerSessionIpc(
   const { cleanShutdown } = persistence.markBootStart();
   const crashDetected = !cleanShutdown;
   let recoveryResolved = !crashDetected;
+
+  // Projetos (Story 8.1, FR21): primeiro boot cria o "Padrão" apontando pro
+  // MESMO cwd que sessões sem projeto já usavam (session-registry.ts,
+  // `opts.cwd ?? process.cwd()`) — zero regressão no comportamento atual.
+  persistence.ensureDefaultProject(process.cwd());
 
   // Exit espontâneo do shell → registro reflete (exitCode → relatório 3.5);
   // host caiu → todas exited.
@@ -241,6 +250,30 @@ export function registerSessionIpc(
   ipcMain.handle(IpcChannels.workspaceSetActive, (_event, raw: unknown) => {
     const req = WorkspaceSetActiveRequestSchema.parse(raw);
     return persistence.setActiveWorkspace(req.name);
+  });
+
+  // Projetos (Story 8.1, FR21)
+  ipcMain.handle(IpcChannels.projectList, () => persistence.projects());
+  ipcMain.handle(IpcChannels.projectCreate, (_event, raw: unknown) => {
+    const req = ProjectCreateRequestSchema.parse(raw);
+    return persistence.createProject(req);
+  });
+  ipcMain.handle(IpcChannels.projectUpdate, (_event, raw: unknown) => {
+    const req = ProjectUpdateRequestSchema.parse(raw);
+    return persistence.updateProject({
+      id: req.id,
+      ...(req.name !== undefined ? { name: req.name } : {}),
+      ...(req.color !== undefined ? { color: req.color } : {}),
+      ...(req.rootPath !== undefined ? { rootPath: req.rootPath } : {})
+    });
+  });
+  ipcMain.handle(IpcChannels.projectRemove, (_event, raw: unknown) => {
+    const req = ProjectRemoveRequestSchema.parse(raw);
+    return persistence.removeProject(req.id);
+  });
+  ipcMain.handle(IpcChannels.projectSetActive, (_event, raw: unknown) => {
+    const req = ProjectSetActiveRequestSchema.parse(raw);
+    return persistence.setActiveProject(req.id);
   });
 
   // Tarefas (Story 5.1)
