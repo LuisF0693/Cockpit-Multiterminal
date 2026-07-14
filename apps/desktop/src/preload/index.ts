@@ -24,6 +24,7 @@ import {
   ProjectReadFileResponseSchema,
   TerminalLinkSchema,
   TerminalLinkEventSchema,
+  TerminalLinkRoutedEventSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -54,7 +55,8 @@ import {
   type ProjectReadFileRequest,
   type TerminalLinkCreateRequest,
   type TerminalLinkRemoveRequest,
-  type TerminalLinkEvent
+  type TerminalLinkEvent,
+  type TerminalLinkRoutedEvent
 } from '@cockpit/shared';
 
 /**
@@ -205,6 +207,13 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.terminalLinkEvent, listener);
       return () => ipcRenderer.removeListener(IpcChannels.terminalLinkEvent, listener);
+    },
+    onRouted: (cb: (event: TerminalLinkRoutedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(TerminalLinkRoutedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.terminalLinkRouted, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.terminalLinkRouted, listener);
     }
   },
   recovery: {

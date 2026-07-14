@@ -51,6 +51,8 @@ export const IpcChannels = {
   terminalLinkList: 'terminalLink.list',
   /** Push Main → renderer com eventos de domínio de vínculo. */
   terminalLinkEvent: 'terminalLink.event',
+  /** Push Main → renderer: roteamento automático de vínculo (Story 9.2). */
+  terminalLinkRouted: 'terminalLink.routed',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -482,6 +484,19 @@ export const TerminalLinkEventSchema = z.object({
 });
 export type TerminalLinkEvent = z.infer<typeof TerminalLinkEventSchema>;
 
+/**
+ * Push Main -> renderer (Story 9.2, FR26): roteamento automático de vínculo
+ * terminal-a-terminal. Mesmo padrão do sdc.reviewRequested (7.2): `message`
+ * já vem pronta do Main; o renderer só chama instructAgent por targetId
+ * (decisão crítica 4: só o renderer escreve na PTY).
+ */
+export const TerminalLinkRoutedEventSchema = z.object({
+  sourceId: z.string().min(1),
+  targetIds: z.string().min(1).array().min(1),
+  message: z.string().min(1)
+});
+export type TerminalLinkRoutedEvent = z.infer<typeof TerminalLinkRoutedEventSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -585,6 +600,8 @@ export interface CockpitApi {
     list(): Promise<TerminalLink[]>;
     /** Assina eventos de domínio de vínculo; retorna unsubscribe. */
     onEvent(cb: (event: TerminalLinkEvent) => void): () => void;
+    /** Roteamento automático de vínculo (Story 9.2, FR26); retorna unsubscribe. */
+    onRouted(cb: (event: TerminalLinkRoutedEvent) => void): () => void;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

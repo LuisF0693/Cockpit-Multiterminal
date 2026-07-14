@@ -208,6 +208,12 @@ export function App(): JSX.Element {
       instructAgent(event.writerId, event.message);
     });
 
+    // Roteamento automático de vínculo terminal-a-terminal (Story 9.2,
+    // FR26) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
+    const unsubTerminalLinkRouted = window.cockpit.terminalLink.onRouted((event) => {
+      for (const targetId of event.targetIds) instructAgent(targetId, event.message);
+    });
+
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
       const data = event.data as Partial<TerminalPortMessage> | undefined;
@@ -280,6 +286,7 @@ export function App(): JSX.Element {
       unsubTasks();
       unsubSdc();
       unsubSdcCorrection();
+      unsubTerminalLinkRouted();
     };
   }, []);
 

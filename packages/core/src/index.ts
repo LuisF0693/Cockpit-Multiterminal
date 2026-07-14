@@ -21,3 +21,5 @@ export type { SdcReviewRouting, SdcCorrectionRouting, SdcRedirectPlan } from './
 export { parseGitignorePatterns, isGitignored, isPathWithin, ALWAYS_HIDDEN_NAMES } from './file-explorer';
 export { TerminalLinkManager } from './terminal-link-manager';
 export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';
+export { planTerminalLinkRouting } from './terminal-link-routing';
+export type { TerminalLinkRouting } from './terminal-link-routing';

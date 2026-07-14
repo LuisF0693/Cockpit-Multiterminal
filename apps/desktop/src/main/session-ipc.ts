@@ -11,6 +11,7 @@ import {
   planSdcReviewRouting,
   planSdcCorrectionRouting,
   planSdcRedirect,
+  planTerminalLinkRouting,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
@@ -214,6 +215,26 @@ export function registerSessionIpc(
       terminalLinkManager.removeForTerminal(event.session.id);
     } catch (err) {
       console.error('[terminalLink] limpeza pós-fechamento falhou:', err);
+    }
+  });
+
+  // Roteamento automático de vínculo terminal-a-terminal (Story 9.2, FR26) —
+  // mesmo padrão do roteamento SDC (7.2): função pura decide, este listener
+  // só executa os efeitos colaterais quando o retorno não é null.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    try {
+      const routing = planTerminalLinkRouting(event.session, terminalLinkManager.list());
+      if (!routing) return;
+
+      for (const targetId of routing.targetIds) {
+        persistence.recordTerminalLinkRouting(targetId, { sourceId: routing.sourceId });
+      }
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IpcChannels.terminalLinkRouted, routing);
+      }
+    } catch (err) {
+      console.error('[terminalLink] roteamento automático falhou:', err);
     }
   });
 
