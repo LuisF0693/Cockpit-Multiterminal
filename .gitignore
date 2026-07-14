@@ -1,0 +1,38 @@
+
+
+# Environment & Secrets (AIOX)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Dependencies (AIOX)
+node_modules/
+node_modules
+
+# Build & Logs (AIOX)
+dist/
+build/
+out/
+release/
+*.log
+logs/
+.turbo/
+
+# IDE & OS (AIOX)
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# AIOX framework instalado localmente (CLI/templates/dados gerados do
+# framework, nao conteudo autoral do projeto) - o produto vive inteiro fora
+# desta pasta (docs/stories, packages, apps). Vazou nos commits iniciais do
+# scaffold; removido do rastreamento em 2026-07-14 (~401K linhas).
+.aiox-core/
+.claude/settings.local.json
+.aiox/install-log.txt
+
+# AIOX Runtime (handoffs, sessões — não versionar)
+.aiox/

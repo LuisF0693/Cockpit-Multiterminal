@@ -1,0 +1,23 @@
+{
+  "name": "@cockpit/adapter-claude-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cockpit/adapter-contract": "workspace:*",
+    "@cockpit/shared": "workspace:*",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "@cockpit/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "out/main/index.js",
+  "author": "LuisF0693",
+  "description": "Meu Cockpit — central de controle multiagente",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "dist": "electron-vite build && electron-builder --win --config electron-builder.yml",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run --passWithNoTests",
+    "spike:conpty": "tsx spike/conpty-spike.ts",
+    "spike:daemon": "tsx spike/daemon-spike.ts",
+    "rebuild:native": "node scripts/rebuild-native.cjs",
+    "smoke:abi": "electron smoke/abi-smoke.cjs",
+    "smoke:store": "electron smoke/store-smoke.cjs",
+    "smoke:persist": "electron-vite build && electron out/main/persist-smoke.js",
+    "smoke:daemon": "electron-vite build && node out/main/daemon-smoke.js"
+  },
+  "dependencies": {
+    "@cockpit/core": "workspace:*",
+    "@cockpit/pty-host": "workspace:*",
+    "@cockpit/shared": "workspace:*",
+    "@cockpit/ui": "workspace:*",
+    "better-sqlite3": "^11.10.0",
+    "node-pty": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.5.0",
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^31.4.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5"
+  }
+}

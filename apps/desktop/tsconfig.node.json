@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@cockpit/shared": ["../../packages/shared/src/index.ts"],
+      "@cockpit/core": ["../../packages/core/src/index.ts"],
+      "@cockpit/pty-host": ["../../packages/pty-host/src/index.ts"]
+    }
+  },
+  "include": ["src/main/**/*", "src/preload/**/*", "spike/**/*", "electron.vite.config.ts"]
+}

@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cockpit/shared": ["packages/shared/src/index.ts"],
+      "@cockpit/shared/*": ["packages/shared/src/*"],
+      "@cockpit/core": ["packages/core/src/index.ts"],
+      "@cockpit/core/*": ["packages/core/src/*"],
+      "@cockpit/ui": ["packages/ui/src/index.ts"],
+      "@cockpit/ui/*": ["packages/ui/src/*"],
+      "@cockpit/pty-host": ["packages/pty-host/src/index.ts"],
+      "@cockpit/pty-host/*": ["packages/pty-host/src/*"],
+      "@cockpit/adapter-contract": ["packages/adapter-contract/src/index.ts"],
+      "@cockpit/adapter-shell": ["packages/adapters/shell/src/index.ts"],
+      "@cockpit/adapter-claude-code": ["packages/adapters/claude-code/src/index.ts"],
+      "@cockpit/adapter-codex": ["packages/adapters/codex/src/index.ts"],
+      "@cockpit/adapter-grok": ["packages/adapters/grok/src/index.ts"]
+    }
+  }
+}
