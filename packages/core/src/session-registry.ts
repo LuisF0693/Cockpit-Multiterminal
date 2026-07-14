@@ -128,6 +128,38 @@ export class SessionRegistry {
   }
 
   /**
+   * Adota sessão JÁ VIVA no daemon (Story 6.3) — cria o record SEM spawn.
+   * Emite 'created': persistência re-upserta (corrige exited→running) e a
+   * UI espelha, tudo pelo caminho existente.
+   */
+  adopt(opts: {
+    id: string;
+    name: string;
+    cwd: string;
+    adapterId: string;
+    workspace: string;
+    pid: number;
+    createdAt?: number;
+  }): SessionRecord {
+    const record: SessionRecord = {
+      id: opts.id,
+      name: opts.name,
+      cwd: opts.cwd,
+      status: 'running',
+      pid: opts.pid,
+      createdAt: opts.createdAt ?? Date.now(),
+      adapterId: opts.adapterId,
+      agentStatus: 'working',
+      lastStatusChangeAt: Date.now(),
+      workspace: opts.workspace
+    };
+    // ptyId = id da sessão no daemon (tag) — decisão da 6.1.
+    this.sessions.set(record.id, { record, ptyId: opts.id });
+    this.emit({ type: 'created', session: record });
+    return record;
+  }
+
+  /**
    * Renomeia workspace nas sessões VIVAS (3.6) — emite 'renamed' por sessão
    * afetada para reusar o caminho de upsert da persistência e o espelho da UI.
    */

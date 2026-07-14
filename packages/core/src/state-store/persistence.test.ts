@@ -262,6 +262,41 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(manager.setActiveWorkspace('Alpha').active).toBe('Alpha');
   });
 
+  it('adopt cria record vivo e restore pula adotadas (Story 6.3)', async () => {
+    const first = makeHarness();
+    const a = await first.registry.create({ cols: 80, rows: 24, name: 'API', cwd: 'C:/api', workspace: 'Alpha' });
+    const b = await first.registry.create({ cols: 80, rows: 24, name: 'Web' });
+    first.queue.flush();
+
+    // "reboot": A está viva no daemon → adotada; só B relança via ops
+    const ops2 = makeOps();
+    const registry2 = new SessionRegistry(ops2);
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    manager2.wire(registry2);
+
+    registry2.adopt({
+      id: a.id,
+      name: 'API',
+      cwd: 'C:/api',
+      adapterId: 'shell',
+      workspace: 'Alpha',
+      pid: 4242,
+      createdAt: a.createdAt
+    });
+    manager2.recordAdoption(a.id, { name: 'API', adapterId: 'shell', pid: 4242 });
+
+    const result = await manager2.restore(registry2);
+    expect(result).toEqual({ restored: 1, archived: 0 }); // só B
+    expect(ops2.createdTags).toEqual([b.id]); // A NÃO relançada
+
+    const adopted = registry2.list().find((r) => r.id === a.id)!;
+    expect(adopted).toMatchObject({ pid: 4242, status: 'running', workspace: 'Alpha', adapterId: 'shell' });
+
+    const trail = manager2.timeline({ limit: 10, type: 'session.adopted' });
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.terminalId).toBe(a.id);
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

@@ -5,7 +5,8 @@ import Database from 'better-sqlite3';
 import { SqliteStateStore } from '@cockpit/core';
 import { AppInfoSchema, IpcChannels, type AppInfo } from '@cockpit/shared';
 import { PtyHostManager } from './pty-host-manager';
-import { registerSessionIpc, type SessionIpcHandle } from './session-ipc';
+import { DaemonManager } from './daemon-manager';
+import { registerSessionIpc, type PtyBackend, type SessionIpcHandle } from './session-ipc';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -54,7 +55,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // CSP estrita para todo conteúdo carregado.
   // Em dev, o react-refresh do @vitejs/plugin-react exige um script inline
   // (preamble) — sem 'unsafe-inline' o renderer não sobe. Produção fica estrita.
@@ -79,15 +80,31 @@ app.whenReady().then(() => {
   const stateStore = new SqliteStateStore(new Database(join(stateDir, 'cockpit.db')));
   stateStore.init();
 
-  ptyHostManager = new PtyHostManager();
-  ptyHostManager.start();
-  ptyHostManager.configure({
+  // Backend de PTY (Story 6.3): daemon por padrão (sessões sobrevivem ao
+  // app — decisão crítica 5); COCKPIT_NO_DAEMON=1 = escape hatch p/ o
+  // utilityProcess clássico; falha no daemon também cai no clássico.
+  const scrollback = {
     scrollbackDir: join(stateDir, 'scrollback'),
     maxFileBytes: 1024 * 1024,
     restoreTailBytes: 256 * 1024
-  });
+  };
+  let backend: PtyBackend;
+  if (process.env['COCKPIT_NO_DAEMON'] !== '1') {
+    try {
+      const daemon = new DaemonManager();
+      await daemon.start();
+      daemon.configure(scrollback);
+      daemonManager = daemon;
+      backend = daemon;
+    } catch (err) {
+      console.error('[daemon] indisponível — fallback p/ utilityProcess:', err);
+      backend = startUtilityHost(scrollback);
+    }
+  } else {
+    backend = startUtilityHost(scrollback);
+  }
 
-  sessionIpc = registerSessionIpc(ptyHostManager, stateStore, (batch) =>
+  sessionIpc = registerSessionIpc(backend, stateStore, (batch) =>
     stateStore.applyBatch(batch)
   );
 
@@ -99,7 +116,8 @@ app.whenReady().then(() => {
   // Restore (AC2) ANTES da janela: session.list do renderer já traz tudo.
   void sessionIpc
     .restore()
-    .then(({ restored, archived }) => {
+    .then(({ restored, archived, adopted }) => {
+      if (adopted > 0) console.log(`[daemon] adotadas ${adopted} sessões vivas do daemon`);
       if (restored > 0) console.log(`[state] restauradas ${restored} sessões (${archived} arquivadas)`);
     })
     .finally(() => createWindow());
@@ -110,13 +128,26 @@ app.whenReady().then(() => {
 });
 
 let ptyHostManager: PtyHostManager | null = null;
+let daemonManager: DaemonManager | null = null;
 let sessionIpc: SessionIpcHandle | null = null;
 let quitting = false;
 
-// Shutdown ordenado: PTYs dispostos (AC4) + flush da write queue +
-// clean_shutdown=1 (FR12) antes do app morrer.
+function startUtilityHost(scrollback: {
+  scrollbackDir: string;
+  maxFileBytes: number;
+  restoreTailBytes: number;
+}): PtyHostManager {
+  ptyHostManager = new PtyHostManager();
+  ptyHostManager.start();
+  ptyHostManager.configure(scrollback);
+  return ptyHostManager;
+}
+
+// Shutdown ordenado + clean_shutdown=1 (FR12) antes do app morrer.
+// Modo daemon (6.3): apenas DESCONECTA — sessões sobrevivem e serão
+// adotadas no próximo boot. Modo utilityProcess: dispõe PTYs como antes.
 app.on('before-quit', (event) => {
-  if (quitting || !ptyHostManager) return;
+  if (quitting || (!ptyHostManager && !daemonManager)) return;
   event.preventDefault();
   quitting = true;
   const finalize = (): void => {
@@ -128,7 +159,12 @@ app.on('before-quit', (event) => {
     }
     app.quit();
   };
-  void ptyHostManager.shutdown().finally(finalize);
+  if (daemonManager) {
+    daemonManager.disconnect();
+    finalize();
+    return;
+  }
+  void ptyHostManager?.shutdown().finally(finalize);
 });
 
 app.on('window-all-closed', () => {

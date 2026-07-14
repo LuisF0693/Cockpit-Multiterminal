@@ -48,6 +48,10 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           // PTY Host roda como utilityProcess — entry próprio em out/main/pty-host.js
           'pty-host': resolve(ptyHost, 'host-entry.ts'),
+          // cockpit-daemon (Story 6.3) — processo standalone via node/Electron-as-Node
+          daemon: resolve(ptyHost, 'daemon-entry.ts'),
+          // Smoke cross-processo do daemon (Story 6.3, AC4)
+          'daemon-smoke': resolve(__dirname, 'src/main/daemon-smoke.ts'),
           // Smoke de persistência (Story 1.4, AC4) — roda sob ABI do Electron
           'persist-smoke': resolve(__dirname, 'src/main/persist-smoke.ts'),
           // Smoke de diagnóstico do canal binário (host → MessagePort)

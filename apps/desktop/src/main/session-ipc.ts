@@ -16,7 +16,7 @@ import {
   WorkspaceSetActiveRequestSchema,
   type SessionEvent
 } from '@cockpit/shared';
-import type { PtyHostManager } from './pty-host-manager';
+import type { DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * Cola entre SessionRegistry (fonte de verdade, @cockpit/core) e o mundo:
@@ -24,16 +24,40 @@ import type { PtyHostManager } from './pty-host-manager';
  * contínua (Story 1.4: StateStore + WriteQueue — o input nunca espera I/O).
  */
 
+/**
+ * Backend de PTY (Story 6.3) — satisfeito estruturalmente pelo
+ * PtyHostManager (utilityProcess) e pelo DaemonManager (named pipe).
+ * listSessions/adoptPty só existem no daemon: habilitam a adoção no boot.
+ */
+export interface PtyBackend {
+  createPty(opts: {
+    sessionId: string;
+    cols: number;
+    rows: number;
+    cwd?: string;
+    adapterId?: string;
+    restore?: boolean;
+  }): Promise<{ ptyId: string; pid: number; rendererPort: Electron.MessagePortMain }>;
+  closePty(ptyId: string): Promise<{ orphan: boolean }>;
+  resizePty(ptyId: string, cols: number, rows: number): void;
+  listAdapters(): Promise<Array<{ id: string; displayName: string }>>;
+  onSessionExit(cb: (ptyId: string, exitCode: number) => void): void;
+  onSessionStatus(cb: (ptyId: string, status: string) => void): void;
+  onHostExit(cb: () => void): void;
+  listSessions?(): Promise<DaemonSessionInfo[]>;
+  adoptPty?(sessionId: string): Promise<{ pid: number; rendererPort: Electron.MessagePortMain }>;
+}
+
 export interface SessionIpcHandle {
   registry: SessionRegistry;
   persistence: PersistenceManager;
   queue: WriteQueue;
   /** Restore do boot (AC2) — chamar após registrar tudo. */
-  restore(): Promise<{ restored: number; archived: number }>;
+  restore(): Promise<{ restored: number; archived: number; adopted: number }>;
 }
 
 export function registerSessionIpc(
-  ptyHost: PtyHostManager,
+  ptyHost: PtyBackend,
   store: StateStore,
   applyBatch: (batch: Array<() => void>) => void
 ): SessionIpcHandle {
@@ -164,10 +188,49 @@ export function registerSessionIpc(
     persistence.persistLayout(req.tiles);
   });
 
+  // Adoção (6.3): sessões vivas no daemon casadas com os terminais
+  // persistidos — adota (attach+replay) ANTES do relaunch da 1.4.
+  const adoptFromDaemon = async (): Promise<number> => {
+    if (!ptyHost.listSessions || !ptyHost.adoptPty) return 0;
+    let alive: Map<string, DaemonSessionInfo>;
+    try {
+      alive = new Map((await ptyHost.listSessions()).map((s) => [s.id, s]));
+    } catch {
+      return 0; // sem daemon utilizável → restore clássico cuida de tudo
+    }
+    let adopted = 0;
+    for (const t of store.listActiveTerminals()) {
+      const live = alive.get(t.id);
+      if (!live) continue;
+      try {
+        const { rendererPort } = await ptyHost.adoptPty(t.id);
+        parkedPorts.set(t.id, rendererPort);
+        registry.adopt({
+          id: t.id,
+          name: t.name,
+          cwd: t.cwd,
+          adapterId: t.adapterId,
+          workspace: t.workspace,
+          pid: live.pid,
+          createdAt: t.createdAt
+        });
+        persistence.recordAdoption(t.id, { name: t.name, adapterId: t.adapterId, pid: live.pid });
+        adopted++;
+      } catch (err) {
+        console.error(`[daemon] adoção falhou p/ ${t.id} — cai no relaunch:`, err);
+      }
+    }
+    return adopted;
+  };
+
   return {
     registry,
     persistence,
     queue,
-    restore: () => persistence.restore(registry)
+    restore: async () => {
+      const adopted = await adoptFromDaemon();
+      const { restored, archived } = await persistence.restore(registry);
+      return { restored, archived, adopted };
+    }
   };
 }

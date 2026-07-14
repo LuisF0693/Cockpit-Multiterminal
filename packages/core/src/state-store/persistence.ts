@@ -71,6 +71,20 @@ export class PersistenceManager {
     });
   }
 
+  /** Sessão adotada do daemon no boot (Story 6.3) — trilha auditável. */
+  recordAdoption(sessionId: string, payload: { name: string; adapterId: string; pid: number }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'session.adopted',
+        terminalId: sessionId,
+        payload
+      })
+    );
+  }
+
   /** Instrução enviada via master (Story 3.2, AC3) — trilha auditável. */
   recordInstruction(sessionId: string, text: string): void {
     this.queue.push(() =>
@@ -138,6 +152,8 @@ export class PersistenceManager {
     let restored = 0;
     let archived = 0;
     for (const t of this.store.listActiveTerminals()) {
+      // Adotadas pelo daemon (6.3) já estão no registry — não relançar.
+      if (registry.has(t.id)) continue;
       try {
         await registry.create({
           id: t.id,

@@ -27,6 +27,12 @@ const REQUEST_TIMEOUT_MS = 10_000;
 export class DaemonClient {
   private socket: Socket | null = null;
   private seq = 0;
+  /** autoAck=false (Main/proxy): acks vêm do renderer via ack() — 6.3. */
+  private readonly autoAck: boolean;
+
+  constructor(opts?: { autoAck?: boolean }) {
+    this.autoAck = opts?.autoAck ?? true;
+  }
   private readonly pending = new Map<number, Pending>();
   private readonly dataListeners = new Map<string, (bytes: Uint8Array) => void>();
   private exitListener: ((id: string, exitCode: number) => void) | null = null;
@@ -44,8 +50,7 @@ export class DaemonClient {
         for (const frame of decoder.push(chunk)) {
           if (frame.kind === 'data') {
             this.dataListeners.get(frame.sessionId)?.(frame.bytes);
-            // ack imediato: o fluxo renderer-level de backpressure chega na 6.3
-            this.post({ type: 'data-ack', id: frame.sessionId, n: frame.bytes.byteLength });
+            if (this.autoAck) this.post({ type: 'data-ack', id: frame.sessionId, n: frame.bytes.byteLength });
             continue;
           }
           const msg = frame.message as DaemonOutbound;
@@ -67,6 +72,9 @@ export class DaemonClient {
         reject(err instanceof Error ? err : new Error(String(err)));
       });
     });
+    // Falha ANTES do connect (daemon ainda subindo): helloAck rejeita sem
+    // awaiter — marcar como tratada evita unhandled rejection no retry loop.
+    helloAck.catch(() => void 0);
     await new Promise<void>((resolve, reject) => {
       socket.once('connect', resolve);
       socket.once('error', reject);
@@ -102,6 +110,11 @@ export class DaemonClient {
 
   write(sessionId: string, bytes: Uint8Array): void {
     this.socket?.write(encodeData(sessionId, bytes));
+  }
+
+  /** Ack manual (autoAck=false): repassa a confirmação do consumidor final. */
+  ack(sessionId: string, n: number): void {
+    this.post({ type: 'data-ack', id: sessionId, n });
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
