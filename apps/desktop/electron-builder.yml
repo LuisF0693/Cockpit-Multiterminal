@@ -10,6 +10,13 @@ files:
   - out/**
   - package.json
 
+# Binarios nativos (.node) dentro do asar nao carregam via require() — o
+# auto-detect do electron-builder desempacotou node-pty mas nao
+# better-sqlite3 (profundidade diferente no grafo pnpm). Forcado explicito
+# evita esse tipo de crash silencioso no primeiro boot do instalado.
+asarUnpack:
+  - '**/*.node'
+
 win:
   target:
     - target: nsis
