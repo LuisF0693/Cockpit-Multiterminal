@@ -263,6 +263,67 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(manager.setActiveWorkspace('Alpha').active).toBe('Alpha');
   });
 
+  describe('projetos (Story 8.1, FR21)', () => {
+    it('ensureDefaultProject cria "Padrão" só no primeiro boot (idempotente)', () => {
+      const { manager } = makeHarness();
+      const first = manager.ensureDefaultProject('C:/repo');
+      expect(first.projects).toHaveLength(1);
+      expect(first.projects[0]).toMatchObject({ name: 'Padrão', rootPath: 'C:/repo' });
+      expect(first.activeId).toBe(first.projects[0]!.id);
+
+      const second = manager.ensureDefaultProject('C:/outro-caminho'); // no-op: já existe projeto
+      expect(second.projects).toHaveLength(1);
+      expect(second.projects[0]!.rootPath).toBe('C:/repo');
+    });
+
+    it('createProject/updateProject/setActiveProject', () => {
+      const { manager } = makeHarness();
+      manager.ensureDefaultProject('C:/repo');
+
+      const created = manager.createProject({ name: 'AllFluence', color: '#F87171', rootPath: 'C:/allfluence' });
+      expect(created.projects).toHaveLength(2);
+      const newId = created.projects[1]!.id;
+
+      const active = manager.setActiveProject(newId);
+      expect(active.activeId).toBe(newId);
+
+      const updated = manager.updateProject({ id: newId, name: 'AllFluence Renomeado' });
+      expect(updated.projects.find((p) => p.id === newId)).toMatchObject({
+        name: 'AllFluence Renomeado',
+        color: '#F87171', // campo ausente não muda
+        rootPath: 'C:/allfluence'
+      });
+    });
+
+    it('removeProject rejeita remover o último projeto restante (AC4)', () => {
+      const { manager } = makeHarness();
+      const { projects } = manager.ensureDefaultProject('C:/repo');
+      expect(() => manager.removeProject(projects[0]!.id)).toThrow();
+    });
+
+    it('ensureDefaultProject faz backfill de terminais/tarefas pré-Épico-8 (projectId NULL)', async () => {
+      const { manager, registry, store, queue } = makeHarness();
+      const s = await registry.create({ cols: 80, rows: 24, name: 'API' }); // sem projectId — simula dado pré-8.2
+      queue.flush();
+      expect(store.terminals.get(s.id)!.projectId).toBeNull();
+
+      const list = manager.ensureDefaultProject('C:/repo');
+      expect(store.terminals.get(s.id)!.projectId).toBe(list.projects[0]!.id);
+    });
+
+    it('removeProject: se o removido era o ativo, ativo cai para o primeiro restante', () => {
+      const { manager } = makeHarness();
+      const first = manager.ensureDefaultProject('C:/repo');
+      const created = manager.createProject({ name: 'AllFluence', color: '#F87171', rootPath: 'C:/allfluence' });
+      const secondId = created.projects[1]!.id;
+      manager.setActiveProject(secondId);
+
+      const afterRemove = manager.removeProject(secondId);
+      expect(afterRemove.projects).toHaveLength(1);
+      expect(afterRemove.activeId).toBe(first.projects[0]!.id);
+    });
+  });
+
   it('adopt cria record vivo e restore pula adotadas (Story 6.3)', async () => {
     const first = makeHarness();
     const a = await first.registry.create({ cols: 80, rows: 24, name: 'API', cwd: 'C:/api', workspace: 'Alpha' });

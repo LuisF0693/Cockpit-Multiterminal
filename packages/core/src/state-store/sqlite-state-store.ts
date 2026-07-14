@@ -22,7 +22,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '6';
+const SCHEMA_VERSION = '7';
 
 interface TerminalRow {
   id: string;
@@ -33,6 +33,7 @@ interface TerminalRow {
   workspace: string | null;
   task_id: string | null;
   task_role: string | null;
+  project_id: string | null;
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
@@ -45,6 +46,7 @@ interface TaskRow {
   state: string;
   created_at: number;
   updated_at: number;
+  project_id: string | null;
 }
 
 export class SqliteStateStore implements StateStore {
@@ -150,17 +152,41 @@ export class SqliteStateStore implements StateStore {
         console.log('[state] schema migrado v5 → v6 (task_role)');
       }
     }
+    // v6 → v7 (Story 8.2): coluna project_id em terminals E tasks — mesmo padrão do ALTER idempotente.
+    const hasTerminalProjectIdColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('terminals') WHERE name = 'project_id'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasTerminalProjectIdColumn) {
+      this.db.exec(`ALTER TABLE terminals ADD COLUMN project_id TEXT`);
+      if (current === '6') {
+        console.log('[state] schema migrado v6 → v7 (terminals.project_id)');
+      }
+    }
+    const hasTaskProjectIdColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('tasks') WHERE name = 'project_id'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasTaskProjectIdColumn) {
+      this.db.exec(`ALTER TABLE tasks ADD COLUMN project_id TEXT`);
+      if (current === '6') {
+        console.log('[state] schema migrado v6 → v7 (tasks.project_id)');
+      }
+    }
   }
 
   upsertTerminal(t: PersistedTerminal): void {
     this.db
       .prepare(
-        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, task_id, task_role, tile_json, created_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, task_id, task_role, project_id, tile_json, created_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, cwd = excluded.cwd, status = excluded.status,
            adapter_id = excluded.adapter_id, workspace = excluded.workspace,
            task_id = excluded.task_id, task_role = excluded.task_role,
+           project_id = excluded.project_id,
            tile_json = COALESCE(excluded.tile_json, terminals.tile_json),
            archived_at = excluded.archived_at`
       )
@@ -173,6 +199,7 @@ export class SqliteStateStore implements StateStore {
         t.workspace,
         t.taskId,
         t.taskRole,
+        t.projectId,
         t.tile ? JSON.stringify(t.tile) : null,
         t.createdAt,
         t.archivedAt
@@ -208,6 +235,7 @@ export class SqliteStateStore implements StateStore {
       workspace: r.workspace ?? 'Geral',
       taskId: r.task_id ?? null,
       taskRole: (r.task_role as TaskRole | null) ?? null,
+      projectId: r.project_id ?? null,
       tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
       createdAt: r.created_at,
       archivedAt: r.archived_at
@@ -228,6 +256,11 @@ export class SqliteStateStore implements StateStore {
     this.db
       .prepare('UPDATE terminals SET task_id = ?, task_role = ? WHERE id = ?')
       .run(taskId, taskId === null ? null : (role ?? null), id);
+  }
+
+  backfillProjectId(projectId: string): void {
+    this.db.prepare('UPDATE terminals SET project_id = ? WHERE project_id IS NULL').run(projectId);
+    this.db.prepare('UPDATE tasks SET project_id = ? WHERE project_id IS NULL').run(projectId);
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {
@@ -302,9 +335,9 @@ export class SqliteStateStore implements StateStore {
   createTask(t: PersistedTask): void {
     this.db
       .prepare(
-        `INSERT INTO tasks (id, title, description, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (id, title, description, state, created_at, updated_at, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(t.id, t.title, t.description, t.state, t.createdAt, t.updatedAt);
+      .run(t.id, t.title, t.description, t.state, t.createdAt, t.updatedAt, t.projectId);
   }
 
   updateTask(id: string, patch: { title?: string; description?: string; state?: TaskState; updatedAt: number }): void {
@@ -343,7 +376,8 @@ export class SqliteStateStore implements StateStore {
       description: r.description,
       state: r.state as TaskState,
       createdAt: r.created_at,
-      updatedAt: r.updated_at
+      updatedAt: r.updated_at,
+      projectId: r.project_id ?? null
     };
   }
 

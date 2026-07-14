@@ -23,6 +23,7 @@ function session(overrides: Partial<SessionRecord>): SessionRecord {
     workspace: 'Geral',
     taskId: null,
     taskRole: null,
+    projectId: null,
     ...overrides
   };
 }

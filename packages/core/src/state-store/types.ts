@@ -19,6 +19,8 @@ export interface PersistedTerminal {
   taskId: string | null;
   /** Papel na tarefa (schema v6 — Story 7.1); null = vínculo neutro. */
   taskRole: TaskRole | null;
+  /** Projeto dono do terminal (schema v7 — Story 8.2); null = pré-Épico-8. */
+  projectId: string | null;
   tile: LayoutTile | null;
   createdAt: number;
   archivedAt: number | null;
@@ -43,6 +45,8 @@ export interface PersistedTask {
   state: TaskState;
   createdAt: number;
   updatedAt: number;
+  /** Projeto dono da tarefa (schema v7 — Story 8.2); null = pré-Épico-8. */
+  projectId: string | null;
 }
 
 export interface StateStore {
@@ -66,6 +70,13 @@ export interface StateStore {
    * implicitamente (papel sem tarefa não faz sentido).
    */
   setTerminalTask(id: string, taskId: string | null, role?: TaskRole | null): void;
+  /**
+   * Migração de compatibilidade (Story 8.2): terminais/tarefas persistidos
+   * ANTES do Épico 8 têm project_id NULL — o primeiro projeto ("Padrão",
+   * criado por `ensureDefaultProject`) os absorve, para não desaparecerem
+   * de todo filtro por projeto.
+   */
+  backfillProjectId(projectId: string): void;
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;

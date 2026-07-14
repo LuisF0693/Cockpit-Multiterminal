@@ -22,6 +22,15 @@
 - **FR18:** As saídas mais recentes de cada revisor devem ficar visíveis lado a lado num painel de revisão vinculado à tarefa, junto do resultado do escritor.
 - **FR19:** Rejeitar uma revisão (fluxo humano existente, FR15) devolve a tarefa ao escritor com o feedback agregado dos revisores anexado como instrução de correção automática.
 - **FR20:** O ciclo three-brain deve reusar o lifecycle de tarefa existente (FR13) e os pontos de decisão humana (FR15) — nenhuma máquina de estados nova, só orquestração sobre o que já existe.
+- **FR21:** O sistema deve permitir cadastrar múltiplos projetos (nome, cor, caminho raiz no disco) e alternar entre eles a partir de uma barra lateral.
+- **FR22:** O projeto ativo deve determinar o cwd de novos terminais e escopar quais sessões, tarefas e workspaces são exibidos no canvas.
+- **FR23:** O sistema deve exibir uma árvore navegável de arquivos/pastas do projeto ativo, com preview de leitura de arquivos de texto.
+- **FR24:** Projetos cadastrados devem persistir entre reinicializações do app (mesma garantia do FR10).
+- **FR25:** O sistema deve permitir vincular um terminal a outro terminal diretamente, independente de vínculo com tarefa, para que o agente de origem possa comandar o terminal alvo.
+- **FR26:** Um vínculo terminal-a-terminal deve permitir envio manual de instrução (via master/canvas) e roteamento automático quando o terminal de origem mudar de status (mesmo padrão do FR17, generalizado para fora do contexto de tarefa/three-brain).
+- **FR27:** Vínculos terminal-a-terminal devem ser visíveis no canvas (indicação visual da conexão) e na sessão master, e persistir entre reinicializações (mesma garantia do FR10).
+- **FR28:** O sistema deve exibir um painel de preview de browser embutido, navegável por URL.
+- **FR29:** O preview de browser deve ser controlável via Playwright, permitindo que agentes automatizem navegação e interação nele.
 
 ### Non Functional
 
@@ -33,3 +42,4 @@
 - **NFR6:** Adapters não devem interceptar, armazenar ou logar credenciais dos CLIs; autenticação permanece nos próprios CLIs ("bring your own subscription").
 - **NFR7:** O core (session manager, state store, lifecycle engine) não pode ter dependência de provider específico; toda especificidade vive nos adapters.
 - **NFR8:** Persistência incremental sem degradar performance dos terminais (gravação assíncrona/batched, nunca bloqueante do input do usuário).
+- **NFR9:** Playwright é a única exceção ao NFR1 de dependências mínimas do core — dependência externa nova, confinada ao processo de preview de browser (Épico 10), nunca importada por core/shared (mesmo isolamento de provider do NFR7).

@@ -34,6 +34,17 @@ export const IpcChannels = {
   workspaceCreate: 'workspace.create',
   workspaceRename: 'workspace.rename',
   workspaceSetActive: 'workspace.setActive',
+  /** Projetos (Story 8.1) — caminho raiz real no disco, diferente de workspace. */
+  projectList: 'project.list',
+  projectCreate: 'project.create',
+  projectUpdate: 'project.update',
+  projectRemove: 'project.remove',
+  projectSetActive: 'project.setActive',
+  /** Diálogo nativo de seleção de pasta (Story 8.2, AC4). */
+  projectPickFolder: 'project.pickFolder',
+  /** Explorador de arquivos (Story 8.4) — leitura no Main (node:fs). */
+  projectReadDir: 'project.readDir',
+  projectReadFile: 'project.readFile',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -105,7 +116,9 @@ export const SessionRecordSchema = z.object({
   /** Tarefa vinculada (Story 5.2) — null = sem vínculo; um terminal aponta p/ no máx. 1 tarefa. */
   taskId: z.string().min(1).nullable(),
   /** Papel na tarefa (Story 7.1, FR16) — null = vínculo neutro (sem three-brain). */
-  taskRole: z.enum(['writer', 'reviewer']).nullable()
+  taskRole: z.enum(['writer', 'reviewer']).nullable(),
+  /** Projeto dono do terminal (Story 8.2, FR22) — null = sessão pré-Épico-8, herda o ativo. */
+  projectId: z.string().min(1).nullable()
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export type TaskRole = NonNullable<SessionRecord['taskRole']>;
@@ -117,7 +130,14 @@ export const SessionCreateRequestSchema = z.object({
   cwd: z.string().optional(),
   adapterId: z.string().min(1).optional(),
   /** Workspace de destino (Story 3.6) — default 'Geral'. */
-  workspace: z.string().min(1).optional()
+  workspace: z.string().min(1).optional(),
+  /**
+   * Projeto de destino (Story 8.3, AC3) — default o projeto ATIVO. Passar um
+   * id específico cria o terminal ali SEM trocar o ativo (atalho de
+   * conveniência a partir da barra lateral). Determina o cwd default (AC1)
+   * quando `cwd` não é passado explicitamente.
+   */
+  projectId: z.string().min(1).optional()
 });
 export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 
@@ -250,7 +270,9 @@ export const TaskSchema = z.object({
   description: z.string().max(2000),
   state: TaskStateSchema,
   createdAt: z.number().int().nonnegative(),
-  updatedAt: z.number().int().nonnegative()
+  updatedAt: z.number().int().nonnegative(),
+  /** Projeto dono da tarefa (Story 8.2, FR22) — null = tarefa pré-Épico-8, herda o ativo. */
+  projectId: z.string().min(1).nullable()
 });
 export type Task = z.infer<typeof TaskSchema>;
 
@@ -345,6 +367,79 @@ export type WorkspaceRenameRequest = z.infer<typeof WorkspaceRenameRequestSchema
 export const WorkspaceSetActiveRequestSchema = z.object({ name: z.string().min(1) });
 export type WorkspaceSetActiveRequest = z.infer<typeof WorkspaceSetActiveRequestSchema>;
 
+/**
+ * Projeto (Story 8.1, FR21) — caminho raiz real no disco, diferente de
+ * workspace (3.6, agrupamento livre de tiles DENTRO de um projeto). Um
+ * projeto tem N workspaces; um workspace pertence a exatamente 1 projeto.
+ */
+export const ProjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60),
+  color: z.string().min(1),
+  rootPath: z.string().min(1)
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
+/** Lista de projetos + ativo — sempre ao menos 1 projeto existe (FR21, AC2). */
+export const ProjectListSchema = z.object({
+  projects: ProjectSchema.array().min(1),
+  activeId: z.string().min(1)
+});
+export type ProjectList = z.infer<typeof ProjectListSchema>;
+
+export const ProjectCreateRequestSchema = z.object({
+  name: z.string().min(1).max(60),
+  color: z.string().min(1),
+  rootPath: z.string().min(1)
+});
+export type ProjectCreateRequest = z.infer<typeof ProjectCreateRequestSchema>;
+
+/** Update combinado (rename+recolor+reroot) — todos os campos opcionais. */
+export const ProjectUpdateRequestSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(60).optional(),
+  color: z.string().min(1).optional(),
+  rootPath: z.string().min(1).optional()
+});
+export type ProjectUpdateRequest = z.infer<typeof ProjectUpdateRequestSchema>;
+
+export const ProjectRemoveRequestSchema = z.object({ id: z.string().min(1) });
+export type ProjectRemoveRequest = z.infer<typeof ProjectRemoveRequestSchema>;
+
+export const ProjectSetActiveRequestSchema = z.object({ id: z.string().min(1) });
+export type ProjectSetActiveRequest = z.infer<typeof ProjectSetActiveRequestSchema>;
+
+/**
+ * Explorador de arquivos (Story 8.4, FR23) — leitura acontece no Main
+ * (node:fs); o renderer só navega a árvore e pede preview de texto (AC4).
+ */
+export const ProjectDirEntrySchema = z.object({
+  name: z.string().min(1),
+  path: z.string().min(1),
+  isDirectory: z.boolean()
+});
+export type ProjectDirEntry = z.infer<typeof ProjectDirEntrySchema>;
+
+export const ProjectReadDirRequestSchema = z.object({
+  /** Projeto de origem — default o ativo. */
+  projectId: z.string().min(1).optional(),
+  /** Subpasta a listar — default a raiz do projeto (rootPath). */
+  dirPath: z.string().min(1).optional()
+});
+export type ProjectReadDirRequest = z.infer<typeof ProjectReadDirRequestSchema>;
+
+export const ProjectReadFileRequestSchema = z.object({
+  path: z.string().min(1),
+  maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
+});
+export type ProjectReadFileRequest = z.infer<typeof ProjectReadFileRequestSchema>;
+
+export const ProjectReadFileResponseSchema = z.object({
+  content: z.string(),
+  truncated: z.boolean()
+});
+export type ProjectReadFileResponse = z.infer<typeof ProjectReadFileResponseSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -424,6 +519,22 @@ export interface CockpitApi {
     /** Resumo do crash pendente (Story 4.3); null quando não há recuperação a resolver. */
     summary(): Promise<CrashSummary | null>;
     resolve(req: RecoveryResolveRequest): Promise<RecoveryResolveResponse>;
+  };
+  project: {
+    /** Projetos conhecidos + ativo (Story 8.1, FR21) — sempre ao menos 1. */
+    list(): Promise<ProjectList>;
+    create(req: ProjectCreateRequest): Promise<ProjectList>;
+    /** Rename/recolor/reroot combinado — campos ausentes não mudam. */
+    update(req: ProjectUpdateRequest): Promise<ProjectList>;
+    /** Rejeita remover o último projeto restante (AC4). */
+    remove(req: ProjectRemoveRequest): Promise<ProjectList>;
+    setActive(req: ProjectSetActiveRequest): Promise<ProjectList>;
+    /** Diálogo nativo de pasta (Story 8.2, AC4) — null se o usuário cancelar. */
+    pickFolder(): Promise<string | null>;
+    /** Árvore de arquivos do projeto (Story 8.4, AC1/AC3) — respeita .gitignore. */
+    readDir(req: ProjectReadDirRequest): Promise<ProjectDirEntry[]>;
+    /** Preview de leitura de um arquivo de texto (Story 8.4, AC2) — null se binário/erro. */
+    readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

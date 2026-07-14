@@ -8,8 +8,10 @@ import {
   type TerminalPortMessage
 } from '@cockpit/shared';
 import {
+  FileExplorer,
   LifecycleBoard,
   MasterDashboard,
+  ProjectSidebar,
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
@@ -24,6 +26,7 @@ import {
 import type {
   CrashSummary,
   DaemonStatus,
+  Project,
   SessionReport,
   Task,
   TaskRole,
@@ -52,7 +55,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -65,6 +68,10 @@ export function App(): JSX.Element {
   const [workspaces, setWorkspaces] = useState<WorkspaceList>({ names: ['Geral'], active: 'Geral' });
   const workspacesRef = useRef(workspaces);
   workspacesRef.current = workspaces;
+  // Projetos (Story 8.2): caminho raiz real no disco — DIFERENTE de workspace
+  // (agrupamento de tiles dentro de um projeto). Escopa canvas/master/tarefas.
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string>('');
   // Vínculo com o daemon (6.4): 'connected' default — modo utilityProcess
   // nunca emite e o badge fica oculto.
   const [daemonState, setDaemonState] = useState<DaemonStatus['state']>('connected');
@@ -140,6 +147,11 @@ export function App(): JSX.Element {
   const layout = useCockpitStore((s) => s.layout);
   const focusedId = useCockpitStore((s) => s.focusedId);
   const ports = useCockpitStore((s) => s.ports);
+  // Escopo por projeto ativo (Story 8.2, AC2) — sidebar/master/tasks/board
+  // só veem o projeto ativo; o canvas (tiles) usa filtro por CSS (abaixo),
+  // nunca desmonta (matar xterm/porta é o gotcha da 1.3/3.6).
+  const projectSessions = sessions.filter((s) => !activeProjectId || s.projectId === activeProjectId);
+  const projectTasks = tasks.filter((t) => !activeProjectId || t.projectId === activeProjectId);
 
   useEffect(() => {
     void window.cockpit
@@ -155,6 +167,14 @@ export function App(): JSX.Element {
     void window.cockpit.workspace
       .list()
       .then(setWorkspaces)
+      .catch(() => void 0);
+
+    void window.cockpit.project
+      .list()
+      .then((list) => {
+        setProjects(list.projects);
+        setActiveProjectId(list.activeId);
+      })
       .catch(() => void 0);
 
     const unsubDaemon = window.cockpit.daemon.onStatus((s) => setDaemonState(s.state));
@@ -293,7 +313,7 @@ export function App(): JSX.Element {
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
-  const newTerminal = async (adapterId?: string): Promise<void> => {
+  const newTerminal = async (adapterId?: string, opts?: { projectId?: string }): Promise<void> => {
     try {
       await window.cockpit.session.create({
         cols: 80,
@@ -301,11 +321,18 @@ export function App(): JSX.Element {
         adapterId: adapterId ?? selectedAdapter,
         // Novo terminal nasce no workspace ativo (3.6); ref evita stale closure
         // no atalho Ctrl+N registrado no mount.
-        workspace: workspacesRef.current.active
+        workspace: workspacesRef.current.active,
+        // Projeto de destino (Story 8.3, AC3) — omitido = projeto ativo (Main decide).
+        ...(opts?.projectId !== undefined ? { projectId: opts.projectId } : {})
       });
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
+  };
+
+  /** Atalho da barra lateral (Story 8.3, AC3): cria SEM trocar o projeto ativo. */
+  const newTerminalInProject = (projectId: string): void => {
+    void newTerminal(undefined, { projectId });
   };
 
   /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
@@ -330,6 +357,40 @@ export function App(): JSX.Element {
     void window.cockpit.workspace
       .rename({ from, to })
       .then(setWorkspaces)
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /** Projetos (Story 8.2): operações sempre re-sincronizam a lista do Main. */
+  const switchProject = (id: string): void => {
+    void window.cockpit.project
+      .setActive({ id })
+      .then((list) => {
+        setProjects(list.projects);
+        setActiveProjectId(list.activeId);
+      })
+      .catch(() => void 0);
+  };
+
+  const createProject = (): void => {
+    const name = window.prompt('Nome do novo projeto:')?.trim();
+    if (!name) return;
+    void window.cockpit.project
+      .pickFolder()
+      .then((rootPath) => {
+        if (!rootPath) return null;
+        const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]!;
+        return window.cockpit.project.create({ name, color, rootPath });
+      })
+      .then((list) => {
+        if (!list) return null;
+        const created = list.projects[list.projects.length - 1]!;
+        return window.cockpit.project.setActive({ id: created.id }).catch(() => list);
+      })
+      .then((list) => {
+        if (!list) return;
+        setProjects(list.projects);
+        setActiveProjectId(list.activeId);
+      })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
@@ -486,7 +547,8 @@ export function App(): JSX.Element {
               ['canvas', 'Canvas', 'Canvas de terminais'],
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
-              ['board', 'Board', 'Lifecycle Board (Story 5.4)']
+              ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
+              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -509,8 +571,8 @@ export function App(): JSX.Element {
         </nav>
         {info && (
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#9CA3AF' }}>
-            v{info.version} · {info.platform} · {sessions.length}{' '}
-            {sessions.length === 1 ? 'sessão' : 'sessões'}
+            v{info.version} · {info.platform} · {projectSessions.length}{' '}
+            {projectSessions.length === 1 ? 'sessão' : 'sessões'}
           </span>
         )}
         <span style={{ flex: 1 }} />
@@ -534,10 +596,11 @@ export function App(): JSX.Element {
         )}
         {(() => {
           // Badge unificado (Story 5.3, AC3): agentes aguardando input +
-          // tarefas em awaiting_decision.
+          // tarefas em awaiting_decision. Escopado ao projeto ativo (8.2) —
+          // clicar leva ao master, que também é escopado.
           const waiting =
-            sessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
-            tasks.filter((t) => t.state === 'awaiting_decision').length;
+            projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
+            projectTasks.filter((t) => t.state === 'awaiting_decision').length;
           if (waiting === 0) return null;
           return (
             <button
@@ -601,8 +664,16 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <ProjectSidebar
+          projects={projects}
+          activeId={activeProjectId}
+          onSelect={switchProject}
+          onCreate={createProject}
+          onCreateTerminalIn={newTerminalInProject}
+        />
+
         <Sidebar
-          sessions={sessions}
+          sessions={projectSessions}
           focusedId={focusedId}
           onSelect={(id) => goToTerminal(id)}
           onNewTerminal={() => {
@@ -616,8 +687,8 @@ export function App(): JSX.Element {
 
         {view === 'master' && (
           <MasterDashboard
-            sessions={sessions}
-            tasks={tasks}
+            sessions={projectSessions}
+            tasks={projectTasks}
             onGoToTerminal={goToTerminal}
             onInstruct={instructAgent}
             onOpenReport={(id) => {
@@ -655,8 +726,8 @@ export function App(): JSX.Element {
 
         {view === 'tasks' && (
           <TasksPanel
-            tasks={tasks}
-            sessions={sessions}
+            tasks={projectTasks}
+            sessions={projectSessions}
             onCreate={createTask}
             onTransition={transitionTask}
             onUnlink={(terminalId) => linkTask(terminalId, null)}
@@ -667,11 +738,21 @@ export function App(): JSX.Element {
 
         {view === 'board' && (
           <LifecycleBoard
-            tasks={tasks}
-            sessions={sessions}
+            tasks={projectTasks}
+            sessions={projectSessions}
             onCreate={createTask}
             onMove={transitionTask}
             onOpenReview={goToReview}
+          />
+        )}
+
+        {view === 'files' && (
+          <FileExplorer
+            projectId={activeProjectId}
+            rootLabel={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
+            onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
+            onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
+            onBack={() => setView('master')}
           />
         )}
 
@@ -689,10 +770,12 @@ export function App(): JSX.Element {
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;
-            // Canvas filtra por workspace (3.6, AC2) — tiles de outros
-            // workspaces ficam MONTADOS (desmontar mataria xterm/portas,
-            // gotcha da 1.3), apenas escondidos pelo wrapper.
-            const inActive = session.workspace === workspaces.active;
+            // Canvas filtra por workspace (3.6) E projeto ativo (8.2, AC2) —
+            // tiles fora do escopo ficam MONTADOS (desmontar mataria
+            // xterm/portas, gotcha da 1.3), apenas escondidos pelo wrapper.
+            const inActive =
+              session.workspace === workspaces.active &&
+              (!activeProjectId || session.projectId === activeProjectId);
             return (
               <div key={session.id} style={{ display: inActive ? 'contents' : 'none' }}>
                 <TerminalTile
@@ -713,7 +796,7 @@ export function App(): JSX.Element {
               </div>
             );
           })}
-          {sessions.length === 0 && (
+          {projectSessions.length === 0 && (
             <p
               style={{
                 position: 'absolute',
@@ -744,3 +827,6 @@ const wsButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 12
 };
+
+/** Paleta cíclica p/ cor de novo projeto (Story 8.2) — sem seletor de cor nesta story. */
+const PROJECT_COLORS = ['#3B82F6', '#F87171', '#34D399', '#FBBF24', '#A78BFA', '#F472B6'];

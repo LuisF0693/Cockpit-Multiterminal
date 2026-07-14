@@ -19,6 +19,9 @@ import {
   TaskSchema,
   TimelineEventSchema,
   WorkspaceListSchema,
+  ProjectListSchema,
+  ProjectDirEntrySchema,
+  ProjectReadFileResponseSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -40,7 +43,13 @@ import {
   type TerminalPortMessage,
   type WorkspaceCreateRequest,
   type WorkspaceRenameRequest,
-  type WorkspaceSetActiveRequest
+  type WorkspaceSetActiveRequest,
+  type ProjectCreateRequest,
+  type ProjectUpdateRequest,
+  type ProjectRemoveRequest,
+  type ProjectSetActiveRequest,
+  type ProjectReadDirRequest,
+  type ProjectReadFileRequest
 } from '@cockpit/shared';
 
 /**
@@ -137,6 +146,40 @@ const api: CockpitApi = {
     setActive: async (req: WorkspaceSetActiveRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceSetActive, req);
       return WorkspaceListSchema.parse(raw);
+    }
+  },
+  project: {
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectList);
+      return ProjectListSchema.parse(raw);
+    },
+    create: async (req: ProjectCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectCreate, req);
+      return ProjectListSchema.parse(raw);
+    },
+    update: async (req: ProjectUpdateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectUpdate, req);
+      return ProjectListSchema.parse(raw);
+    },
+    remove: async (req: ProjectRemoveRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectRemove, req);
+      return ProjectListSchema.parse(raw);
+    },
+    setActive: async (req: ProjectSetActiveRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectSetActive, req);
+      return ProjectListSchema.parse(raw);
+    },
+    pickFolder: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectPickFolder);
+      return z.string().nullable().parse(raw);
+    },
+    readDir: async (req: ProjectReadDirRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadDir, req);
+      return ProjectDirEntrySchema.array().parse(raw);
+    },
+    readFile: async (req: ProjectReadFileRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadFile, req);
+      return raw === null ? null : ProjectReadFileResponseSchema.parse(raw);
     }
   },
   recovery: {

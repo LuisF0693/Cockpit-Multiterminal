@@ -36,8 +36,38 @@
 4. **Épicos novos (backlog):** E6 SDC embutido + three-brain self-heal; E7 learning logs globais.
 5. **Gemini adapter:** adicionar como story 2.6 ou ao backlog do E2.
 
+## Extensão da visão (2026-07-14, briefing com capturas de tela)
+
+> Registrado pelo @pm a partir de um briefing direto do fundador, com 4 capturas
+> de tela de referência visual (app "AIOX Cockpit" — canvas com múltiplas janelas
+> flutuantes conectadas por linhas, sidebar de projetos coloridos + árvore de
+> arquivos estilo Cursor, fila de decisões e telemetria por sessão). Três pedidos
+> concretos, além do que já estava no roadmap (ponto 6, learning logs):
+
+1. **Vínculo terminal-a-terminal:** um agente num terminal deve poder comandar
+   OUTRO terminal diretamente (qualquer CLI), independente de vínculo com
+   tarefa/three-brain — generalização do roteamento já existente (FR17).
+2. **Multi-projetos:** cadastrar e alternar entre vários projetos (cada um com
+   seu próprio caminho raiz no disco), não só workspaces dentro de um único
+   projeto implícito (Story 3.6) — mexer em "4+ projetos abertos simultaneamente"
+   (ponto 8 original) exige projetos DE VERDADE, não só agrupamento de tiles.
+3. **Explorador de arquivos/documentos** do projeto ativo, estilo Cursor/VS Code
+   (árvore navegável, preview de leitura) — visibilidade humana do que o(s)
+   agente(s) estão mexendo, sem sair do Cockpit.
+4. **Browser preview embutido controlável via Playwright:** painel de preview
+   web navegável por URL, automatizável pelos agentes (nova dependência externa
+   confirmada com o fundador).
+
+**Ordem de execução confirmada pelo fundador:** multi-projetos + explorador de
+arquivos primeiro (base estrutural que os outros itens penduram em cima) →
+vínculo terminal-a-terminal → browser preview + Playwright → learning logs
+globais (ponto 6, já no backlog) por último. Formalizados como **Épicos 8, 9,
+10 e 11** respectivamente (renumerando o antigo "Épico 8 — Learning Logs" para
+Épico 11).
+
 ## Change Log
 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-07-14 | 0.1 | Captura da visão + gap-analysis + propostas de roadmap | Morgan (@pm) via Orion |
+| 2026-07-14 | 0.2 | Extensão: terminal-a-terminal, multi-projetos, explorador de arquivos, browser preview+Playwright (Épicos 8-10); learning logs renumerado p/ Épico 11 | Morgan (@pm) via Orion |

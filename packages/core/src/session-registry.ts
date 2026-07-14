@@ -52,6 +52,8 @@ export class SessionRegistry {
     taskId?: string | null | undefined;
     /** Papel na tarefa (7.1) — preservado no relançamento/restore. */
     taskRole?: TaskRole | null | undefined;
+    /** Projeto dono do terminal (8.2) — preservado no relançamento/restore. */
+    projectId?: string | null | undefined;
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
@@ -78,7 +80,8 @@ export class SessionRegistry {
       lastStatusChangeAt: Date.now(),
       workspace: opts.workspace ?? 'Geral',
       taskId: opts.taskId ?? null,
-      taskRole: opts.taskId ? (opts.taskRole ?? null) : null
+      taskRole: opts.taskId ? (opts.taskRole ?? null) : null,
+      projectId: opts.projectId ?? null
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -160,6 +163,7 @@ export class SessionRegistry {
     createdAt?: number;
     taskId?: string | null;
     taskRole?: TaskRole | null;
+    projectId?: string | null;
   }): SessionRecord {
     const record: SessionRecord = {
       id: opts.id,
@@ -173,7 +177,8 @@ export class SessionRegistry {
       lastStatusChangeAt: Date.now(),
       workspace: opts.workspace,
       taskId: opts.taskId ?? null,
-      taskRole: opts.taskId ? (opts.taskRole ?? null) : null
+      taskRole: opts.taskId ? (opts.taskRole ?? null) : null,
+      projectId: opts.projectId ?? null
     };
     // ptyId = id da sessão no daemon (tag) — decisão da 6.1.
     this.sessions.set(record.id, { record, ptyId: opts.id });

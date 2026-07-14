@@ -18,3 +18,4 @@ export type { TaskDecisionAction, TaskEvent, TaskListener, TaskRecord } from './
 export { assertTransition, canTransition } from './task-lifecycle';
 export { planSdcReviewRouting, planSdcCorrectionRouting, planSdcRedirect } from './sdc-routing';
 export type { SdcReviewRouting, SdcCorrectionRouting, SdcRedirectPlan } from './sdc-routing';
+export { parseGitignorePatterns, isGitignored, isPathWithin, ALWAYS_HIDDEN_NAMES } from './file-explorer';

@@ -1,5 +1,6 @@
-import { BrowserWindow, ipcMain } from 'electron';
-import { join } from 'node:path';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { readdir, readFile as fsReadFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
   PersistenceManager,
@@ -9,6 +10,10 @@ import {
   planSdcReviewRouting,
   planSdcCorrectionRouting,
   planSdcRedirect,
+  ALWAYS_HIDDEN_NAMES,
+  isGitignored,
+  isPathWithin,
+  parseGitignorePatterns,
   type StateStore
 } from '@cockpit/core';
 import {
@@ -31,6 +36,13 @@ import {
   WorkspaceCreateRequestSchema,
   WorkspaceRenameRequestSchema,
   WorkspaceSetActiveRequestSchema,
+  ProjectCreateRequestSchema,
+  ProjectUpdateRequestSchema,
+  ProjectRemoveRequestSchema,
+  ProjectSetActiveRequestSchema,
+  ProjectReadDirRequestSchema,
+  ProjectReadFileRequestSchema,
+  type ProjectDirEntry,
   type SessionEvent,
   type TaskEvent
 } from '@cockpit/shared';
@@ -127,6 +139,11 @@ export function registerSessionIpc(
   const crashDetected = !cleanShutdown;
   let recoveryResolved = !crashDetected;
 
+  // Projetos (Story 8.1, FR21): primeiro boot cria o "Padrão" apontando pro
+  // MESMO cwd que sessões sem projeto já usavam (session-registry.ts,
+  // `opts.cwd ?? process.cwd()`) — zero regressão no comportamento atual.
+  persistence.ensureDefaultProject(process.cwd());
+
   // Exit espontâneo do shell → registro reflete (exitCode → relatório 3.5);
   // host caiu → todas exited.
   ptyHost.onSessionExit((ptyId, exitCode) => registry.markExited(ptyId, exitCode));
@@ -185,7 +202,17 @@ export function registerSessionIpc(
 
   ipcMain.handle(IpcChannels.sessionCreate, async (event, raw: unknown) => {
     const req = SessionCreateRequestSchema.parse(raw);
-    const record = await registry.create(req);
+    // Projeto de destino (Story 8.2/8.3): ativo por padrão, ou um id
+    // específico (AC3 — atalho a partir da barra lateral, sem trocar o
+    // ativo). rootPath vira o cwd default quando o chamador não passa cwd.
+    const { projects, activeId } = persistence.projects();
+    const projectId = req.projectId ?? activeId;
+    const project = projects.find((p) => p.id === projectId);
+    const record = await registry.create({
+      ...req,
+      projectId,
+      cwd: req.cwd ?? project?.rootPath
+    });
     deliverPort(record.id, event.sender);
     return record;
   });
@@ -243,11 +270,109 @@ export function registerSessionIpc(
     return persistence.setActiveWorkspace(req.name);
   });
 
+  // Projetos (Story 8.1, FR21)
+  ipcMain.handle(IpcChannels.projectList, () => persistence.projects());
+  ipcMain.handle(IpcChannels.projectCreate, (_event, raw: unknown) => {
+    const req = ProjectCreateRequestSchema.parse(raw);
+    return persistence.createProject(req);
+  });
+  ipcMain.handle(IpcChannels.projectUpdate, (_event, raw: unknown) => {
+    const req = ProjectUpdateRequestSchema.parse(raw);
+    return persistence.updateProject({
+      id: req.id,
+      ...(req.name !== undefined ? { name: req.name } : {}),
+      ...(req.color !== undefined ? { color: req.color } : {}),
+      ...(req.rootPath !== undefined ? { rootPath: req.rootPath } : {})
+    });
+  });
+  ipcMain.handle(IpcChannels.projectRemove, (_event, raw: unknown) => {
+    const req = ProjectRemoveRequestSchema.parse(raw);
+    return persistence.removeProject(req.id);
+  });
+  ipcMain.handle(IpcChannels.projectSetActive, (_event, raw: unknown) => {
+    const req = ProjectSetActiveRequestSchema.parse(raw);
+    return persistence.setActiveProject(req.id);
+  });
+  // Diálogo nativo de pasta (Story 8.2, AC4) — null se o usuário cancelar.
+  ipcMain.handle(IpcChannels.projectPickFolder, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = win
+      ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+  });
+
+  // Explorador de arquivos (Story 8.4, FR23) — leitura no Main (node:fs),
+  // nunca no renderer (AC4). Contenção de caminho (isPathWithin) é defesa
+  // em profundidade — o renderer só navega o que o Main já devolveu.
+  const loadGitignore = async (rootPath: string): Promise<string[]> => {
+    try {
+      const content = await fsReadFile(join(rootPath, '.gitignore'), 'utf-8');
+      return parseGitignorePatterns(content);
+    } catch {
+      return [];
+    }
+  };
+
+  ipcMain.handle(IpcChannels.projectReadDir, async (_event, raw: unknown) => {
+    const req = ProjectReadDirRequestSchema.parse(raw);
+    const { projects, activeId } = persistence.projects();
+    const project = projects.find((p) => p.id === (req.projectId ?? activeId));
+    if (!project) return [];
+
+    const root = resolve(project.rootPath);
+    const target = resolve(req.dirPath ?? project.rootPath);
+    if (!isPathWithin(root, target)) return [];
+
+    const patterns = await loadGitignore(root);
+    let dirents;
+    try {
+      dirents = await readdir(target, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+
+    const entries: ProjectDirEntry[] = [];
+    for (const entry of dirents) {
+      if (ALWAYS_HIDDEN_NAMES.has(entry.name)) continue;
+      const fullPath = join(target, entry.name);
+      const relPath = relative(root, fullPath).split('\\').join('/');
+      const isDirectory = entry.isDirectory();
+      if (isGitignored(relPath, isDirectory, patterns)) continue;
+      entries.push({ name: entry.name, path: fullPath, isDirectory });
+    }
+    return entries.sort((a, b) =>
+      a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1
+    );
+  });
+
+  ipcMain.handle(IpcChannels.projectReadFile, async (_event, raw: unknown) => {
+    const req = ProjectReadFileRequestSchema.parse(raw);
+    const { projects } = persistence.projects();
+    const target = resolve(req.path);
+    if (!projects.some((p) => isPathWithin(resolve(p.rootPath), target))) return null;
+
+    try {
+      const buf = await fsReadFile(target);
+      // Heurística simples de binário: byte nulo nos primeiros 8000 bytes.
+      if (buf.subarray(0, 8000).includes(0)) return null;
+      return {
+        content: buf.subarray(0, req.maxBytes).toString('utf-8'),
+        truncated: buf.byteLength > req.maxBytes
+      };
+    } catch {
+      return null;
+    }
+  });
+
   // Tarefas (Story 5.1)
   ipcMain.handle(IpcChannels.taskCreate, (_event, raw: unknown) => {
     const req = TaskCreateRequestSchema.parse(raw);
+    // Projeto ativo (Story 8.2, FR22) — toda tarefa nova nasce nele.
+    const { activeId } = persistence.projects();
     return taskManager.create({
       title: req.title,
+      projectId: activeId,
       ...(req.description !== undefined ? { description: req.description } : {})
     });
   });
@@ -362,6 +487,7 @@ export function registerSessionIpc(
           workspace: t.workspace,
           taskId: t.taskId,
           taskRole: t.taskRole,
+          projectId: t.projectId,
           pid: live.pid,
           createdAt: t.createdAt
         });
