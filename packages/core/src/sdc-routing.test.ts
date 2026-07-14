@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionRecord } from '@cockpit/shared';
-import { planSdcReviewRouting } from './sdc-routing';
+import { classifyTaskRoles, type SessionRecord } from '@cockpit/shared';
+import { planSdcReviewRouting, planSdcCorrectionRouting, planSdcRedirect } from './sdc-routing';
 import type { TaskRecord } from './task-manager';
 
 /**
@@ -109,5 +109,81 @@ describe('planSdcReviewRouting (Story 7.2, FR17)', () => {
   it('NÃO dispara sem taskId vinculado', () => {
     const s = session({ taskRole: null, taskId: null, agentStatus: 'done' });
     expect(planSdcReviewRouting(s, task({}), [s])).toBeNull();
+  });
+});
+
+describe('planSdcCorrectionRouting (Story 7.4, FR19)', () => {
+  it('agrega o transcript de cada revisor numa única mensagem (AC1)', () => {
+    const sessions = threeBrainSessions('waiting-input');
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    const result = planSdcCorrectionRouting('task-1', 'Corrigir bug X', roles, {
+      r1: 'saída do Codex',
+      r2: 'saída do Grok'
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.taskId).toBe('task-1');
+    expect(result!.writerId).toBe('w');
+    expect(result!.reviewerIds.sort()).toEqual(['r1', 'r2']);
+    expect(result!.message).toContain('Corrigir bug X');
+    expect(result!.message).toContain('saída do Codex');
+    expect(result!.message).toContain('saída do Grok');
+  });
+
+  it('inclui a justificativa quando presente', () => {
+    const sessions = threeBrainSessions('waiting-input');
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    const result = planSdcCorrectionRouting('task-1', 'Corrigir bug X', roles, {}, 'faltou tratar o caso nulo');
+    expect(result!.message).toContain('faltou tratar o caso nulo');
+  });
+
+  it('usa fallback "(sem saída recente)" quando o revisor não tem transcript', () => {
+    const sessions = threeBrainSessions('waiting-input');
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    const result = planSdcCorrectionRouting('task-1', 'Corrigir bug X', roles, {});
+    expect(result!.message).toContain('(sem saída recente)');
+  });
+
+  it('retorna null fora do modo three-brain', () => {
+    const sessions = [
+      session({ id: 'w', taskId: 'task-1', taskRole: 'writer' }),
+      session({ id: 'r1', taskId: 'task-1', taskRole: 'reviewer' })
+    ];
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    expect(planSdcCorrectionRouting('task-1', 'Corrigir bug X', roles, {})).toBeNull();
+  });
+
+  it('retorna null sem escritor vinculado', () => {
+    const sessions = [
+      session({ id: 'r1', taskId: 'task-1', taskRole: 'reviewer' }),
+      session({ id: 'r2', taskId: 'task-1', taskRole: 'reviewer' })
+    ];
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    expect(planSdcCorrectionRouting('task-1', 'Corrigir bug X', roles, {})).toBeNull();
+  });
+});
+
+describe('planSdcRedirect (Story 7.4, AC3)', () => {
+  it('em modo three-brain, troca só o escritor — revisores preservados', () => {
+    const sessions = threeBrainSessions('done');
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    const allLinkedIds = sessions.map((s) => s.id);
+    const plan = planSdcRedirect(roles, allLinkedIds, 'new-writer');
+
+    expect(plan.unlinkIds).toEqual(['w']);
+    expect(plan.link).toEqual({ id: 'new-writer', role: 'writer' });
+  });
+
+  it('fora do modo three-brain, mantém o comportamento antigo (vínculo neutro)', () => {
+    const sessions = [
+      session({ id: 'a', taskId: 'task-1', taskRole: null }),
+      session({ id: 'b', taskId: 'task-1', taskRole: null })
+    ];
+    const roles = classifyTaskRoles(sessions, 'task-1');
+    const allLinkedIds = sessions.map((s) => s.id);
+    const plan = planSdcRedirect(roles, allLinkedIds, 'c');
+
+    expect(plan.unlinkIds.sort()).toEqual(['a', 'b']);
+    expect(plan.link).toEqual({ id: 'c', role: null });
   });
 });

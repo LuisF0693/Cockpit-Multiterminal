@@ -16,5 +16,5 @@ export type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, Task
 export { TaskManager } from './task-manager';
 export type { TaskDecisionAction, TaskEvent, TaskListener, TaskRecord } from './task-manager';
 export { assertTransition, canTransition } from './task-lifecycle';
-export { planSdcReviewRouting } from './sdc-routing';
-export type { SdcReviewRouting } from './sdc-routing';
+export { planSdcReviewRouting, planSdcCorrectionRouting, planSdcRedirect } from './sdc-routing';
+export type { SdcReviewRouting, SdcCorrectionRouting, SdcRedirectPlan } from './sdc-routing';

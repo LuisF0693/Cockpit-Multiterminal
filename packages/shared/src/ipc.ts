@@ -49,6 +49,8 @@ export const IpcChannels = {
   sdcReviewRequested: 'sdc.reviewRequested',
   /** Trecho recente do scrollback persistido de um terminal (Story 7.3). */
   sdcTranscriptTail: 'sdc.transcriptTail',
+  /** Push Main → renderer: correção agregada ao escritor após rejeição (Story 7.4). */
+  sdcCorrectionRequested: 'sdc.correctionRequested',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -312,6 +314,18 @@ export const SdcTranscriptTailRequestSchema = z.object({
 });
 export type SdcTranscriptTailRequest = z.infer<typeof SdcTranscriptTailRequestSchema>;
 
+/**
+ * Push Main -> renderer (Story 7.4, FR19): correção agregada ao escritor
+ * após rejeição numa tarefa three-brain. Mesmo padrão do 7.2: `message` já
+ * vem pronta do Main; o renderer só chama instructAgent (decisão crítica 4).
+ */
+export const SdcCorrectionRequestedEventSchema = z.object({
+  taskId: z.string().min(1),
+  writerId: z.string().min(1),
+  message: z.string().min(1)
+});
+export type SdcCorrectionRequestedEvent = z.infer<typeof SdcCorrectionRequestedEventSchema>;
+
 /** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelável. */
 export const WorkspaceListSchema = z.object({
   names: z.string().min(1).array().min(1),
@@ -427,5 +441,7 @@ export interface CockpitApi {
     onReviewRequested(cb: (event: SdcReviewRequestedEvent) => void): () => void;
     /** Trecho recente do scrollback persistido de um terminal (Story 7.3, AC1). */
     transcriptTail(req: SdcTranscriptTailRequest): Promise<string>;
+    /** Correção agregada ao escritor após rejeição (Story 7.4, FR19); retorna unsubscribe. */
+    onCorrectionRequested(cb: (event: SdcCorrectionRequestedEvent) => void): () => void;
   };
 }

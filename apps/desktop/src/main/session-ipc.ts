@@ -1,7 +1,16 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { PersistenceManager, SessionRegistry, TaskManager, WriteQueue, planSdcReviewRouting, type StateStore } from '@cockpit/core';
+import {
+  PersistenceManager,
+  SessionRegistry,
+  TaskManager,
+  WriteQueue,
+  planSdcReviewRouting,
+  planSdcCorrectionRouting,
+  planSdcRedirect,
+  type StateStore
+} from '@cockpit/core';
 import {
   AgentStatusSchema,
   IpcChannels,
@@ -14,6 +23,7 @@ import {
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
   SdcTranscriptTailRequestSchema,
+  classifyTaskRoles,
   TaskCreateRequestSchema,
   TaskDecisionRequestSchema,
   TaskLinkRequestSchema,
@@ -249,16 +259,53 @@ export function registerSessionIpc(
 
   // Decisao humana (Story 5.3): estado da tarefa (TaskManager) +, no
   // redirect, transferencia do vinculo (SessionRegistry) — so o Main enxerga
-  // os dois lados. registry.list() e a fonte VIVA (nao o store).
+  // os dois lados. registry.list() e a fonte VIVA (nao o store). Story 7.4
+  // estende os dois ramos p/ preservar (redirect) e alimentar (reject) o
+  // modo three-brain — papeis ANTES da decisao, pois reject nao muda vinculo
+  // mas redirect precisa saber quem era o escritor antigo.
   ipcMain.handle(IpcChannels.taskDecide, (_event, raw: unknown) => {
     const req = TaskDecisionRequestSchema.parse(raw);
+    const sessionsBefore = registry.list();
+    const rolesBefore = classifyTaskRoles(sessionsBefore, req.taskId);
     const updated = taskManager.decide(req.taskId, req.action, req.justification);
+
     if (req.action === 'redirect' && req.redirectTo) {
-      for (const s of registry.list()) {
-        if (s.taskId === req.taskId && s.id !== req.redirectTo) registry.linkTask(s.id, null);
-      }
-      registry.linkTask(req.redirectTo, req.taskId);
+      const allLinkedIds = sessionsBefore.filter((s) => s.taskId === req.taskId).map((s) => s.id);
+      const plan = planSdcRedirect(rolesBefore, allLinkedIds, req.redirectTo);
+      for (const id of plan.unlinkIds) registry.linkTask(id, null);
+      registry.linkTask(plan.link.id, req.taskId, plan.link.role);
     }
+
+    if (req.action === 'reject') {
+      try {
+        const transcripts: Record<string, string> = {};
+        if (opts?.scrollbackDir) {
+          for (const r of rolesBefore.reviewers) {
+            const file = join(opts.scrollbackDir, `${r.id}.log`);
+            transcripts[r.id] = new TextDecoder().decode(readScrollbackTail(file, 4096));
+          }
+        }
+        const correction = planSdcCorrectionRouting(
+          req.taskId,
+          updated.title,
+          rolesBefore,
+          transcripts,
+          req.justification
+        );
+        if (correction) {
+          persistence.recordSdcCorrectionRequest(correction.writerId, {
+            taskId: correction.taskId,
+            reviewerIds: correction.reviewerIds
+          });
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send(IpcChannels.sdcCorrectionRequested, correction);
+          }
+        }
+      } catch (err) {
+        console.error('[sdc] correção agregada falhou:', err);
+      }
+    }
+
     return updated;
   });
 

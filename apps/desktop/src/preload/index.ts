@@ -13,6 +13,7 @@ import {
   SessionRecordSchema,
   SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
+  SdcCorrectionRequestedEventSchema,
   SdcReviewRequestedEventSchema,
   TaskEventSchema,
   TaskSchema,
@@ -28,6 +29,7 @@ import {
   type SessionRenameRequest,
   type SessionReportRequest,
   type SessionResizeRequest,
+  type SdcCorrectionRequestedEvent,
   type SdcReviewRequestedEvent,
   type SdcTranscriptTailRequest,
   type TaskCreateRequest,
@@ -183,6 +185,13 @@ const api: CockpitApi = {
     transcriptTail: async (req: SdcTranscriptTailRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.sdcTranscriptTail, req);
       return z.string().parse(raw);
+    },
+    onCorrectionRequested: (cb: (event: SdcCorrectionRequestedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(SdcCorrectionRequestedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.sdcCorrectionRequested, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.sdcCorrectionRequested, listener);
     }
   }
 };

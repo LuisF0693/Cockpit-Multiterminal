@@ -182,6 +182,12 @@ export function App(): JSX.Element {
       for (const reviewerId of event.reviewerIds) instructAgent(reviewerId, event.message);
     });
 
+    // Correção agregada automática ao escritor após rejeição (Story 7.4,
+    // FR19) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
+    const unsubSdcCorrection = window.cockpit.sdc.onCorrectionRequested((event) => {
+      instructAgent(event.writerId, event.message);
+    });
+
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
       const data = event.data as Partial<TerminalPortMessage> | undefined;
@@ -253,6 +259,7 @@ export function App(): JSX.Element {
       unsubDaemon();
       unsubTasks();
       unsubSdc();
+      unsubSdcCorrection();
     };
   }, []);
 

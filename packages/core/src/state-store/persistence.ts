@@ -117,6 +117,20 @@ export class PersistenceManager {
     );
   }
 
+  /** Correção agregada automática ao escritor após rejeição (Story 7.4, FR19) — trilha auditável, origem system. */
+  recordSdcCorrectionRequest(writerId: string, payload: { taskId: string; reviewerIds: string[] }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'sdc.correction_requested',
+        terminalId: writerId,
+        payload
+      })
+    );
+  }
+
   /** Layout do canvas (debounced no renderer) → tiles persistidos. */
   persistLayout(tiles: LayoutTile[]): void {
     this.queue.push(() => {
