@@ -1,5 +1,6 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import { join } from 'node:path';
+import type { AgentStatus } from '@cockpit/shared';
 import type { AgentSession } from '@cockpit/adapter-contract';
 import type { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
@@ -20,12 +21,18 @@ const DEFAULT_ADAPTER = 'shell';
 
 interface DaemonSession {
   session: AgentSession;
-  /** Cliente atualmente assinado (o que criou; reassinatura na 6.2). */
+  /** Cliente atualmente assinado — troca no attach (6.2). */
   subscriber: Socket | null;
   writer: ScrollbackWriter | null;
   unsubscribes: Array<() => void>;
   outstanding: number;
   holding: Uint8Array[];
+  /** Metadados p/ list-sessions/adoção (6.2). */
+  adapterId: string;
+  cwd: string;
+  pid: number;
+  lastStatus: AgentStatus;
+  createdAt: number;
 }
 
 export class DaemonServer {
@@ -128,19 +135,22 @@ export class DaemonServer {
         void (async () => {
           try {
             if (this.sessions.has(msg.tag)) throw new Error(`sessão já existe no daemon: ${msg.tag}`);
-            const adapter = this.registry.get(msg.adapterId ?? DEFAULT_ADAPTER);
-            const session = await adapter.spawn({
-              cwd: msg.cwd ?? process.cwd(),
-              cols: msg.cols,
-              rows: msg.rows
-            });
+            const adapterId = msg.adapterId ?? DEFAULT_ADAPTER;
+            const adapter = this.registry.get(adapterId);
+            const cwd = msg.cwd ?? process.cwd();
+            const session = await adapter.spawn({ cwd, cols: msg.cols, rows: msg.rows });
             const hosted: DaemonSession = {
               session,
               subscriber: socket,
               writer: null,
               unsubscribes: [],
               outstanding: 0,
-              holding: []
+              holding: [],
+              adapterId,
+              cwd,
+              pid: session.pid,
+              lastStatus: 'working',
+              createdAt: Date.now()
             };
             this.sessions.set(msg.tag, hosted);
             this.wireSession(msg.tag, hosted, msg.restore === true);
@@ -174,6 +184,43 @@ export class DaemonServer {
       case 'list-adapters':
         this.send(socket, { type: 'adapters', requestId: msg.requestId, adapters: this.registry.list() });
         break;
+      case 'attach': {
+        // 6.2: replay SEM gap/dup — flush+tail+swap são síncronos; onData só
+        // roda depois deste handler devolver o event loop.
+        const hosted = this.sessions.get(msg.id);
+        if (!hosted) {
+          this.send(socket, { type: 'attached', requestId: msg.requestId, id: msg.id, ok: false });
+          break;
+        }
+        hosted.subscriber = socket;
+        hosted.outstanding = 0; // acks do socket antigo morreram com ele
+        hosted.holding = [];
+        this.send(socket, { type: 'attached', requestId: msg.requestId, id: msg.id, ok: true });
+        if (this.scrollbackConfig) {
+          hosted.writer?.flush();
+          const tail = readScrollbackTail(
+            join(this.scrollbackConfig.dir, `${msg.id}.log`),
+            msg.tailBytes ?? this.scrollbackConfig.restoreTailBytes
+          );
+          if (tail.byteLength > 0) this.deliver(msg.id, hosted, tail);
+        }
+        break;
+      }
+      case 'list-sessions': {
+        this.send(socket, {
+          type: 'sessions',
+          requestId: msg.requestId,
+          sessions: [...this.sessions.entries()].map(([id, s]) => ({
+            id,
+            adapterId: s.adapterId,
+            pid: s.pid,
+            status: s.lastStatus,
+            cwd: s.cwd,
+            createdAt: s.createdAt
+          }))
+        });
+        break;
+      }
       case 'data-ack': {
         const hosted = this.sessions.get(msg.id);
         if (!hosted) break;
@@ -213,6 +260,7 @@ export class DaemonServer {
     );
     hosted.unsubscribes.push(
       hosted.session.onStatus((status, detail) => {
+        hosted.lastStatus = status;
         this.broadcast(id, { type: 'session-status', id, status, ...(detail !== undefined ? { detail } : {}) });
       })
     );

@@ -1,6 +1,11 @@
 import { createConnection, type Socket } from 'node:net';
 import { FrameDecoder, encodeControl, encodeData } from './framing';
-import { DAEMON_PROTOCOL_VERSION, type DaemonInbound, type DaemonOutbound } from './daemon-protocol';
+import {
+  DAEMON_PROTOCOL_VERSION,
+  type DaemonInbound,
+  type DaemonOutbound,
+  type DaemonSessionInfo
+} from './daemon-protocol';
 
 /**
  * DaemonClient (Story 6.1) — lado cliente do túnel: handshake versionado,
@@ -13,6 +18,8 @@ type Pending =
   | { kind: 'create'; resolve: (v: { id: string; pid: number }) => void; reject: (e: Error) => void }
   | { kind: 'close'; resolve: (v: { orphan: boolean }) => void; reject: (e: Error) => void }
   | { kind: 'adapters'; resolve: (v: Array<{ id: string; displayName: string }>) => void; reject: (e: Error) => void }
+  | { kind: 'attach'; resolve: (v: { ok: boolean }) => void; reject: (e: Error) => void }
+  | { kind: 'sessions'; resolve: (v: DaemonSessionInfo[]) => void; reject: (e: Error) => void }
   | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void };
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -109,6 +116,24 @@ export class DaemonClient {
     return await this.request('adapters', (requestId) => ({ type: 'list-adapters', requestId }));
   }
 
+  /**
+   * Assina uma sessão viva (6.2): registre onData ANTES de chamar — o replay
+   * do transcript chega como frames de dados logo após o 'attached'.
+   */
+  async attach(sessionId: string, tailBytes?: number): Promise<{ ok: boolean }> {
+    return await this.request('attach', (requestId) => ({
+      type: 'attach',
+      requestId,
+      id: sessionId,
+      ...(tailBytes !== undefined ? { tailBytes } : {})
+    }));
+  }
+
+  /** Sessões vivas no daemon (6.2) — insumo da adoção no boot (6.3). */
+  async listSessions(): Promise<DaemonSessionInfo[]> {
+    return await this.request('sessions', (requestId) => ({ type: 'list-sessions', requestId }));
+  }
+
   async shutdownDaemon(): Promise<{ orphans: number }> {
     return await this.request('shutdown', (requestId) => ({ type: 'shutdown', requestId }));
   }
@@ -155,6 +180,16 @@ export class DaemonClient {
       case 'adapters': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'adapters') p.resolve(msg.adapters);
+        break;
+      }
+      case 'attached': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'attach') p.resolve({ ok: msg.ok });
+        break;
+      }
+      case 'sessions': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'sessions') p.resolve(msg.sessions);
         break;
       }
       case 'shutdown-done': {

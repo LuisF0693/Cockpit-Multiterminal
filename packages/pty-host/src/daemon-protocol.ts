@@ -27,7 +27,21 @@ export type DaemonInbound =
   | { type: 'close'; requestId: number; id: string }
   | { type: 'list-adapters'; requestId: number }
   | { type: 'data-ack'; id: string; n: number }
+  /** Attach (6.2): assina a sessão com replay do transcript (tail). */
+  | { type: 'attach'; requestId: number; id: string; tailBytes?: number }
+  /** Sessões vivas no daemon (6.2) — insumo da adoção pelo app (6.3). */
+  | { type: 'list-sessions'; requestId: number }
   | { type: 'shutdown'; requestId: number };
+
+/** Metadados de sessão viva no daemon (list-sessions — Story 6.2). */
+export interface DaemonSessionInfo {
+  id: string;
+  adapterId: string;
+  pid: number;
+  status: AgentStatus;
+  cwd: string;
+  createdAt: number;
+}
 
 export type DaemonOutbound =
   | { type: 'hello-ack'; protocolVersion: number; daemonPid: number }
@@ -38,4 +52,6 @@ export type DaemonOutbound =
   | { type: 'session-exit'; id: string; exitCode: number }
   | { type: 'session-status'; id: string; status: AgentStatus; detail?: string }
   | { type: 'adapters'; requestId: number; adapters: Array<{ id: string; displayName: string }> }
+  | { type: 'attached'; requestId: number; id: string; ok: boolean }
+  | { type: 'sessions'; requestId: number; sessions: DaemonSessionInfo[] }
   | { type: 'shutdown-done'; requestId: number; orphans: number };
