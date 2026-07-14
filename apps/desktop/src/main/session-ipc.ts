@@ -53,7 +53,7 @@ export interface SessionIpcHandle {
   persistence: PersistenceManager;
   queue: WriteQueue;
   /** Restore do boot (AC2) — chamar após registrar tudo. */
-  restore(): Promise<{ restored: number; archived: number; adopted: number }>;
+  restore(): Promise<{ restored: number; archived: number; adopted: number; elapsedMs: number }>;
 }
 
 export function registerSessionIpc(
@@ -227,10 +227,14 @@ export function registerSessionIpc(
     registry,
     persistence,
     queue,
+    // Time-to-resume (AC1 da 4.2): adoção + relaunch clássico, do primeiro
+    // I/O até a última sessão relançada — não inclui createWindow()/boot do
+    // Electron (constantes de plataforma fora do controle desta lógica).
     restore: async () => {
+      const startedAt = Date.now();
       const adopted = await adoptFromDaemon();
       const { restored, archived } = await persistence.restore(registry);
-      return { restored, archived, adopted };
+      return { restored, archived, adopted, elapsedMs: Date.now() - startedAt };
     }
   };
 }

@@ -133,6 +133,9 @@ export class PersistenceManager {
       statusTransitions: this.store.countEvents({ terminalId, type: 'status.changed' }),
       instructions: this.store.countEvents({ terminalId, type: 'instruction.sent' }),
       recoveries: this.store.countEvents({ terminalId, type: 'session.recovered' }),
+      // Adoção pelo daemon (6.3) é retomada SEM PERDA — distinta de recovery
+      // (relaunch clássico, sessão reiniciada) — AC2 da 4.2.
+      adoptions: this.store.countEvents({ terminalId, type: 'session.adopted' }),
       exitCode: typeof exitCode === 'number' ? exitCode : null
     };
   }
@@ -144,11 +147,14 @@ export class PersistenceManager {
   }
 
   /**
-   * Restore do boot (AC2): relança cada terminal ativo no mesmo cwd com o
-   * mesmo id/nome. Falhas individuais arquivam a sessão (nunca destroem) e
-   * não derrubam o restante.
+   * Restore do boot (AC2 da 1.4): relança cada terminal ativo no mesmo cwd
+   * com o mesmo id/nome. Falhas individuais arquivam a sessão (nunca
+   * destroem) e não derrubam o restante. `elapsedMs` mede só este relaunch
+   * clássico — a adoção (6.3) roda ANTES e é medida à parte pelo chamador,
+   * que soma os dois para o time-to-resume total (AC1 da 4.2).
    */
-  async restore(registry: SessionRegistry): Promise<{ restored: number; archived: number }> {
+  async restore(registry: SessionRegistry): Promise<{ restored: number; archived: number; elapsedMs: number }> {
+    const start = Date.now();
     let restored = 0;
     let archived = 0;
     for (const t of this.store.listActiveTerminals()) {
@@ -181,7 +187,7 @@ export class PersistenceManager {
         archived++;
       }
     }
-    return { restored, archived };
+    return { restored, archived, elapsedMs: Date.now() - start };
   }
 
   /**

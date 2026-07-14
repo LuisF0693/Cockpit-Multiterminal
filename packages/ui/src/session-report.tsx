@@ -41,7 +41,8 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
     ['duração', formatDuration(report.durationMs) + (report.endedAt === null ? ' (ativa)' : '')],
     ['transições de status', String(report.statusTransitions)],
     ['instruções via master', String(report.instructions)],
-    ['recuperações', String(report.recoveries)],
+    ['recuperações (relançada)', String(report.recoveries)],
+    ['adoções (retomada sem perda)', String(report.adoptions)],
     ['exit code', report.exitCode === null ? '—' : String(report.exitCode)],
     ['tokens', report.tokens === undefined ? '—' : String(report.tokens)],
     ['tool calls', report.toolCalls === undefined ? '—' : String(report.toolCalls)]

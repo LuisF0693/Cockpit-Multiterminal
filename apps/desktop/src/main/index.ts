@@ -119,12 +119,18 @@ app.whenReady().then(async () => {
     console.warn('[state] boot após shutdown NÃO limpo (Recovery Screen completa entra no E5)');
   }
 
-  // Restore (AC2) ANTES da janela: session.list do renderer já traz tudo.
+  // Restore (AC2 da 1.4) ANTES da janela: session.list do renderer já traz
+  // tudo. Time-to-resume medido e logado (AC1/AC3 da 4.2, orçamento NFR4 <10s).
+  const RESUME_BUDGET_MS = 10_000;
   void sessionIpc
     .restore()
-    .then(({ restored, archived, adopted }) => {
-      if (adopted > 0) console.log(`[daemon] adotadas ${adopted} sessões vivas do daemon`);
-      if (restored > 0) console.log(`[state] restauradas ${restored} sessões (${archived} arquivadas)`);
+    .then(({ restored, archived, adopted, elapsedMs }) => {
+      console.log(
+        `[boot] retomada em ${elapsedMs}ms — adotadas=${adopted} relançadas=${restored} arquivadas=${archived}`
+      );
+      if (elapsedMs > RESUME_BUDGET_MS) {
+        console.warn(`[boot] retomada excedeu o orçamento NFR4 (${RESUME_BUDGET_MS}ms): ${elapsedMs}ms`);
+      }
     })
     .finally(() => createWindow());
 

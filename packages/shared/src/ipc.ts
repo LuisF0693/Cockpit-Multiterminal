@@ -152,7 +152,10 @@ export const SessionReportSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   statusTransitions: z.number().int().nonnegative(),
   instructions: z.number().int().nonnegative(),
+  /** Relançamentos clássicos (sessão reiniciada — perde o processo). */
   recoveries: z.number().int().nonnegative(),
+  /** Adoções pelo daemon (Story 6.3/4.2) — retomada CONTÍNUA, sem perda. */
+  adoptions: z.number().int().nonnegative(),
   exitCode: z.number().int().nullable(),
   tokens: z.number().int().optional(),
   toolCalls: z.number().int().optional()

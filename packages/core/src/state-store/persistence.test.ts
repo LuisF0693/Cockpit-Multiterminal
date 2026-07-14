@@ -97,7 +97,8 @@ describe('PersistenceManager (Story 1.4)', () => {
     manager2.wire(registry2);
 
     const result = await manager2.restore(registry2);
-    expect(result).toEqual({ restored: 2, archived: 0 });
+    expect(result).toMatchObject({ restored: 2, archived: 0 });
+    expect(result.elapsedMs).toBeGreaterThanOrEqual(0); // Story 4.2 (AC1)
     expect(ops2.createdTags).toEqual([a.id, b.id]); // ids preservados → scrollback certo
     const restored = registry2.list();
     expect(restored.map((r) => [r.id, r.name, r.cwd])).toEqual([
@@ -119,7 +120,7 @@ describe('PersistenceManager (Story 1.4)', () => {
     const result = await manager2.restore(registry2);
     first.queue.flush();
 
-    expect(result).toEqual({ restored: 1, archived: 1 });
+    expect(result).toMatchObject({ restored: 1, archived: 1 });
     expect(first.store.terminals.get(a.id)!.archivedAt).not.toBeNull();
     expect(registry2.list().map((r) => r.id)).toEqual([b.id]);
   });
@@ -286,7 +287,7 @@ describe('PersistenceManager (Story 1.4)', () => {
     manager2.recordAdoption(a.id, { name: 'API', adapterId: 'shell', pid: 4242 });
 
     const result = await manager2.restore(registry2);
-    expect(result).toEqual({ restored: 1, archived: 0 }); // só B
+    expect(result).toMatchObject({ restored: 1, archived: 0 }); // só B
     expect(ops2.createdTags).toEqual([b.id]); // A NÃO relançada
 
     const adopted = registry2.list().find((r) => r.id === a.id)!;
@@ -295,6 +296,35 @@ describe('PersistenceManager (Story 1.4)', () => {
     const trail = manager2.timeline({ limit: 10, type: 'session.adopted' });
     expect(trail).toHaveLength(1);
     expect(trail[0]!.terminalId).toBe(a.id);
+  });
+
+  it('sessionReport distingue adoções de recuperações (Story 4.2, AC2)', async () => {
+    const first = makeHarness();
+    const a = await first.registry.create({ cols: 80, rows: 24, name: 'API', cwd: 'C:/api' });
+    first.queue.flush();
+
+    // 1ª retomada: adoção pelo daemon (sem perda)
+    const registry2 = new SessionRegistry(makeOps());
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    manager2.wire(registry2);
+    registry2.adopt({ id: a.id, name: 'API', cwd: 'C:/api', adapterId: 'shell', workspace: 'Geral', pid: 111 });
+    manager2.recordAdoption(a.id, { name: 'API', adapterId: 'shell', pid: 111 });
+
+    // 2ª retomada: relaunch clássico (sessão reiniciada)
+    const registry3 = new SessionRegistry(makeOps());
+    const manager3 = new PersistenceManager(first.store, first.queue);
+    manager3.wire(registry3);
+    await manager3.restore(registry3);
+
+    const report = manager3.sessionReport(a.id)!;
+    expect(report.adoptions).toBe(1);
+    expect(report.recoveries).toBe(1);
+
+    // Ambos os tipos aparecem DISTINTOS na timeline da sessão.
+    const trail = manager3.timeline({ limit: 10, terminalId: a.id });
+    const types = trail.map((e) => e.type);
+    expect(types).toContain('session.adopted');
+    expect(types).toContain('session.recovered');
   });
 
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
