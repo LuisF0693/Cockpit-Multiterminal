@@ -1,5 +1,13 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
-import type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './types';
+import type {
+  PersistedEvent,
+  PersistedTask,
+  PersistedTerminal,
+  PersistedTerminalLink,
+  StateStore,
+  TaskState,
+  TerminalLinkMode
+} from './types';
 
 /**
  * Implementação SQLite (better-sqlite3, WAL). O driver é INJETADO pelo Main:
@@ -22,7 +30,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '7';
+const SCHEMA_VERSION = '8';
 
 interface TerminalRow {
   id: string;
@@ -47,6 +55,15 @@ interface TaskRow {
   created_at: number;
   updated_at: number;
   project_id: string | null;
+}
+
+interface TerminalLinkRow {
+  id: string;
+  source_id: string;
+  target_id: string;
+  mode: string;
+  project_id: string | null;
+  created_at: number;
 }
 
 export class SqliteStateStore implements StateStore {
@@ -89,7 +106,17 @@ export class SqliteStateStore implements StateStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS terminal_links (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        project_id TEXT,
+        created_at INTEGER NOT NULL
+      );
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_terminal_links_source ON terminal_links (source_id);
+      CREATE INDEX IF NOT EXISTS idx_terminal_links_target ON terminal_links (target_id);
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts);
       CREATE INDEX IF NOT EXISTS idx_events_terminal ON events (terminal_id, type);
     `);
@@ -175,6 +202,9 @@ export class SqliteStateStore implements StateStore {
         console.log('[state] schema migrado v6 → v7 (tasks.project_id)');
       }
     }
+    // v7 → v8 (Épico 9): tabela terminal_links é NOVA — CREATE TABLE IF NOT
+    // EXISTS acima já cobre instalações antigas e novas; nenhum ALTER necessário
+    // (mesmo caso da tabela tasks na v3→v4).
   }
 
   upsertTerminal(t: PersistedTerminal): void {
@@ -379,6 +409,30 @@ export class SqliteStateStore implements StateStore {
       updatedAt: r.updated_at,
       projectId: r.project_id ?? null
     };
+  }
+
+  createTerminalLink(l: PersistedTerminalLink): void {
+    this.db
+      .prepare(
+        `INSERT INTO terminal_links (id, source_id, target_id, mode, project_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(l.id, l.sourceId, l.targetId, l.mode, l.projectId, l.createdAt);
+  }
+
+  removeTerminalLink(id: string): void {
+    this.db.prepare('DELETE FROM terminal_links WHERE id = ?').run(id);
+  }
+
+  listTerminalLinks(): PersistedTerminalLink[] {
+    const rows = this.db.prepare('SELECT * FROM terminal_links ORDER BY created_at').all() as TerminalLinkRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      sourceId: r.source_id,
+      targetId: r.target_id,
+      mode: r.mode as TerminalLinkMode,
+      projectId: r.project_id ?? null,
+      createdAt: r.created_at
+    }));
   }
 
   /** Executa um batch da WriteQueue numa transação única (atomicidade — NFR5). */

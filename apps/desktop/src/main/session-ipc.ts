@@ -6,6 +6,7 @@ import {
   PersistenceManager,
   SessionRegistry,
   TaskManager,
+  TerminalLinkManager,
   WriteQueue,
   planSdcReviewRouting,
   planSdcCorrectionRouting,
@@ -42,9 +43,12 @@ import {
   ProjectSetActiveRequestSchema,
   ProjectReadDirRequestSchema,
   ProjectReadFileRequestSchema,
+  TerminalLinkCreateRequestSchema,
+  TerminalLinkRemoveRequestSchema,
   type ProjectDirEntry,
   type SessionEvent,
-  type TaskEvent
+  type TaskEvent,
+  type TerminalLinkEvent
 } from '@cockpit/shared';
 import { readScrollbackTail, type DaemonSessionInfo } from '@cockpit/pty-host';
 
@@ -133,6 +137,15 @@ export function registerSessionIpc(
     }
   });
 
+  // Vínculo terminal-a-terminal (Épico 9, FR25) — mesmo padrão do TaskManager.
+  const terminalLinkManager = new TerminalLinkManager(store, queue);
+  terminalLinkManager.load();
+  terminalLinkManager.onEvent((event: TerminalLinkEvent) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcChannels.terminalLinkEvent, event);
+    }
+  });
+
   // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
   // para o handle já nascer sabendo se há uma Recovery Screen a resolver.
   const { cleanShutdown } = persistence.markBootStart();
@@ -189,6 +202,18 @@ export function registerSessionIpc(
       }
     } catch (err) {
       console.error('[sdc] roteamento automático de revisão falhou:', err);
+    }
+  });
+
+  // Vínculo terminal-a-terminal (Story 9.1, AC3): remove todo vínculo que
+  // referencia um terminal fechado (não em 'exited' — o processo pode
+  // relançar no restore/adoção; 'closed' é a exclusão definitiva).
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'closed') return;
+    try {
+      terminalLinkManager.removeForTerminal(event.session.id);
+    } catch (err) {
+      console.error('[terminalLink] limpeza pós-fechamento falhou:', err);
     }
   });
 
@@ -364,6 +389,31 @@ export function registerSessionIpc(
       return null;
     }
   });
+
+  // Vínculo terminal-a-terminal (Épico 9, Story 9.1, FR25) — origem e alvo
+  // precisam existir e pertencer ao MESMO projeto (AC4); a mensagem exata
+  // de erro fica visível ao chamador (Promise rejeitada no renderer).
+  ipcMain.handle(IpcChannels.terminalLinkCreate, (_event, raw: unknown) => {
+    const req = TerminalLinkCreateRequestSchema.parse(raw);
+    const sessions = registry.list();
+    const source = sessions.find((s) => s.id === req.sourceId);
+    const target = sessions.find((s) => s.id === req.targetId);
+    if (!source || !target) throw new Error('terminal de origem/alvo não encontrado');
+    if (source.projectId !== target.projectId) {
+      throw new Error('vínculo só é permitido entre terminais do mesmo projeto');
+    }
+    return terminalLinkManager.create({
+      sourceId: req.sourceId,
+      targetId: req.targetId,
+      mode: req.mode,
+      projectId: source.projectId
+    });
+  });
+  ipcMain.handle(IpcChannels.terminalLinkRemove, (_event, raw: unknown) => {
+    const req = TerminalLinkRemoveRequestSchema.parse(raw);
+    terminalLinkManager.remove(req.id);
+  });
+  ipcMain.handle(IpcChannels.terminalLinkList, () => terminalLinkManager.list());
 
   // Tarefas (Story 5.1)
   ipcMain.handle(IpcChannels.taskCreate, (_event, raw: unknown) => {

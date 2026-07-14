@@ -22,6 +22,8 @@ import {
   ProjectListSchema,
   ProjectDirEntrySchema,
   ProjectReadFileResponseSchema,
+  TerminalLinkSchema,
+  TerminalLinkEventSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -49,7 +51,10 @@ import {
   type ProjectRemoveRequest,
   type ProjectSetActiveRequest,
   type ProjectReadDirRequest,
-  type ProjectReadFileRequest
+  type ProjectReadFileRequest,
+  type TerminalLinkCreateRequest,
+  type TerminalLinkRemoveRequest,
+  type TerminalLinkEvent
 } from '@cockpit/shared';
 
 /**
@@ -180,6 +185,26 @@ const api: CockpitApi = {
     readFile: async (req: ProjectReadFileRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadFile, req);
       return raw === null ? null : ProjectReadFileResponseSchema.parse(raw);
+    }
+  },
+  terminalLink: {
+    create: async (req: TerminalLinkCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalLinkCreate, req);
+      return TerminalLinkSchema.parse(raw);
+    },
+    remove: async (req: TerminalLinkRemoveRequest) => {
+      await ipcRenderer.invoke(IpcChannels.terminalLinkRemove, req);
+    },
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalLinkList);
+      return TerminalLinkSchema.array().parse(raw);
+    },
+    onEvent: (cb: (event: TerminalLinkEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(TerminalLinkEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.terminalLinkEvent, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.terminalLinkEvent, listener);
     }
   },
   recovery: {

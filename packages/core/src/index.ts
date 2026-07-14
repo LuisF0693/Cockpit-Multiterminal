@@ -19,3 +19,5 @@ export { assertTransition, canTransition } from './task-lifecycle';
 export { planSdcReviewRouting, planSdcCorrectionRouting, planSdcRedirect } from './sdc-routing';
 export type { SdcReviewRouting, SdcCorrectionRouting, SdcRedirectPlan } from './sdc-routing';
 export { parseGitignorePatterns, isGitignored, isPathWithin, ALWAYS_HIDDEN_NAMES } from './file-explorer';
+export { TerminalLinkManager } from './terminal-link-manager';
+export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';

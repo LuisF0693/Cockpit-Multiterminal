@@ -45,6 +45,12 @@ export const IpcChannels = {
   /** Explorador de arquivos (Story 8.4) — leitura no Main (node:fs). */
   projectReadDir: 'project.readDir',
   projectReadFile: 'project.readFile',
+  /** Vínculo terminal-a-terminal (Épico 9, FR25). */
+  terminalLinkCreate: 'terminalLink.create',
+  terminalLinkRemove: 'terminalLink.remove',
+  terminalLinkList: 'terminalLink.list',
+  /** Push Main → renderer com eventos de domínio de vínculo. */
+  terminalLinkEvent: 'terminalLink.event',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -440,6 +446,42 @@ export const ProjectReadFileResponseSchema = z.object({
 });
 export type ProjectReadFileResponse = z.infer<typeof ProjectReadFileResponseSchema>;
 
+/**
+ * Vínculo terminal-a-terminal (Épico 9, FR25) — INDEPENDENTE de tarefa; um
+ * agente na origem pode comandar o terminal alvo. `manual` só habilita o
+ * botão de enviar (9.3); `auto` dispara sozinho no status da origem (9.2).
+ */
+export const TerminalLinkModeSchema = z.enum(['manual', 'auto']);
+export type TerminalLinkMode = z.infer<typeof TerminalLinkModeSchema>;
+
+export const TerminalLinkSchema = z.object({
+  id: z.string().min(1),
+  sourceId: z.string().min(1),
+  targetId: z.string().min(1),
+  mode: TerminalLinkModeSchema,
+  /** Projeto dono do vínculo (AC4 da 9.1) — origem e alvo pertencem ao mesmo. */
+  projectId: z.string().min(1).nullable(),
+  createdAt: z.number().int().nonnegative()
+});
+export type TerminalLink = z.infer<typeof TerminalLinkSchema>;
+
+export const TerminalLinkCreateRequestSchema = z.object({
+  sourceId: z.string().min(1),
+  targetId: z.string().min(1),
+  mode: TerminalLinkModeSchema
+});
+export type TerminalLinkCreateRequest = z.infer<typeof TerminalLinkCreateRequestSchema>;
+
+export const TerminalLinkRemoveRequestSchema = z.object({ id: z.string().min(1) });
+export type TerminalLinkRemoveRequest = z.infer<typeof TerminalLinkRemoveRequestSchema>;
+
+/** Push Main → renderer (Épico 9) — mesmo padrão do TaskEvent. */
+export const TerminalLinkEventSchema = z.object({
+  type: z.enum(['created', 'removed']),
+  link: TerminalLinkSchema
+});
+export type TerminalLinkEvent = z.infer<typeof TerminalLinkEventSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -535,6 +577,14 @@ export interface CockpitApi {
     readDir(req: ProjectReadDirRequest): Promise<ProjectDirEntry[]>;
     /** Preview de leitura de um arquivo de texto (Story 8.4, AC2) — null se binário/erro. */
     readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
+  };
+  terminalLink: {
+    /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */
+    create(req: TerminalLinkCreateRequest): Promise<TerminalLink>;
+    remove(req: TerminalLinkRemoveRequest): Promise<void>;
+    list(): Promise<TerminalLink[]>;
+    /** Assina eventos de domínio de vínculo; retorna unsubscribe. */
+    onEvent(cb: (event: TerminalLinkEvent) => void): () => void;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */
