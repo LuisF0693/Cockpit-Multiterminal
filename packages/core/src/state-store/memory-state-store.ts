@@ -19,6 +19,7 @@ export class MemoryStateStore implements StateStore {
     this.terminals.set(t.id, {
       ...t,
       adapterId: t.adapterId || prev?.adapterId || 'shell',
+      workspace: t.workspace || prev?.workspace || 'Geral',
       tile: t.tile ?? prev?.tile ?? null
     });
   }
@@ -46,6 +47,12 @@ export class MemoryStateStore implements StateStore {
 
   getTerminal(id: string): PersistedTerminal | null {
     return this.terminals.get(id) ?? null;
+  }
+
+  renameWorkspace(from: string, to: string): void {
+    for (const [id, t] of this.terminals) {
+      if (t.workspace === from) this.terminals.set(id, { ...t, workspace: to });
+    }
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {

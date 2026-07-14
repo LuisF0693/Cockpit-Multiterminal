@@ -210,6 +210,58 @@ describe('PersistenceManager (Story 1.4)', () => {
     expect(manager.sessionReport('inexistente')).toBeNull();
   });
 
+  it('workspace persiste no upsert e restaura com a sessão (Story 3.6)', async () => {
+    const first = makeHarness();
+    const a = await first.registry.create({ cols: 80, rows: 24, name: 'API', workspace: 'Alpha' });
+    const b = await first.registry.create({ cols: 80, rows: 24, name: 'Web' }); // default Geral
+    first.queue.flush();
+
+    expect(first.store.terminals.get(a.id)!.workspace).toBe('Alpha');
+    expect(first.store.terminals.get(b.id)!.workspace).toBe('Geral');
+
+    const registry2 = new SessionRegistry(makeOps());
+    const manager2 = new PersistenceManager(first.store, first.queue);
+    manager2.wire(registry2);
+    await manager2.restore(registry2);
+    expect(registry2.list().map((r) => [r.name, r.workspace])).toEqual([
+      ['API', 'Alpha'],
+      ['Web', 'Geral']
+    ]);
+  });
+
+  it('renameWorkspace propaga a vivas, persistidas e meta (Story 3.6)', async () => {
+    const { store, queue, manager, registry } = makeHarness();
+    manager.createWorkspace('Alpha');
+    const a = await registry.create({ cols: 80, rows: 24, workspace: 'Alpha' });
+    const arch = await registry.create({ cols: 80, rows: 24, workspace: 'Alpha' });
+    await registry.close(arch.id); // arquivada também deve ser renomeada
+    manager.setActiveWorkspace('Alpha');
+    queue.flush();
+
+    const list = manager.renameWorkspace(registry, 'Alpha', 'Beta');
+    queue.flush();
+
+    expect(list.names).toContain('Beta');
+    expect(list.names).not.toContain('Alpha');
+    expect(list.active).toBe('Beta');
+    expect(registry.list()[0]!.workspace).toBe('Beta'); // viva atualizada
+    expect(store.terminals.get(a.id)!.workspace).toBe('Beta');
+    expect(store.terminals.get(arch.id)!.workspace).toBe('Beta'); // arquivada
+  });
+
+  it('workspaces(): união com Geral indelével e ativo com fallback (Story 3.6)', async () => {
+    const { manager, registry } = makeHarness();
+    await registry.create({ cols: 80, rows: 24, workspace: 'Órfão' }); // só nos terminais
+    manager.createWorkspace('Alpha'); // só na meta
+
+    const list = manager.workspaces();
+    expect(list.names).toEqual(expect.arrayContaining(['Geral', 'Alpha', 'Órfão']));
+    expect(list.active).toBe('Geral');
+
+    expect(manager.setActiveWorkspace('inexistente').active).toBe('Geral'); // fallback
+    expect(manager.setActiveWorkspace('Alpha').active).toBe('Alpha');
+  });
+
   it('clean_shutdown: boot marca 0, exit gracioso marca 1', () => {
     const { store, manager } = makeHarness();
 

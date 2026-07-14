@@ -16,7 +16,7 @@ import {
   matchShortcut,
   statusColor
 } from '@cockpit/ui';
-import type { SessionReport, TimelineEvent } from '@cockpit/shared';
+import type { SessionReport, TimelineEvent, WorkspaceList } from '@cockpit/shared';
 import { useCockpitStore } from './cockpit-store';
 
 declare global {
@@ -44,6 +44,10 @@ export function App(): JSX.Element {
   const [reportId, setReportId] = useState<string | null>(null);
   const [report, setReport] = useState<SessionReport | null>(null);
   const [reportEvents, setReportEvents] = useState<TimelineEvent[]>([]);
+  // Workspaces (Story 3.6): lista + ativo persistidos no state store.
+  const [workspaces, setWorkspaces] = useState<WorkspaceList>({ names: ['Geral'], active: 'Geral' });
+  const workspacesRef = useRef(workspaces);
+  workspacesRef.current = workspaces;
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -94,6 +98,11 @@ export function App(): JSX.Element {
       .list()
       .then(setAdapters)
       .catch(() => setAdapters([{ id: 'shell', displayName: 'Shell' }]));
+
+    void window.cockpit.workspace
+      .list()
+      .then(setWorkspaces)
+      .catch(() => void 0);
 
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
@@ -169,11 +178,39 @@ export function App(): JSX.Element {
       await window.cockpit.session.create({
         cols: 80,
         rows: 24,
-        adapterId: adapterId ?? selectedAdapter
+        adapterId: adapterId ?? selectedAdapter,
+        // Novo terminal nasce no workspace ativo (3.6); ref evita stale closure
+        // no atalho Ctrl+N registrado no mount.
+        workspace: workspacesRef.current.active
       });
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     }
+  };
+
+  /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
+  const switchWorkspace = (name: string): void => {
+    void window.cockpit.workspace.setActive({ name }).then(setWorkspaces).catch(() => void 0);
+  };
+
+  const createWorkspace = (): void => {
+    const name = window.prompt('Nome do novo workspace:')?.trim();
+    if (!name) return;
+    void window.cockpit.workspace
+      .create({ name })
+      .then((list) => window.cockpit.workspace.setActive({ name }).catch(() => list))
+      .then(setWorkspaces)
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  const renameWorkspace = (): void => {
+    const from = workspacesRef.current.active;
+    const to = window.prompt(`Renomear workspace "${from}" para:`, from)?.trim();
+    if (!to || to === from) return;
+    void window.cockpit.workspace
+      .rename({ from, to })
+      .then(setWorkspaces)
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
   const goToTerminal = (id: string): void => {
@@ -238,6 +275,34 @@ export function App(): JSX.Element {
         }}
       >
         <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
+        {/* Workspaces (Story 3.6): troca rápida + criar/renomear */}
+        <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <select
+            value={workspaces.active}
+            onChange={(e) => switchWorkspace(e.target.value)}
+            title="Workspace ativo (filtra o canvas)"
+            style={{
+              background: '#111827',
+              color: '#E5E7EB',
+              border: '1px solid #1F2937',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 12
+            }}
+          >
+            {workspaces.names.map((w) => (
+              <option key={w} value={w}>
+                📁 {w}
+              </option>
+            ))}
+          </select>
+          <button onClick={createWorkspace} title="Novo workspace" style={wsButtonStyle}>
+            +
+          </button>
+          <button onClick={renameWorkspace} title="Renomear workspace ativo" style={wsButtonStyle}>
+            ✎
+          </button>
+        </span>
         <nav style={{ display: 'flex', gap: 4 }}>
           {(
             [
@@ -383,9 +448,13 @@ export function App(): JSX.Element {
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;
+            // Canvas filtra por workspace (3.6, AC2) — tiles de outros
+            // workspaces ficam MONTADOS (desmontar mataria xterm/portas,
+            // gotcha da 1.3), apenas escondidos pelo wrapper.
+            const inActive = session.workspace === workspaces.active;
             return (
-              <TerminalTile
-                key={session.id}
+              <div key={session.id} style={{ display: inActive ? 'contents' : 'none' }}>
+                <TerminalTile
                 session={session}
                 layout={tile}
                 focused={focusedId === session.id}
@@ -400,6 +469,7 @@ export function App(): JSX.Element {
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
               />
+              </div>
             );
           })}
           {sessions.length === 0 && (
@@ -422,3 +492,14 @@ export function App(): JSX.Element {
     </main>
   );
 }
+
+const wsButtonStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: '#9CA3AF',
+  border: '1px solid #1F2937',
+  borderRadius: 4,
+  width: 24,
+  height: 24,
+  cursor: 'pointer',
+  fontSize: 12
+};

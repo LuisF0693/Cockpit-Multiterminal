@@ -22,7 +22,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '2';
+const SCHEMA_VERSION = '3';
 
 interface TerminalRow {
   id: string;
@@ -30,6 +30,7 @@ interface TerminalRow {
   cwd: string;
   status: string;
   adapter_id: string;
+  workspace: string | null;
   tile_json: string | null;
   created_at: number;
   archived_at: number | null;
@@ -92,16 +93,28 @@ export class SqliteStateStore implements StateStore {
         console.log('[state] schema migrado v1 → v2 (adapter_id)');
       }
     }
+    // v2 → v3 (Story 3.6): coluna workspace — mesmo padrão do ALTER idempotente.
+    const hasWorkspaceColumn = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('terminals') WHERE name = 'workspace'`).get() as {
+        n: number;
+      }
+    ).n;
+    if (!hasWorkspaceColumn) {
+      this.db.exec(`ALTER TABLE terminals ADD COLUMN workspace TEXT NOT NULL DEFAULT 'Geral'`);
+      if (current === '2') {
+        console.log('[state] schema migrado v2 → v3 (workspace)');
+      }
+    }
   }
 
   upsertTerminal(t: PersistedTerminal): void {
     this.db
       .prepare(
-        `INSERT INTO terminals (id, name, cwd, status, adapter_id, tile_json, created_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO terminals (id, name, cwd, status, adapter_id, workspace, tile_json, created_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, cwd = excluded.cwd, status = excluded.status,
-           adapter_id = excluded.adapter_id,
+           adapter_id = excluded.adapter_id, workspace = excluded.workspace,
            tile_json = COALESCE(excluded.tile_json, terminals.tile_json),
            archived_at = excluded.archived_at`
       )
@@ -111,6 +124,7 @@ export class SqliteStateStore implements StateStore {
         t.cwd,
         t.status,
         t.adapterId,
+        t.workspace,
         t.tile ? JSON.stringify(t.tile) : null,
         t.createdAt,
         t.archivedAt
@@ -133,31 +147,30 @@ export class SqliteStateStore implements StateStore {
     const rows = this.db
       .prepare('SELECT * FROM terminals WHERE archived_at IS NULL ORDER BY created_at')
       .all() as TerminalRow[];
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      cwd: r.cwd,
-      status: r.status === 'exited' ? 'exited' : 'running',
-      adapterId: r.adapter_id ?? 'shell',
-      tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
-      createdAt: r.created_at,
-      archivedAt: r.archived_at
-    }));
+    return rows.map((r) => this.rowToTerminal(r));
   }
 
-  getTerminal(id: string): PersistedTerminal | null {
-    const r = this.db.prepare('SELECT * FROM terminals WHERE id = ?').get(id) as TerminalRow | undefined;
-    if (!r) return null;
+  private rowToTerminal(r: TerminalRow): PersistedTerminal {
     return {
       id: r.id,
       name: r.name,
       cwd: r.cwd,
       status: r.status === 'exited' ? 'exited' : 'running',
       adapterId: r.adapter_id ?? 'shell',
+      workspace: r.workspace ?? 'Geral',
       tile: r.tile_json ? (JSON.parse(r.tile_json) as LayoutTile) : null,
       createdAt: r.created_at,
       archivedAt: r.archived_at
     };
+  }
+
+  getTerminal(id: string): PersistedTerminal | null {
+    const r = this.db.prepare('SELECT * FROM terminals WHERE id = ?').get(id) as TerminalRow | undefined;
+    return r ? this.rowToTerminal(r) : null;
+  }
+
+  renameWorkspace(from: string, to: string): void {
+    this.db.prepare('UPDATE terminals SET workspace = ? WHERE workspace = ?').run(to, from);
   }
 
   countEvents(opts: { terminalId?: string; type?: string }): number {

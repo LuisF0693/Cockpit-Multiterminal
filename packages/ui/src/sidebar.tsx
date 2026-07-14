@@ -4,8 +4,8 @@ import { statusColor, statusLabel } from './status-colors';
 
 /**
  * Sidebar de navegação em árvore (escopo mínimo da 1.3: só sessões).
- * Colapsável; clique foca o tile correspondente. Tarefas/documentos
- * entram nos épicos 3/5.
+ * Colapsável; clique foca o tile correspondente. Agrupada por workspace
+ * quando há mais de um (Story 3.6). Tarefas/documentos entram no épico 5.
  */
 
 export interface SidebarProps {
@@ -17,6 +17,18 @@ export interface SidebarProps {
 
 export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: SidebarProps): JSX.Element {
   const [collapsed, setCollapsed] = useState(false);
+
+  // Agrupamento por workspace (3.6): 'Geral' primeiro, demais em ordem
+  // alfabética; índice original preservado para o atalho ⌃n.
+  const groups = new Map<string, Array<{ s: SessionRecord; i: number }>>();
+  sessions.forEach((s, i) => {
+    const list = groups.get(s.workspace) ?? [];
+    list.push({ s, i });
+    groups.set(s.workspace, list);
+  });
+  const groupNames = [...groups.keys()].sort((a, b) =>
+    a === 'Geral' ? -1 : b === 'Geral' ? 1 : a.localeCompare(b)
+  );
 
   if (collapsed) {
     return (
@@ -47,10 +59,27 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
             Nenhuma sessão — Ctrl+N para criar.
           </p>
         )}
-        {sessions.map((s, i) => (
-          <button
-            key={s.id}
-            onClick={() => onSelect(s.id)}
+        {groupNames.map((ws) => (
+          <div key={ws}>
+            {groupNames.length > 1 && (
+              <p
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: '#6B7280',
+                  letterSpacing: 1,
+                  margin: '8px 0 2px',
+                  padding: '0 12px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {ws}
+              </p>
+            )}
+            {(groups.get(ws) ?? []).map(({ s, i }) => (
+              <button
+                key={s.id}
+                onClick={() => onSelect(s.id)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -93,8 +122,10 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
                 !
               </span>
             )}
-            {i < 9 && <kbd style={{ fontSize: 10, color: '#6B7280' }}>⌃{i + 1}</kbd>}
-          </button>
+                {i < 9 && <kbd style={{ fontSize: 10, color: '#6B7280' }}>⌃{i + 1}</kbd>}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
     </aside>

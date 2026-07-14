@@ -10,6 +10,7 @@ import {
   SessionReportSchema,
   TERMINAL_PORT_MESSAGE,
   TimelineEventSchema,
+  WorkspaceListSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -19,7 +20,10 @@ import {
   type SessionRenameRequest,
   type SessionReportRequest,
   type SessionResizeRequest,
-  type TerminalPortMessage
+  type TerminalPortMessage,
+  type WorkspaceCreateRequest,
+  type WorkspaceRenameRequest,
+  type WorkspaceSetActiveRequest
 } from '@cockpit/shared';
 
 /**
@@ -85,6 +89,24 @@ const api: CockpitApi = {
     get: async (req = {}) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.timelineGet, req);
       return TimelineEventSchema.array().parse(raw);
+    }
+  },
+  workspace: {
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceList);
+      return WorkspaceListSchema.parse(raw);
+    },
+    create: async (req: WorkspaceCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceCreate, req);
+      return WorkspaceListSchema.parse(raw);
+    },
+    rename: async (req: WorkspaceRenameRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceRename, req);
+      return WorkspaceListSchema.parse(raw);
+    },
+    setActive: async (req: WorkspaceSetActiveRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.workspaceSetActive, req);
+      return WorkspaceListSchema.parse(raw);
     }
   }
 };

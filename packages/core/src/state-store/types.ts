@@ -13,6 +13,8 @@ export interface PersistedTerminal {
   status: 'running' | 'exited';
   /** Adapter que hospeda a sessão (schema v2 — Story 2.1). */
   adapterId: string;
+  /** Workspace/projeto (schema v3 — Story 3.6); default 'Geral'. */
+  workspace: string;
   tile: LayoutTile | null;
   createdAt: number;
   archivedAt: number | null;
@@ -40,6 +42,8 @@ export interface StateStore {
   getTerminal(id: string): PersistedTerminal | null;
   /** Contagem de eventos com filtros (métricas do relatório — Story 3.5). */
   countEvents(opts: { terminalId?: string; type?: string }): number;
+  /** Renomeia workspace em TODAS as linhas, arquivadas inclusive (Story 3.6). */
+  renameWorkspace(from: string, to: string): void;
   setMeta(key: string, value: string): void;
   getMeta(key: string): string | null;
   appendEvent(event: PersistedEvent): void;

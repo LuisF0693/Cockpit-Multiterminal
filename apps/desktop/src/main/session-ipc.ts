@@ -11,6 +11,9 @@ import {
   SessionRenameRequestSchema,
   SessionReportRequestSchema,
   SessionResizeRequestSchema,
+  WorkspaceCreateRequestSchema,
+  WorkspaceRenameRequestSchema,
+  WorkspaceSetActiveRequestSchema,
   type SessionEvent
 } from '@cockpit/shared';
 import type { PtyHostManager } from './pty-host-manager';
@@ -126,6 +129,21 @@ export function registerSessionIpc(
   ipcMain.handle(IpcChannels.sessionReport, (_event, raw: unknown) => {
     const req = SessionReportRequestSchema.parse(raw);
     return persistence.sessionReport(req.id);
+  });
+
+  // Workspaces (Story 3.6)
+  ipcMain.handle(IpcChannels.workspaceList, () => persistence.workspaces());
+  ipcMain.handle(IpcChannels.workspaceCreate, (_event, raw: unknown) => {
+    const req = WorkspaceCreateRequestSchema.parse(raw);
+    return persistence.createWorkspace(req.name);
+  });
+  ipcMain.handle(IpcChannels.workspaceRename, (_event, raw: unknown) => {
+    const req = WorkspaceRenameRequestSchema.parse(raw);
+    return persistence.renameWorkspace(registry, req.from, req.to);
+  });
+  ipcMain.handle(IpcChannels.workspaceSetActive, (_event, raw: unknown) => {
+    const req = WorkspaceSetActiveRequestSchema.parse(raw);
+    return persistence.setActiveWorkspace(req.name);
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());

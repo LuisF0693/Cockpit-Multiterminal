@@ -27,6 +27,11 @@ export const IpcChannels = {
   sessionReport: 'session.report',
   adapterList: 'adapter.list',
   timelineGet: 'timeline.get',
+  /** Workspaces (Story 3.6). */
+  workspaceList: 'workspace.list',
+  workspaceCreate: 'workspace.create',
+  workspaceRename: 'workspace.rename',
+  workspaceSetActive: 'workspace.setActive',
   /** Push Main → renderer com eventos de domínio de sessão. */
   sessionEvent: 'session.event',
   layoutGet: 'layout.get',
@@ -67,7 +72,9 @@ export const SessionRecordSchema = z.object({
   /** Época da última mudança de agentStatus (tempo no status — Story 3.1). */
   lastStatusChangeAt: z.number().int().nonnegative(),
   /** Exit code do processo quando exited (Story 3.5) — ausente enquanto running. */
-  exitCode: z.number().int().optional()
+  exitCode: z.number().int().optional(),
+  /** Workspace/projeto da sessão (Story 3.6) — default 'Geral'. */
+  workspace: z.string().min(1)
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
@@ -76,7 +83,9 @@ export const SessionCreateRequestSchema = z.object({
   cols: z.number().int().min(2).max(500),
   rows: z.number().int().min(2).max(500),
   cwd: z.string().optional(),
-  adapterId: z.string().min(1).optional()
+  adapterId: z.string().min(1).optional(),
+  /** Workspace de destino (Story 3.6) — default 'Geral'. */
+  workspace: z.string().min(1).optional()
 });
 export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 
@@ -152,6 +161,25 @@ export const TimelineGetRequestSchema = z.object({
 });
 export type TimelineGetRequest = z.infer<typeof TimelineGetRequestSchema>;
 
+/** Workspaces (Story 3.6) — nomes + ativo; 'Geral' é indelével. */
+export const WorkspaceListSchema = z.object({
+  names: z.string().min(1).array().min(1),
+  active: z.string().min(1)
+});
+export type WorkspaceList = z.infer<typeof WorkspaceListSchema>;
+
+export const WorkspaceCreateRequestSchema = z.object({ name: z.string().min(1).max(40) });
+export type WorkspaceCreateRequest = z.infer<typeof WorkspaceCreateRequestSchema>;
+
+export const WorkspaceRenameRequestSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1).max(40)
+});
+export type WorkspaceRenameRequest = z.infer<typeof WorkspaceRenameRequestSchema>;
+
+export const WorkspaceSetActiveRequestSchema = z.object({ name: z.string().min(1) });
+export type WorkspaceSetActiveRequest = z.infer<typeof WorkspaceSetActiveRequestSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -212,5 +240,13 @@ export interface CockpitApi {
   timeline: {
     /** Eventos da trilha, mais recentes primeiro (Story 3.3). */
     get(req?: Partial<TimelineGetRequest>): Promise<TimelineEvent[]>;
+  };
+  workspace: {
+    /** Workspaces conhecidos + ativo (Story 3.6). */
+    list(): Promise<WorkspaceList>;
+    create(req: WorkspaceCreateRequest): Promise<WorkspaceList>;
+    /** Renomeia e propaga às sessões (vivas e persistidas). */
+    rename(req: WorkspaceRenameRequest): Promise<WorkspaceList>;
+    setActive(req: WorkspaceSetActiveRequest): Promise<WorkspaceList>;
   };
 }

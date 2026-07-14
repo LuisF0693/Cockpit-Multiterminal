@@ -46,6 +46,8 @@ export class SessionRegistry {
     cwd?: string | undefined;
     /** Adapter (2.1): default 'shell'. */
     adapterId?: string | undefined;
+    /** Workspace (3.6): default 'Geral'. */
+    workspace?: string | undefined;
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
@@ -69,7 +71,8 @@ export class SessionRegistry {
       createdAt: Date.now(),
       adapterId,
       agentStatus: 'working',
-      lastStatusChangeAt: Date.now()
+      lastStatusChangeAt: Date.now(),
+      workspace: opts.workspace ?? 'Geral'
     };
     this.sessions.set(record.id, { record, ptyId });
     this.emit({ type: 'created', session: record });
@@ -122,6 +125,22 @@ export class SessionRegistry {
         return;
       }
     }
+  }
+
+  /**
+   * Renomeia workspace nas sessões VIVAS (3.6) — emite 'renamed' por sessão
+   * afetada para reusar o caminho de upsert da persistência e o espelho da UI.
+   */
+  renameWorkspace(from: string, to: string): SessionRecord[] {
+    const changed: SessionRecord[] = [];
+    for (const session of this.sessions.values()) {
+      if (session.record.workspace === from) {
+        session.record = { ...session.record, workspace: to };
+        this.emit({ type: 'renamed', session: session.record });
+        changed.push(session.record);
+      }
+    }
+    return changed;
   }
 
   list(): SessionRecord[] {

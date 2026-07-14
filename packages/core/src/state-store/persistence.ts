@@ -30,6 +30,7 @@ export class PersistenceManager {
               cwd: s.cwd,
               status: s.status,
               adapterId: s.adapterId,
+              workspace: s.workspace,
               tile: null,
               createdAt: s.createdAt,
               archivedAt: null
@@ -143,6 +144,7 @@ export class PersistenceManager {
           name: t.name,
           cwd: t.cwd,
           adapterId: t.adapterId,
+          workspace: t.workspace,
           cols: 80,
           rows: 24,
           restore: true
@@ -164,6 +166,51 @@ export class PersistenceManager {
       }
     }
     return { restored, archived };
+  }
+
+  /**
+   * Workspaces (3.6): união de meta ∪ terminais ativos ∪ 'Geral' (indelével).
+   * Lista vive em app_meta.workspaces (JSON); ativo em app_meta.active_workspace.
+   */
+  workspaces(): { names: string[]; active: string } {
+    this.queue.flush();
+    const fromMeta = this.parseWorkspacesMeta();
+    const fromTerminals = this.store.listActiveTerminals().map((t) => t.workspace);
+    const names = [...new Set(['Geral', ...fromMeta, ...fromTerminals])];
+    const active = this.store.getMeta('active_workspace');
+    return { names, active: active && names.includes(active) ? active : 'Geral' };
+  }
+
+  createWorkspace(name: string): { names: string[]; active: string } {
+    const names = [...new Set([...this.parseWorkspacesMeta(), name])];
+    this.store.setMeta('workspaces', JSON.stringify(names));
+    return this.workspaces();
+  }
+
+  /** Rename propaga: meta + linhas persistidas (arquivadas inclusive) + vivas. */
+  renameWorkspace(registry: SessionRegistry, from: string, to: string): { names: string[]; active: string } {
+    this.queue.flush();
+    const names = [...new Set(this.parseWorkspacesMeta().map((n) => (n === from ? to : n)).concat(to))];
+    this.store.setMeta('workspaces', JSON.stringify(names));
+    this.store.renameWorkspace(from, to);
+    if (this.store.getMeta('active_workspace') === from) this.store.setMeta('active_workspace', to);
+    registry.renameWorkspace(from, to); // eventos 'renamed' re-upsertam vivas
+    return this.workspaces();
+  }
+
+  setActiveWorkspace(name: string): { names: string[]; active: string } {
+    this.store.setMeta('active_workspace', name);
+    return this.workspaces();
+  }
+
+  private parseWorkspacesMeta(): string[] {
+    try {
+      const raw = this.store.getMeta('workspaces');
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string' && n.length > 0) : [];
+    } catch {
+      return [];
+    }
   }
 
   /** clean_shutdown (FR12): '0' no boot; '1' somente no exit gracioso. */
