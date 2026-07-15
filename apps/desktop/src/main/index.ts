@@ -9,6 +9,7 @@ import { DaemonManager } from './daemon-manager';
 import { registerSessionIpc, type PtyBackend, type SessionIpcHandle } from './session-ipc';
 import { registerBrowserIpc } from './browser-ipc';
 import type { BrowserPreviewManager } from './browser-preview-manager';
+import { registerLearningIpc } from './learning-ipc';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -122,6 +123,9 @@ app.whenReady().then(async () => {
   // parte; reusa o MESMO stateStore/queue/persistence da sessão principal.
   const browserIpcHandle = registerBrowserIpc(stateStore, sessionIpc.queue, sessionIpc.persistence);
   browserPreview = browserIpcHandle.manager;
+
+  // Learning logs globais (Épico 11) — mesmo stateStore/queue/persistence.
+  registerLearningIpc(stateStore, sessionIpc.queue, sessionIpc.persistence);
 
   if (sessionIpc.crashDetected) {
     // Story 4.3: boot NÃO relança/adota sozinho — a janela sobe imediatamente

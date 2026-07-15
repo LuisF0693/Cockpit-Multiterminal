@@ -10,6 +10,7 @@ import {
 import {
   BrowserPreviewTile,
   FileExplorer,
+  LearningsView,
   LifecycleBoard,
   MasterDashboard,
   ProjectSidebar,
@@ -27,6 +28,7 @@ import {
 import type {
   CrashSummary,
   DaemonStatus,
+  Learning,
   Project,
   SessionReport,
   Task,
@@ -58,7 +60,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files' | 'learnings'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -84,6 +86,9 @@ export function App(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
   const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
+  // Learnings globais (Épico 11): lista espelhada via push — NUNCA escopada
+  // ao projeto ativo (Story 11.3, AC2 — "banco separado dos projetos").
+  const [learnings, setLearnings] = useState<Learning[]>([]);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -235,6 +240,22 @@ export function App(): JSX.Element {
       );
     });
 
+    void window.cockpit.learning
+      .list()
+      .then(setLearnings)
+      .catch(() => void 0);
+
+    // Espelho por push (Épico 11) — upsert por id (mesmo padrão de tasks).
+    const unsubLearnings = window.cockpit.learning.onEvent((event) => {
+      setLearnings((prev) => {
+        const idx = prev.findIndex((l) => l.id === event.learning.id);
+        if (idx === -1) return [event.learning, ...prev];
+        const next = [...prev];
+        next[idx] = event.learning;
+        return next;
+      });
+    });
+
     // Roteamento automático de revisão (Story 7.2, FR17) — o Main decide
     // QUANDO rotear; só o renderer escreve na PTY (decisão crítica 4), daí
     // instructAgent aqui em vez de no Main.
@@ -336,6 +357,7 @@ export function App(): JSX.Element {
       unsubTerminalLinkRouted();
       unsubTerminalLinks();
       unsubBrowserTiles();
+      unsubLearnings();
     };
   }, []);
 
@@ -521,6 +543,18 @@ export function App(): JSX.Element {
     instructAgent(link.targetId, message);
   };
 
+  /** Captura rápida de learning (Épico 11, Story 11.1, AC2) — o push (onEvent) já atualiza a lista. */
+  const createLearning = (text: string, category: string): void => {
+    void window.cockpit.learning.create({ text, category }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /** Qualificação (Story 11.2, FR32) — decisão humana explícita. */
+  const updateLearningStatus = (id: string, status: Learning['status']): void => {
+    void window.cockpit.learning
+      .updateStatus({ id, status })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
   /**
    * Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. O
    * redirect bem-sucedido dispara a instrução inicial no NOVO agente (AC4);
@@ -649,7 +683,8 @@ export function App(): JSX.Element {
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)']
+              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)'],
+              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -819,6 +854,9 @@ export function App(): JSX.Element {
             onCreateLink={createTerminalLink}
             onRemoveLink={removeTerminalLink}
             onSendLink={sendTerminalLink}
+            onCreateLearning={createLearning}
+            learnings={learnings}
+            onUpdateLearningStatus={updateLearningStatus}
           />
         )}
 
@@ -876,6 +914,8 @@ export function App(): JSX.Element {
             onBack={() => setView('master')}
           />
         )}
+
+        {view === 'learnings' && <LearningsView learnings={learnings} projects={projects} />}
 
         <section
           style={{

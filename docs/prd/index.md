@@ -17,5 +17,6 @@
 13. [Epic 8 — Multi-Projetos & Explorador de Arquivos](./epic-8-multi-projeto-explorador.md)
 14. [Epic 9 — Vínculo Terminal-a-Terminal](./epic-9-vinculo-terminal-terminal.md)
 15. [Epic 10 — Browser Preview & Playwright](./epic-10-browser-preview-playwright.md)
-16. [Checklist Results Report](./checklist-results-report.md)
-17. [Next Steps](./next-steps.md)
+16. [Epic 11 — Learning Logs Globais](./epic-11-learning-logs-globais.md)
+17. [Checklist Results Report](./checklist-results-report.md)
+18. [Next Steps](./next-steps.md)

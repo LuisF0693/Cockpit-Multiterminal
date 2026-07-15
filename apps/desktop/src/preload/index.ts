@@ -27,6 +27,8 @@ import {
   TerminalLinkRoutedEventSchema,
   BrowserTileSchema,
   BrowserTileEventSchema,
+  LearningSchema,
+  LearningEventSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -64,7 +66,10 @@ import {
   type BrowserNavigateRequest,
   type BrowserClickRequest,
   type BrowserReadTextRequest,
-  type BrowserTileEvent
+  type BrowserTileEvent,
+  type LearningCreateRequest,
+  type LearningUpdateStatusRequest,
+  type LearningEvent
 } from '@cockpit/shared';
 
 /**
@@ -266,6 +271,27 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.browserTileEvent, listener);
       return () => ipcRenderer.removeListener(IpcChannels.browserTileEvent, listener);
+    }
+  },
+  learning: {
+    create: async (req: LearningCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.learningCreate, req);
+      return LearningSchema.parse(raw);
+    },
+    updateStatus: async (req: LearningUpdateStatusRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.learningUpdateStatus, req);
+      return LearningSchema.parse(raw);
+    },
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.learningList);
+      return LearningSchema.array().parse(raw);
+    },
+    onEvent: (cb: (event: LearningEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(LearningEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.learningEvent, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.learningEvent, listener);
     }
   },
   recovery: {

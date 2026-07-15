@@ -31,6 +31,10 @@
 - **FR27:** Vínculos terminal-a-terminal devem ser visíveis no canvas (indicação visual da conexão) e na sessão master, e persistir entre reinicializações (mesma garantia do FR10).
 - **FR28:** O sistema deve exibir um painel de preview de browser embutido, navegável por URL.
 - **FR29:** O preview de browser deve ser controlável via Playwright, permitindo que agentes automatizem navegação e interação nele.
+- **FR30:** O sistema deve permitir registrar um "learning" (aprendizado) com texto livre, categoria e o projeto de origem — capturado manualmente pelo humano a partir da sessão master ou de uma tarefa.
+- **FR31:** Learnings devem ser armazenados independentemente do ciclo de vida de um projeto — remover um projeto não remove os learnings originados nele.
+- **FR32:** Learnings devem poder ser qualificados (rascunho → revisado → reutilizável) por decisão humana, mesmo princípio de ponto de decisão já usado em tarefas (FR15).
+- **FR33:** O sistema deve permitir consultar/filtrar learnings (por categoria, projeto de origem, texto) numa tela dedicada, disponível independente de qual projeto está ativo.
 
 ### Non Functional
 

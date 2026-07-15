@@ -12,7 +12,14 @@ export { SqliteStateStore } from './state-store/sqlite-state-store';
 export type { SqliteDatabase, SqliteStatement } from './state-store/sqlite-state-store';
 export { MemoryStateStore } from './state-store/memory-state-store';
 export { PersistenceManager } from './state-store/persistence';
-export type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './state-store/types';
+export type {
+  PersistedEvent,
+  PersistedTask,
+  PersistedTerminal,
+  StateStore,
+  TaskState,
+  LearningStatus
+} from './state-store/types';
 export { TaskManager } from './task-manager';
 export type { TaskDecisionAction, TaskEvent, TaskListener, TaskRecord } from './task-manager';
 export { assertTransition, canTransition } from './task-lifecycle';
@@ -25,3 +32,5 @@ export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
 export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
+export { LearningManager, canTransitionLearning } from './learning-manager';
+export type { Learning, LearningEvent, LearningListener } from './learning-manager';
