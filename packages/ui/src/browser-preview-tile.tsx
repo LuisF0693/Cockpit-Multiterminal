@@ -26,6 +26,10 @@ export interface BrowserPreviewTileProps {
   onMove: (x: number, y: number) => void;
   onMoveEnd: () => void;
   onResizeTile: (width: number, height: number) => void;
+  /** Automação manual (Story 10.2, AC1/AC2) — clicar por seletor CSS. */
+  onClick: (selector: string) => Promise<void>;
+  /** Lê texto por seletor (ausente = body inteiro); retorna null se falhar. */
+  onReadText: (selector: string) => Promise<string | null>;
 }
 
 type DragState =
@@ -35,11 +39,33 @@ type DragState =
 export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element {
   const { tile, layout, focused, screenshot } = props;
   const [urlDraft, setUrlDraft] = useState(tile.url);
+  const [automationOpen, setAutomationOpen] = useState(false);
+  const [selectorDraft, setSelectorDraft] = useState('');
+  const [readResult, setReadResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const dragRef = useRef<DragState | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
 
   useEffect(() => setUrlDraft(tile.url), [tile.url]);
+
+  const runClick = (): void => {
+    if (!selectorDraft.trim()) return;
+    setBusy(true);
+    props
+      .onClick(selectorDraft.trim())
+      .catch(() => void 0)
+      .finally(() => setBusy(false));
+  };
+
+  const runReadText = (): void => {
+    setBusy(true);
+    props
+      .onReadText(selectorDraft.trim())
+      .then(setReadResult)
+      .catch(() => setReadResult(null))
+      .finally(() => setBusy(false));
+  };
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent): void => {
@@ -166,6 +192,19 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           }}
         />
         <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setAutomationOpen((v) => !v)}
+          title="automação (Story 10.2): clicar/ler texto por seletor CSS"
+          style={{
+            ...navButtonStyle,
+            width: 'auto',
+            padding: '0 6px',
+            color: automationOpen ? '#22D3EE' : '#9CA3AF'
+          }}
+        >
+          ⚙
+        </button>
+        <button
           onClick={props.onClose}
           onPointerDown={(e) => e.stopPropagation()}
           title="fechar preview"
@@ -174,6 +213,66 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           ×
         </button>
       </header>
+
+      {automationOpen && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            padding: '6px 10px',
+            borderBottom: '1px solid #1F2937',
+            background: '#0D131B',
+            flexShrink: 0
+          }}
+        >
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              value={selectorDraft}
+              onChange={(e) => setSelectorDraft(e.target.value)}
+              placeholder="seletor CSS (ex.: button.submit)"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: '#0B0F14',
+                color: '#E5E7EB',
+                border: '1px solid #1F2937',
+                borderRadius: 4,
+                padding: '2px 8px',
+                fontSize: 11,
+                fontFamily: 'monospace'
+              }}
+            />
+            <button
+              onClick={runClick}
+              disabled={busy || !selectorDraft.trim()}
+              style={{ ...navButtonStyle, width: 'auto', padding: '0 8px' }}
+            >
+              clicar
+            </button>
+            <button onClick={runReadText} disabled={busy} style={{ ...navButtonStyle, width: 'auto', padding: '0 8px' }}>
+              ler texto
+            </button>
+          </div>
+          {readResult !== null && (
+            <pre
+              style={{
+                margin: 0,
+                maxHeight: 80,
+                overflow: 'auto',
+                fontSize: 10,
+                color: '#9CA3AF',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {readResult || '(vazio)'}
+            </pre>
+          )}
+        </div>
+      )}
 
       <div style={{ flex: 1, minHeight: 0, background: '#000', display: 'grid', placeItems: 'center' }}>
         {screenshot ? (

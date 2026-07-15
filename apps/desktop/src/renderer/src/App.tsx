@@ -582,6 +582,13 @@ export function App(): JSX.Element {
     void window.cockpit.browser[action]({ id }).catch(() => void 0);
   };
 
+  /** Automação manual (Story 10.2, AC1/AC2) — mesma página do tile visível. */
+  const clickBrowserTile = (id: string, selector: string): Promise<void> =>
+    window.cockpit.browser.click({ id, selector });
+
+  const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
+    window.cockpit.browser.readText(selector ? { id, selector } : { id });
+
   return (
     <main
       style={{
@@ -956,6 +963,8 @@ export function App(): JSX.Element {
                   onBack={() => browserTileAction('back')(bTile.id)}
                   onForward={() => browserTileAction('forward')(bTile.id)}
                   onReload={() => browserTileAction('reload')(bTile.id)}
+                  onClick={(selector) => clickBrowserTile(bTile.id, selector)}
+                  onReadText={(selector) => readTextBrowserTile(bTile.id, selector)}
                   onMove={(x, y) => useCockpitStore.getState().moveTileTo(bTile.id, x, y)}
                   onMoveEnd={() => useCockpitStore.getState().snapTile(bTile.id)}
                   onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(bTile.id, w, h)}

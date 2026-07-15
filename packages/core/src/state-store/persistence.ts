@@ -146,6 +146,25 @@ export class PersistenceManager {
     );
   }
 
+  /**
+   * Automação de browser preview (Story 10.2, FR29) — trilha auditável.
+   * `terminalId` reusa o campo genérico "id do recurso" da trilha (já usado
+   * por sdc.* com ids de terminal) com o id do TILE de browser — mesma
+   * convenção, recurso diferente.
+   */
+  recordBrowserAction(tileId: string, payload: { action: string; selector?: string }, origin: 'human' | 'system'): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin,
+        type: 'browser.action',
+        terminalId: tileId,
+        payload
+      })
+    );
+  }
+
   /** Layout do canvas (debounced no renderer) → tiles persistidos. */
   persistLayout(tiles: LayoutTile[]): void {
     this.queue.push(() => {

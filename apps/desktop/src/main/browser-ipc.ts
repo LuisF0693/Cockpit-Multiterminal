@@ -86,14 +86,24 @@ export function registerBrowserIpc(
     return preview.screenshot(req.id);
   });
 
+  // Automação (Story 10.2, AC1-AC3) — origem 'human' aqui: esta story cobre
+  // o caminho manual (painel), a automação disparada pelo AGENTE (origem
+  // 'system') é uma extensão natural futura via o mesmo par ação/trilha.
   ipcMain.handle(IpcChannels.browserClick, async (_event, raw: unknown) => {
     const req = BrowserClickRequestSchema.parse(raw);
     await preview.click(req.id, req.selector);
+    persistence.recordBrowserAction(req.id, { action: 'click', selector: req.selector }, 'human');
   });
 
   ipcMain.handle(IpcChannels.browserReadText, async (_event, raw: unknown) => {
     const req = BrowserReadTextRequestSchema.parse(raw);
-    return preview.readText(req.id, req.selector);
+    const text = await preview.readText(req.id, req.selector);
+    persistence.recordBrowserAction(
+      req.id,
+      { action: 'readText', ...(req.selector !== undefined ? { selector: req.selector } : {}) },
+      'human'
+    );
+    return text;
   });
 
   return { manager: preview, dispose: () => preview.dispose() };
