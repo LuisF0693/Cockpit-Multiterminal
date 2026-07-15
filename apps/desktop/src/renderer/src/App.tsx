@@ -1062,6 +1062,7 @@ export function App(): JSX.Element {
             onCreateLearning={createLearning}
             learnings={learnings}
             onUpdateLearningStatus={updateLearningStatus}
+            onPromptText={promptText}
           />
         )}
 

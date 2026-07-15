@@ -66,6 +66,13 @@ export interface MasterDashboardProps {
   learnings: Learning[];
   /** Qualificação (Story 11.2, FR32) — decisão humana explícita. */
   onUpdateLearningStatus: (id: string, status: LearningStatus) => void;
+  /**
+   * Pede texto ao usuário via modal (PromptModal do App) — `window.prompt`
+   * NÃO é implementado pelo Electron (retorna `null` sempre, sem UI); sem
+   * esta prop, a justificativa de rejeição é silenciosamente impossível
+   * (bug herdado da 12.6, corrigido pós-13.1).
+   */
+  onPromptText?: (message: string, defaultValue?: string) => Promise<string | null>;
 }
 
 export function MasterDashboard({
@@ -83,7 +90,8 @@ export function MasterDashboard({
   onSendLink,
   onCreateLearning,
   learnings,
-  onUpdateLearningStatus
+  onUpdateLearningStatus,
+  onPromptText
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -298,8 +306,13 @@ export function MasterDashboard({
                   </button>
                   <button
                     onClick={() => {
-                      const justification = window.prompt('Motivo da rejeição (opcional):') ?? undefined;
-                      onDecide(t.id, 'reject', justification ? { justification } : {});
+                      if (!onPromptText) {
+                        onDecide(t.id, 'reject', {});
+                        return;
+                      }
+                      void onPromptText('Motivo da rejeição (opcional):').then((justification) => {
+                        onDecide(t.id, 'reject', justification ? { justification } : {});
+                      });
                     }}
                     style={queueButtonStyle}
                     title="rejeitar → em execução, com feedback"
