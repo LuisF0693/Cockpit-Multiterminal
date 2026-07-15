@@ -35,6 +35,13 @@
 - **FR31:** Learnings devem ser armazenados independentemente do ciclo de vida de um projeto — remover um projeto não remove os learnings originados nele.
 - **FR32:** Learnings devem poder ser qualificados (rascunho → revisado → reutilizável) por decisão humana, mesmo princípio de ponto de decisão já usado em tarefas (FR15).
 - **FR33:** O sistema deve permitir consultar/filtrar learnings (por categoria, projeto de origem, texto) numa tela dedicada, disponível independente de qual projeto está ativo.
+- **FR34:** A barra lateral de projetos (FR21) deve exibir, junto de cada projeto, a árvore de arquivos do projeto ativo (FR23) numa única barra lateral sempre visível — sem exigir navegação a uma view separada.
+- **FR35:** Ao selecionar um arquivo Markdown no explorador de arquivos, o sistema deve exibir um preview renderizado do conteúdo, além do modo texto puro já existente.
+- **FR36:** O sistema deve permitir vincular dois terminais arrastando de um tile a outro diretamente no canvas, criando um vínculo terminal-a-terminal (reusa a entidade do FR25).
+- **FR37:** Terminais do projeto ativo devem ter uma indicação visual (fundo/borda) com a cor do projeto (FR21), para identificar de relance a qual projeto cada terminal pertence.
+- **FR38:** Cada adapter (FR3) deve ter uma identidade visual própria (cor/ícone) exibida no tile do terminal e na sessão master, para identificar de relance qual agente está rodando ali.
+- **FR39:** O sistema deve incluir adapters funcionais para Gemini CLI (`gemini`) e Antigravity CLI (`agy`), seguindo o mesmo contrato de adapter já estabelecido (FR3).
+- **FR40:** O canvas deve exibir um minimapa no canto mostrando a posição de todos os tiles, para navegação rápida em canvases com muitos terminais.
 
 ### Non Functional
 
