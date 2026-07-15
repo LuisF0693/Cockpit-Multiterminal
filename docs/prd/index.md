@@ -18,5 +18,6 @@
 14. [Epic 9 — Vínculo Terminal-a-Terminal](./epic-9-vinculo-terminal-terminal.md)
 15. [Epic 10 — Browser Preview & Playwright](./epic-10-browser-preview-playwright.md)
 16. [Epic 11 — Learning Logs Globais](./epic-11-learning-logs-globais.md)
-17. [Checklist Results Report](./checklist-results-report.md)
-18. [Next Steps](./next-steps.md)
+17. [Epic 12 — Identidade Visual & Interação no Canvas](./epic-12-identidade-visual-canvas.md)
+18. [Checklist Results Report](./checklist-results-report.md)
+19. [Next Steps](./next-steps.md)

@@ -9,11 +9,11 @@ import {
 } from '@cockpit/shared';
 import {
   BrowserPreviewTile,
-  FileExplorer,
+  CanvasMinimap,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
-  ProjectSidebar,
+  ProjectFilesSidebar,
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
@@ -23,7 +23,8 @@ import {
   TerminalTile,
   TimelineView,
   matchShortcut,
-  statusColor
+  statusColor,
+  type MinimapTile
 } from '@cockpit/ui';
 import type {
   CrashSummary,
@@ -60,7 +61,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files' | 'learnings'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'learnings'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -86,6 +87,12 @@ export function App(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
   const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
+  // Arraste de vínculo por gesture no canvas (Story 12.2) — linha de preview
+  // segue o cursor (AC2); nulo quando nenhum arraste está em curso.
+  const [linkDrag, setLinkDrag] = useState<{ sourceId: string; x: number; y: number } | null>(null);
+  const linkDragRef = useRef(linkDrag);
+  linkDragRef.current = linkDrag;
+  const canvasSectionRef = useRef<HTMLElement | null>(null);
   // Learnings globais (Épico 11): lista espelhada via push — NUNCA escopada
   // ao projeto ativo (Story 11.3, AC2 — "banco separado dos projetos").
   const [learnings, setLearnings] = useState<Learning[]>([]);
@@ -534,6 +541,84 @@ export function App(): JSX.Element {
     void window.cockpit.terminalLink.remove({ id }).catch(() => void 0);
   };
 
+  /** Cor do projeto dono de um tile (Story 12.3, AC1/AC2) — null = sem projeto, visual neutro. */
+  const projectColorOf = (projectId: string | null): string | null =>
+    projects.find((p) => p.id === projectId)?.color ?? null;
+
+  // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
+  // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
+  // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
+  // ativo, então o ref já existe quando este efeito roda).
+  const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  useEffect(() => {
+    const el = canvasSectionRef.current;
+    if (!el) return;
+    const update = (): void =>
+      setCanvasViewport({ x: el.scrollLeft, y: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
+    update();
+    el.addEventListener('scroll', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, []);
+
+  /** Foca o tile (mesmo focus/bringToFront já existente) e rola até ele (Story 12.5, AC2). */
+  const focusAndScrollTo = (id: string): void => {
+    useCockpitStore.getState().focus(id);
+    const tile = layout.tiles.find((t) => t.id === id);
+    const el = canvasSectionRef.current;
+    if (tile && el) {
+      el.scrollTo({
+        left: Math.max(0, tile.x + tile.width / 2 - el.clientWidth / 2),
+        top: Math.max(0, tile.y + tile.height / 2 - el.clientHeight / 2),
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  /** Converte coordenadas de ponteiro (viewport) pro espaço de conteúdo do canvas (scroll-aware). */
+  const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
+    const el = canvasSectionRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: e.clientX - rect.left + el.scrollLeft, y: e.clientY - rect.top + el.scrollTop };
+  };
+
+  const startTerminalLinkDrag = (sourceId: string, originX: number, originY: number): void => {
+    setLinkDrag({ sourceId, x: originX, y: originY });
+  };
+
+  // Listeners globais do arraste de vínculo (Story 12.2) — registrados uma
+  // vez só, lêem o estado mais recente via ref (mesmo gotcha de closure
+  // obsoleta já resolvido no TerminalTile pra move/resize).
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent): void => {
+      if (!linkDragRef.current) return;
+      const coords = pointerToCanvasCoords(e);
+      if (!coords) return;
+      setLinkDrag((prev) => (prev ? { ...prev, ...coords } : prev));
+    };
+    const onPointerUp = (e: PointerEvent): void => {
+      const drag = linkDragRef.current;
+      if (!drag) return;
+      setLinkDrag(null);
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-tile-id]');
+      const targetId = targetEl?.getAttribute('data-tile-id');
+      if (targetId && targetId !== drag.sourceId) {
+        createTerminalLink(drag.sourceId, targetId, 'manual');
+      }
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, []);
+
   /** Envio manual (AC2 da 9.3) — mesma redação-base do roteamento automático (9.2), disparada sob demanda. */
   const sendTerminalLink = (link: TerminalLink): void => {
     const source = useCockpitStore.getState().sessions.find((s) => s.id === link.sourceId);
@@ -623,6 +708,28 @@ export function App(): JSX.Element {
   const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
 
+  // Tiles do minimapa (Story 12.5) — MESMO filtro de visibilidade do canvas
+  // (workspace ativo + projeto ativo pra sessões; só projeto pra browser
+  // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
+  const minimapTiles: MinimapTile[] = [
+    ...sessions
+      .filter((s) => s.workspace === workspaces.active && (!activeProjectId || s.projectId === activeProjectId))
+      .map((s): MinimapTile | null => {
+        const t = layout.tiles.find((lt) => lt.id === s.id);
+        if (!t) return null;
+        return { id: s.id, x: t.x, y: t.y, width: t.width, height: t.height, color: projectColorOf(s.projectId), focused: focusedId === s.id };
+      })
+      .filter((t): t is MinimapTile => t !== null),
+    ...browserTiles
+      .filter((b) => !activeProjectId || b.projectId === activeProjectId)
+      .map((b): MinimapTile | null => {
+        const t = layout.tiles.find((lt) => lt.id === b.id);
+        if (!t) return null;
+        return { id: b.id, x: t.x, y: t.y, width: t.width, height: t.height, color: projectColorOf(b.projectId), focused: focusedId === b.id };
+      })
+      .filter((t): t is MinimapTile => t !== null)
+  ];
+
   return (
     <main
       style={{
@@ -683,7 +790,6 @@ export function App(): JSX.Element {
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)'],
               ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)']
             ] as const
           ).map(([v, label, title]) => (
@@ -816,12 +922,14 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <ProjectSidebar
+        <ProjectFilesSidebar
           projects={projects}
           activeId={activeProjectId}
-          onSelect={switchProject}
-          onCreate={createProject}
+          onSelectProject={switchProject}
+          onCreateProject={createProject}
           onCreateTerminalIn={newTerminalInProject}
+          onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
+          onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
         />
 
         <Sidebar
@@ -905,19 +1013,10 @@ export function App(): JSX.Element {
           />
         )}
 
-        {view === 'files' && (
-          <FileExplorer
-            projectId={activeProjectId}
-            rootLabel={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
-            onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
-            onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
-            onBack={() => setView('master')}
-          />
-        )}
-
         {view === 'learnings' && <LearningsView learnings={learnings} projects={projects} />}
 
         <section
+          ref={canvasSectionRef}
           style={{
             flex: 1,
             position: 'relative',
@@ -955,6 +1054,23 @@ export function App(): JSX.Element {
                 />
               );
             })}
+            {/* Linha de preview do arraste de vínculo em curso (Story 12.2, AC2). */}
+            {linkDrag &&
+              (() => {
+                const source = layout.tiles.find((t) => t.id === linkDrag.sourceId);
+                if (!source) return null;
+                return (
+                  <line
+                    x1={source.x + source.width / 2}
+                    y1={source.y + source.height / 2}
+                    x2={linkDrag.x}
+                    y2={linkDrag.y}
+                    stroke="#22D3EE"
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
+                  />
+                );
+              })()}
           </svg>
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
@@ -981,6 +1097,8 @@ export function App(): JSX.Element {
                 onResizePty={({ cols, rows }) =>
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
+                onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
+                projectColor={projectColorOf(session.projectId)}
               />
               </div>
             );
@@ -1008,6 +1126,7 @@ export function App(): JSX.Element {
                   onMove={(x, y) => useCockpitStore.getState().moveTileTo(bTile.id, x, y)}
                   onMoveEnd={() => useCockpitStore.getState().snapTile(bTile.id)}
                   onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(bTile.id, w, h)}
+                  projectColor={projectColorOf(bTile.projectId)}
                 />
               </div>
             );
@@ -1026,6 +1145,13 @@ export function App(): JSX.Element {
             >
               Ctrl+N ou "+ novo terminal" para começar
             </p>
+          )}
+          {/* Minimapa (Story 12.5, AC4) — só MONTA quando o canvas está
+              realmente ativo, ao contrário dos tiles (que ficam montados
+              escondidos por causa do xterm/portas); o minimapa não tem
+              nenhum estado de I/O persistente, então desmontar é seguro. */}
+          {view === 'canvas' && (
+            <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
           )}
         </section>
       </div>
