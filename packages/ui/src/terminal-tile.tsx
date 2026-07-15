@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SessionRecord } from '@cockpit/shared';
 import { TerminalView } from './terminal-view';
 import { statusColor, statusLabel } from './status-colors';
+import { adapterColor } from './adapter-colors';
 import type { TileLayout } from './layout';
 
 /**
@@ -170,6 +171,19 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           flexShrink: 0
         }}
       >
+        {/* Identidade do adapter (Story 12.4, AC1) — swatch fixo por adapterId,
+            independente do dot de status logo ao lado (agentStatus muda,
+            adapterId não). */}
+        <span
+          title={`agente: ${session.adapterId}`}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 2,
+            background: adapterColor(session.adapterId),
+            flexShrink: 0
+          }}
+        />
         <span
           title={`${session.adapterId} · ${statusLabel(session.agentStatus)}`}
           style={{

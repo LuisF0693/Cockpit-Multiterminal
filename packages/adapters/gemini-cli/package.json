@@ -1,5 +1,5 @@
 {
-  "name": "@cockpit/pty-host",
+  "name": "@cockpit/adapter-gemini-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,13 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cockpit/adapter-antigravity": "workspace:*",
-    "@cockpit/adapter-claude-code": "workspace:*",
-    "@cockpit/adapter-codex": "workspace:*",
     "@cockpit/adapter-contract": "workspace:*",
-    "@cockpit/adapter-gemini-cli": "workspace:*",
-    "@cockpit/adapter-grok": "workspace:*",
-    "@cockpit/adapter-shell": "workspace:*",
     "@cockpit/shared": "workspace:*",
     "node-pty": "^1.0.0"
   },

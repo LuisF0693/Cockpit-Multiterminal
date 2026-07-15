@@ -32,6 +32,7 @@ export {
   statusColor,
   statusLabel
 } from './status-colors';
+export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
 export { MasterDashboard } from './master-dashboard';
 export type { MasterDashboardProps } from './master-dashboard';
 export { formatDuration } from './format-duration';

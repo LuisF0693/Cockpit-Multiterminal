@@ -14,6 +14,7 @@ import {
 export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
 import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
+import { adapterColor } from './adapter-colors';
 
 const queueButtonStyle: React.CSSProperties = {
   background: '#111827',
@@ -368,7 +369,12 @@ export function MasterDashboard({
               <strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {s.name}
               </strong>
-              <span style={{ fontSize: 12, color: '#9CA3AF' }}>{s.adapterId}</span>
+              <span
+                title="agente"
+                style={{ fontSize: 12, fontWeight: 600, color: adapterColor(s.adapterId) }}
+              >
+                {s.adapterId}
+              </span>
               <span style={{ fontSize: 12, color: statusColor(s.agentStatus) }}>
                 {statusLabel(s.agentStatus)}
               </span>

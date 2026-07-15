@@ -16,6 +16,8 @@ import { ShellAdapter } from '@cockpit/adapter-shell';
 import { ClaudeCodeAdapter } from '@cockpit/adapter-claude-code';
 import { CodexAdapter } from '@cockpit/adapter-codex';
 import { GrokAdapter } from '@cockpit/adapter-grok';
+import { GeminiCliAdapter } from '@cockpit/adapter-gemini-cli';
+import { AntigravityAdapter } from '@cockpit/adapter-antigravity';
 import { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import type { HostInbound, HostOutbound } from './protocol';
@@ -41,6 +43,8 @@ registry.register(new ShellAdapter({ id: 'cmd', displayName: 'CMD', shell: 'cmd.
 registry.register(new ClaudeCodeAdapter());
 registry.register(new CodexAdapter());
 registry.register(new GrokAdapter());
+registry.register(new GeminiCliAdapter());
+registry.register(new AntigravityAdapter());
 
 interface HostedSession {
   session: AgentSession;
