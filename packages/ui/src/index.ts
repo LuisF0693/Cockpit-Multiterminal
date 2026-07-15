@@ -59,3 +59,5 @@ export { FileExplorer } from './file-explorer';
 export type { FileExplorerProps } from './file-explorer';
 export { BrowserPreviewTile } from './browser-preview-tile';
 export type { BrowserPreviewTileProps } from './browser-preview-tile';
+export { LearningsView } from './learnings-view';
+export type { LearningsViewProps } from './learnings-view';

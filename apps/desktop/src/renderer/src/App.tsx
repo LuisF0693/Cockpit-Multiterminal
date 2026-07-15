@@ -10,6 +10,7 @@ import {
 import {
   BrowserPreviewTile,
   FileExplorer,
+  LearningsView,
   LifecycleBoard,
   MasterDashboard,
   ProjectSidebar,
@@ -59,7 +60,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files' | 'learnings'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -682,7 +683,8 @@ export function App(): JSX.Element {
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)']
+              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)'],
+              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -912,6 +914,8 @@ export function App(): JSX.Element {
             onBack={() => setView('master')}
           />
         )}
+
+        {view === 'learnings' && <LearningsView learnings={learnings} projects={projects} />}
 
         <section
           style={{
