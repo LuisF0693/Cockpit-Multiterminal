@@ -59,6 +59,9 @@ export function App(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [selectedAdapter, setSelectedAdapter] = useState('shell');
+  // Modelo do Ollama (Story 12.6) — só relevante quando o adapter selecionado
+  // é 'ollama'; ollama exige `run <modelo>` por sessão, não é fixo no adapter.
+  const [ollamaModel, setOllamaModel] = useState('llama3');
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
@@ -401,16 +404,19 @@ export function App(): JSX.Element {
   };
 
   const newTerminal = async (adapterId?: string, opts?: { projectId?: string }): Promise<void> => {
+    const effectiveAdapter = adapterId ?? selectedAdapter;
     try {
       await window.cockpit.session.create({
         cols: 80,
         rows: 24,
-        adapterId: adapterId ?? selectedAdapter,
+        adapterId: effectiveAdapter,
         // Novo terminal nasce no workspace ativo (3.6); ref evita stale closure
         // no atalho Ctrl+N registrado no mount.
         workspace: workspacesRef.current.active,
         // Projeto de destino (Story 8.3, AC3) — omitido = projeto ativo (Main decide).
-        ...(opts?.projectId !== undefined ? { projectId: opts.projectId } : {})
+        ...(opts?.projectId !== undefined ? { projectId: opts.projectId } : {}),
+        // Ollama exige o modelo por sessão, não fixo por adapter (Story 12.6).
+        ...(effectiveAdapter === 'ollama' ? { args: ['run', ollamaModel.trim() || 'llama3'] } : {})
       });
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -476,29 +482,31 @@ export function App(): JSX.Element {
       .catch(() => void 0);
   };
 
+  /**
+   * Abre o seletor de pasta direto — o nome do projeto vem do nome da pasta
+   * (sem pedir texto antes, fluxo de 1 passo pedido pelo fundador na
+   * validação visual do Épico 12).
+   */
   const createProject = (): void => {
-    void promptText('Nome do novo projeto:').then((raw) => {
-      const name = raw?.trim();
-      if (!name) return;
-      void window.cockpit.project
-        .pickFolder()
-        .then((rootPath) => {
-          if (!rootPath) return null;
-          const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]!;
-          return window.cockpit.project.create({ name, color, rootPath });
-        })
-        .then((list) => {
-          if (!list) return null;
-          const created = list.projects[list.projects.length - 1]!;
-          return window.cockpit.project.setActive({ id: created.id }).catch(() => list);
-        })
-        .then((list) => {
-          if (!list) return;
-          setProjects(list.projects);
-          setActiveProjectId(list.activeId);
-        })
-        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
-    });
+    void window.cockpit.project
+      .pickFolder()
+      .then((rootPath) => {
+        if (!rootPath) return null;
+        const name = rootPath.split(/[\\/]/).filter(Boolean).pop() ?? 'Projeto';
+        const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]!;
+        return window.cockpit.project.create({ name, color, rootPath });
+      })
+      .then((list) => {
+        if (!list) return null;
+        const created = list.projects[list.projects.length - 1]!;
+        return window.cockpit.project.setActive({ id: created.id }).catch(() => list);
+      })
+      .then((list) => {
+        if (!list) return;
+        setProjects(list.projects);
+        setActiveProjectId(list.activeId);
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
   /** Tarefas (Story 5.1) — o push (task.onEvent) já atualiza a lista. */
@@ -566,6 +574,15 @@ export function App(): JSX.Element {
   const projectColorOf = (projectId: string | null): string | null =>
     projects.find((p) => p.id === projectId)?.color ?? null;
 
+  // Zoom do canvas (pedido do fundador na validação visual) — escala visual
+  // via CSS transform num wrapper interno; deltas de arraste (mover/
+  // redimensionar tile, arraste de vínculo) são divididos por `canvasZoom`
+  // pros gestos continuarem 1:1 com o cursor em qualquer nível de zoom.
+  const [canvasZoom, setCanvasZoom] = useState(1);
+  const canvasZoomRef = useRef(canvasZoom);
+  canvasZoomRef.current = canvasZoom;
+  const clampZoom = (z: number): number => Math.min(2, Math.max(0.4, z));
+
   // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
   // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
   // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
@@ -575,7 +592,12 @@ export function App(): JSX.Element {
     const el = canvasSectionRef.current;
     if (!el) return;
     const update = (): void =>
-      setCanvasViewport({ x: el.scrollLeft, y: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
+      setCanvasViewport({
+        x: el.scrollLeft / canvasZoom,
+        y: el.scrollTop / canvasZoom,
+        width: el.clientWidth / canvasZoom,
+        height: el.clientHeight / canvasZoom
+      });
     update();
     el.addEventListener('scroll', update);
     const ro = new ResizeObserver(update);
@@ -584,7 +606,7 @@ export function App(): JSX.Element {
       el.removeEventListener('scroll', update);
       ro.disconnect();
     };
-  }, []);
+  }, [canvasZoom]);
 
   /** Foca o tile (mesmo focus/bringToFront já existente) e rola até ele (Story 12.5, AC2). */
   const focusAndScrollTo = (id: string): void => {
@@ -593,19 +615,20 @@ export function App(): JSX.Element {
     const el = canvasSectionRef.current;
     if (tile && el) {
       el.scrollTo({
-        left: Math.max(0, tile.x + tile.width / 2 - el.clientWidth / 2),
-        top: Math.max(0, tile.y + tile.height / 2 - el.clientHeight / 2),
+        left: Math.max(0, (tile.x + tile.width / 2) * canvasZoom - el.clientWidth / 2),
+        top: Math.max(0, (tile.y + tile.height / 2) * canvasZoom - el.clientHeight / 2),
         behavior: 'smooth'
       });
     }
   };
 
-  /** Converte coordenadas de ponteiro (viewport) pro espaço de conteúdo do canvas (scroll-aware). */
+  /** Converte coordenadas de ponteiro (viewport) pro espaço LÓGICO de conteúdo do canvas (scroll+zoom-aware). */
   const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
     const el = canvasSectionRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
-    return { x: e.clientX - rect.left + el.scrollLeft, y: e.clientY - rect.top + el.scrollTop };
+    const zoom = canvasZoomRef.current;
+    return { x: (e.clientX - rect.left + el.scrollLeft) / zoom, y: (e.clientY - rect.top + el.scrollTop) / zoom };
   };
 
   const startTerminalLinkDrag = (sourceId: string, originX: number, originY: number): void => {
@@ -732,6 +755,16 @@ export function App(): JSX.Element {
   // Tiles do minimapa (Story 12.5) — MESMO filtro de visibilidade do canvas
   // (workspace ativo + projeto ativo pra sessões; só projeto pra browser
   // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
+  const activeProjectColor = projectColorOf(activeProjectId || null);
+
+  // Extent real do conteúdo do canvas — dá um tamanho EXPLÍCITO ao wrapper
+  // escalado (zoom) pra section.scrollWidth/Height continuar refletindo a
+  // área rolável corretamente mesmo com `transform: scale()` (um wrapper só
+  // com filhos position:absolute e sem tamanho próprio colapsaria pra 0×0,
+  // quebrando o scroll do canvas inteiro).
+  const canvasContentWidth = Math.max(2400, ...layout.tiles.map((t) => t.x + t.width + 200));
+  const canvasContentHeight = Math.max(1400, ...layout.tiles.map((t) => t.y + t.height + 200));
+
   const minimapTiles: MinimapTile[] = [
     ...sessions
       .filter((s) => s.workspace === workspaces.active && (!activeProjectId || s.projectId === activeProjectId))
@@ -905,6 +938,24 @@ export function App(): JSX.Element {
             ))}
           </select>
         )}
+        {selectedAdapter === 'ollama' && (
+          <input
+            value={ollamaModel}
+            onChange={(e) => setOllamaModel(e.target.value)}
+            title="Modelo do Ollama (ex.: llama3, mistral)"
+            placeholder="modelo (ex.: llama3)"
+            style={{
+              width: 110,
+              background: '#111827',
+              color: '#E5E7EB',
+              border: '1px solid #1F2937',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 12,
+              fontFamily: 'monospace'
+            }}
+          />
+        )}
         <button
           onClick={() => void newTerminal()}
           disabled={view === 'recovery'}
@@ -937,6 +988,23 @@ export function App(): JSX.Element {
         >
           + browser
         </button>
+        {view === 'canvas' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))} title="Diminuir zoom" style={zoomButtonStyle}>
+              −
+            </button>
+            <button
+              onClick={() => setCanvasZoom(1)}
+              title="Redefinir zoom"
+              style={{ ...zoomButtonStyle, width: 44, fontSize: 11 }}
+            >
+              {Math.round(canvasZoom * 100)}%
+            </button>
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))} title="Aumentar zoom" style={zoomButtonStyle}>
+              +
+            </button>
+          </div>
+        )}
         {error && (
           <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#F87171' }}>{error}</span>
         )}
@@ -1043,6 +1111,11 @@ export function App(): JSX.Element {
 
         <section
           ref={canvasSectionRef}
+          onWheel={(e) => {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            setCanvasZoom((z) => clampZoom(z - e.deltaY * 0.001));
+          }}
           style={{
             flex: 1,
             position: 'relative',
@@ -1050,9 +1123,29 @@ export function App(): JSX.Element {
             minWidth: 0,
             // Canvas fica MONTADO quando o master está ativo (desmontar
             // mataria xterm/portas) — apenas escondido.
-            display: view === 'canvas' ? 'block' : 'none'
+            display: view === 'canvas' ? 'block' : 'none',
+            // Fundo do canvas na cor do projeto ativo (pedido do fundador na
+            // validação visual, além do anel fino por-tile da 12.3) — os
+            // tiles continuam com fundo próprio opaco (#0B0F14), só o
+            // "chão" do canvas entre eles fica tingido, pra bater de
+            // relance qual projeto está aberto sem ler nome nenhum.
+            background: activeProjectColor ? `${activeProjectColor}26` : '#0B0F14',
+            transition: 'background 200ms'
           }}
         >
+          {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
+              coordenadas de layout.x/y continuarem batendo com o topo-
+              esquerda visual) — tamanho explícito pra section.scroll*
+              refletir a área rolável corretamente (ver comentário acima). */}
+          <div
+            style={{
+              position: 'relative',
+              width: canvasContentWidth,
+              height: canvasContentHeight,
+              transform: `scale(${canvasZoom})`,
+              transformOrigin: '0 0'
+            }}
+          >
           {/* Indicação visual de vínculos (Épico 9, Story 9.3, AC1) — SVG
               atrás dos tiles (ordem no DOM), pointer-events:none pra não
               atrapalhar arrastar/redimensionar. */}
@@ -1125,6 +1218,7 @@ export function App(): JSX.Element {
                 }
                 onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
                 projectColor={projectColorOf(session.projectId)}
+                zoom={canvasZoom}
               />
               </div>
             );
@@ -1153,6 +1247,7 @@ export function App(): JSX.Element {
                   onMoveEnd={() => useCockpitStore.getState().snapTile(bTile.id)}
                   onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(bTile.id, w, h)}
                   projectColor={projectColorOf(bTile.projectId)}
+                  zoom={canvasZoom}
                 />
               </div>
             );
@@ -1172,10 +1267,13 @@ export function App(): JSX.Element {
               Ctrl+N ou "+ novo terminal" para começar
             </p>
           )}
-          {/* Minimapa (Story 12.5, AC4) — só MONTA quando o canvas está
-              realmente ativo, ao contrário dos tiles (que ficam montados
-              escondidos por causa do xterm/portas); o minimapa não tem
-              nenhum estado de I/O persistente, então desmontar é seguro. */}
+          </div>
+          {/* Minimapa (Story 12.5, AC4) — FORA do wrapper escalado (posição
+              fixa no canto, nunca deve encolher/crescer com o zoom); só
+              MONTA quando o canvas está realmente ativo, ao contrário dos
+              tiles (que ficam montados escondidos por causa do xterm/
+              portas) — o minimapa não tem nenhum estado de I/O persistente,
+              então desmontar é seguro. */}
           {view === 'canvas' && (
             <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
           )}
@@ -1208,6 +1306,19 @@ const wsButtonStyle: React.CSSProperties = {
   height: 24,
   cursor: 'pointer',
   fontSize: 12
+};
+
+const zoomButtonStyle: React.CSSProperties = {
+  background: '#111827',
+  color: '#9CA3AF',
+  border: '1px solid #1F2937',
+  borderRadius: 4,
+  width: 24,
+  height: 24,
+  cursor: 'pointer',
+  fontSize: 13,
+  lineHeight: '22px',
+  padding: 0
 };
 
 /** Paleta cíclica p/ cor de novo projeto (Story 8.2) — sem seletor de cor nesta story. */

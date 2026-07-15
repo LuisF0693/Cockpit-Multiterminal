@@ -18,6 +18,8 @@ export interface PtyOps {
     adapterId?: string;
     /** true no boot: o host injeta o tail do scrollback persistido. */
     restore?: boolean;
+    /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do modelo. */
+    args?: string[];
   }): Promise<{ ptyId: string; pid: number }>;
   closePty(ptyId: string): Promise<{ orphan: boolean }>;
   resizePty(ptyId: string, cols: number, rows: number): void;
@@ -57,6 +59,8 @@ export class SessionRegistry {
     /** Restore (1.4): preserva o id salvo e injeta scrollback persistido. */
     id?: string | undefined;
     restore?: boolean | undefined;
+    /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do modelo; não sobrevive a restore. */
+    args?: string[] | undefined;
   }): Promise<SessionRecord> {
     const id = opts.id ?? ulid();
     const adapterId = opts.adapterId ?? 'shell';
@@ -66,7 +70,8 @@ export class SessionRegistry {
       rows: opts.rows,
       adapterId,
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
-      ...(opts.restore !== undefined ? { restore: opts.restore } : {})
+      ...(opts.restore !== undefined ? { restore: opts.restore } : {}),
+      ...(opts.args !== undefined ? { args: opts.args } : {})
     });
     const record: SessionRecord = {
       id,

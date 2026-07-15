@@ -22,6 +22,8 @@ export type DaemonInbound =
       rows: number;
       cwd?: string;
       restore?: boolean;
+      /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do modelo. */
+      args?: string[];
     }
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }

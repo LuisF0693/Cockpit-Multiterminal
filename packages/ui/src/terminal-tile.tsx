@@ -28,6 +28,8 @@ export interface TerminalTileProps {
   onStartLink: () => void;
   /** Cor do projeto dono (Story 12.3, FR37) — null/undefined = sem projeto, visual neutro (AC2). */
   projectColor?: string | null;
+  /** Zoom do canvas — deltas de arraste em pixels de tela são divididos por isso pra continuar 1:1 com o cursor. */
+  zoom: number;
 }
 
 type DragState =
@@ -48,14 +50,15 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
     const onPointerMove = (e: PointerEvent): void => {
       const drag = dragRef.current;
       if (!drag) return;
+      const zoom = propsRef.current.zoom;
       if (drag.kind === 'move') {
         propsRef.current.onMove(
-          drag.originX + (e.clientX - drag.startX),
-          drag.originY + (e.clientY - drag.startY)
+          drag.originX + (e.clientX - drag.startX) / zoom,
+          drag.originY + (e.clientY - drag.startY) / zoom
         );
       } else {
-        const dw = drag.edge !== 's' ? e.clientX - drag.startX : 0;
-        const dh = drag.edge !== 'e' ? e.clientY - drag.startY : 0;
+        const dw = drag.edge !== 's' ? (e.clientX - drag.startX) / zoom : 0;
+        const dh = drag.edge !== 'e' ? (e.clientY - drag.startY) / zoom : 0;
         propsRef.current.onResizeTile(drag.originW + dw, drag.originH + dh);
       }
     };
@@ -73,7 +76,17 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
     };
   }, []);
 
+  // Vínculo por arraste (Story 12.2, redesenhado): segurar Alt e arrastar de
+  // QUALQUER parte do tile inicia o link em vez de mover — não precisa mais
+  // caçar uma alça pequena escondida no cabeçalho (feedback do fundador na
+  // validação visual). Sem Alt, comportamento de mover/focar continua 100%
+  // igual — nenhuma regressão pro gesto padrão.
   const startMove = (e: React.PointerEvent): void => {
+    if (e.altKey) {
+      e.stopPropagation();
+      props.onStartLink();
+      return;
+    }
     props.onFocus();
     dragRef.current = {
       kind: 'move',
@@ -82,6 +95,15 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
       originX: layout.x,
       originY: layout.y
     };
+  };
+
+  const handleTilePointerDown = (e: React.PointerEvent): void => {
+    if (e.altKey) {
+      e.stopPropagation();
+      props.onStartLink();
+      return;
+    }
+    props.onFocus();
   };
 
   const startResize = (edge: 'e' | 's' | 'se') => (e: React.PointerEvent): void => {
@@ -113,7 +135,8 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
   return (
     <section
       data-tile-id={session.id}
-      onPointerDown={props.onFocus}
+      onPointerDown={handleTilePointerDown}
+      title="Segure Alt e arraste pra vincular a outro terminal"
       style={{
         position: 'absolute',
         left: layout.x,
@@ -236,28 +259,6 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             {exited && '  (encerrado)'}
           </span>
         )}
-        <button
-          onPointerDown={(e) => {
-            // Alça DEDICADA de vínculo (Story 12.2, AC4) — stopPropagation
-            // evita disparar o startMove do header; nunca move o tile.
-            e.stopPropagation();
-            props.onStartLink();
-          }}
-          title="Arrastar para vincular a outro terminal"
-          style={{
-            background: 'transparent',
-            color: '#9CA3AF',
-            border: 'none',
-            borderRadius: 4,
-            width: 20,
-            height: 20,
-            lineHeight: '18px',
-            cursor: 'crosshair',
-            fontSize: 13
-          }}
-        >
-          ⇢
-        </button>
         <button
           onClick={props.onClose}
           onPointerDown={(e) => e.stopPropagation()}

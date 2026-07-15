@@ -18,6 +18,7 @@ import { CodexAdapter } from '@cockpit/adapter-codex';
 import { GrokAdapter } from '@cockpit/adapter-grok';
 import { GeminiCliAdapter } from '@cockpit/adapter-gemini-cli';
 import { AntigravityAdapter } from '@cockpit/adapter-antigravity';
+import { OllamaAdapter } from '@cockpit/adapter-ollama';
 import { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import type { HostInbound, HostOutbound } from './protocol';
@@ -45,6 +46,7 @@ registry.register(new CodexAdapter());
 registry.register(new GrokAdapter());
 registry.register(new GeminiCliAdapter());
 registry.register(new AntigravityAdapter());
+registry.register(new OllamaAdapter());
 
 interface HostedSession {
   session: AgentSession;
@@ -177,7 +179,8 @@ parentPort.on('message', (e) => {
           const session = await adapter.spawn({
             cwd: msg.cwd ?? process.cwd(),
             cols: msg.cols,
-            rows: msg.rows
+            rows: msg.rows,
+            ...(msg.args !== undefined ? { args: msg.args } : {})
           });
           const id = `pty-${++seq}`;
           const hosted: HostedSession = { session, port, writer: null, unsubscribes: [] };

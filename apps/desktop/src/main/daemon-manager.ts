@@ -116,6 +116,7 @@ export class DaemonManager {
     cwd?: string;
     adapterId?: string;
     restore?: boolean;
+    args?: string[];
   }): Promise<{ ptyId: string; pid: number; rendererPort: Electron.MessagePortMain }> {
     const client = this.requireClient();
     const { id, pid } = await client.createSession({
@@ -124,7 +125,8 @@ export class DaemonManager {
       rows: opts.rows,
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       ...(opts.adapterId !== undefined ? { adapterId: opts.adapterId } : {}),
-      ...(opts.restore !== undefined ? { restore: opts.restore } : {})
+      ...(opts.restore !== undefined ? { restore: opts.restore } : {}),
+      ...(opts.args !== undefined ? { args: opts.args } : {})
     });
     return { ptyId: id, pid, rendererPort: this.buildProxy(id) };
   }

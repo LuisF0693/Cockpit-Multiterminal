@@ -26,6 +26,8 @@ export type HostInbound =
       cwd?: string;
       /** true no restore do boot: injeta tail do scrollback antes do stream vivo. */
       restore?: boolean;
+      /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do modelo. */
+      args?: string[];
     }
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }

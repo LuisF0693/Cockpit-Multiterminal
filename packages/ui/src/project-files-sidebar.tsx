@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Project, ProjectDirEntry } from '@cockpit/shared';
 import { renderMarkdownLite } from './markdown-lite';
 
@@ -44,6 +44,33 @@ export function ProjectFilesSidebar({
   const [rootEntries, setRootEntries] = useState<ProjectDirEntry[] | null>(null);
   const [selected, setSelected] = useState<SelectedFile | null>(null);
   const [loadingFile, setLoadingFile] = useState<string | null>(null);
+  // Painel redimensionável por arraste (pedido do fundador na validação
+  // visual do Épico 12) — mesmo princípio de dragRef+listeners globais já
+  // usado pelo TerminalTile pra resize de tile.
+  const [panelWidth, setPanelWidth] = useState(260);
+  const resizeRef = useRef<{ startX: number; originWidth: number } | null>(null);
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent): void => {
+      const drag = resizeRef.current;
+      if (!drag) return;
+      const next = drag.originWidth + (e.clientX - drag.startX);
+      setPanelWidth(Math.min(560, Math.max(200, next)));
+    };
+    const onPointerUp = (): void => {
+      resizeRef.current = null;
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, []);
+
+  const startResize = (e: React.PointerEvent): void => {
+    resizeRef.current = { startX: e.clientX, originWidth: panelWidth };
+  };
 
   // Projeto trocou (8.2) — reseta a árvore e o preview (AC2).
   useEffect(() => {
@@ -115,7 +142,9 @@ export function ProjectFilesSidebar({
       {!collapsed && (
         <div
           style={{
-            width: 260,
+            position: 'relative',
+            width: panelWidth,
+            flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
             background: '#0D131B',
@@ -123,6 +152,11 @@ export function ProjectFilesSidebar({
             overflow: 'hidden'
           }}
         >
+          {/* Alça de resize por arraste — largura do painel, não colapsa/expande (isso é o botão «/»). */}
+          <div
+            onPointerDown={startResize}
+            style={{ position: 'absolute', right: 0, top: 0, width: 6, height: '100%', cursor: 'ew-resize', zIndex: 1 }}
+          />
           {selected ? (
             <>
               <div

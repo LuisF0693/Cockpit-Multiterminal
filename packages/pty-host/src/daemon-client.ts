@@ -100,6 +100,7 @@ export class DaemonClient {
     cwd?: string;
     adapterId?: string;
     restore?: boolean;
+    args?: string[];
   }): Promise<{ id: string; pid: number }> {
     return await this.request('create', (requestId) => ({
       type: 'create',
@@ -109,7 +110,8 @@ export class DaemonClient {
       rows: opts.rows,
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
       ...(opts.adapterId !== undefined ? { adapterId: opts.adapterId } : {}),
-      ...(opts.restore !== undefined ? { restore: opts.restore } : {})
+      ...(opts.restore !== undefined ? { restore: opts.restore } : {}),
+      ...(opts.args !== undefined ? { args: opts.args } : {})
     }));
   }
 

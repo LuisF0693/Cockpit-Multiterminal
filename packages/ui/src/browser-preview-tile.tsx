@@ -32,6 +32,8 @@ export interface BrowserPreviewTileProps {
   onReadText: (selector: string) => Promise<string | null>;
   /** Cor do projeto dono (Story 12.3, FR37) — null/undefined = sem projeto, visual neutro (AC2). */
   projectColor?: string | null;
+  /** Zoom do canvas — deltas de arraste em pixels de tela são divididos por isso pra continuar 1:1 com o cursor. */
+  zoom: number;
 }
 
 type DragState =
@@ -73,11 +75,15 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
     const onPointerMove = (e: PointerEvent): void => {
       const drag = dragRef.current;
       if (!drag) return;
+      const zoom = propsRef.current.zoom;
       if (drag.kind === 'move') {
-        propsRef.current.onMove(drag.originX + (e.clientX - drag.startX), drag.originY + (e.clientY - drag.startY));
+        propsRef.current.onMove(
+          drag.originX + (e.clientX - drag.startX) / zoom,
+          drag.originY + (e.clientY - drag.startY) / zoom
+        );
       } else {
-        const dw = drag.edge !== 's' ? e.clientX - drag.startX : 0;
-        const dh = drag.edge !== 'e' ? e.clientY - drag.startY : 0;
+        const dw = drag.edge !== 's' ? (e.clientX - drag.startX) / zoom : 0;
+        const dh = drag.edge !== 'e' ? (e.clientY - drag.startY) / zoom : 0;
         propsRef.current.onResizeTile(drag.originW + dw, drag.originH + dh);
       }
     };

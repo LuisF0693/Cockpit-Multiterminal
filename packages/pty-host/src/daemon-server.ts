@@ -138,7 +138,12 @@ export class DaemonServer {
             const adapterId = msg.adapterId ?? DEFAULT_ADAPTER;
             const adapter = this.registry.get(adapterId);
             const cwd = msg.cwd ?? process.cwd();
-            const session = await adapter.spawn({ cwd, cols: msg.cols, rows: msg.rows });
+            const session = await adapter.spawn({
+              cwd,
+              cols: msg.cols,
+              rows: msg.rows,
+              ...(msg.args !== undefined ? { args: msg.args } : {})
+            });
             const hosted: DaemonSession = {
               session,
               subscriber: socket,

@@ -13,7 +13,8 @@ export const ADAPTER_COLORS: Record<string, string> = {
   codex: '#10A37F',
   grok: '#8B5CF6',
   'gemini-cli': '#4285F4',
-  antigravity: '#F4B400'
+  antigravity: '#F4B400',
+  ollama: '#EEEEEC'
 };
 
 export const DEFAULT_ADAPTER_COLOR = '#6B7280';

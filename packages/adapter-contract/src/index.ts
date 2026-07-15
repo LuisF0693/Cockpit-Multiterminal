@@ -28,6 +28,12 @@ export interface SpawnConfig {
   env?: Record<string, string> | undefined;
   /** Instrução inicial (FR7) — enviada após o CLI ficar pronto. */
   initialInstruction?: string | undefined;
+  /**
+   * Argumentos extra de CLI (Story 12.6) — a maioria dos adapters ignora;
+   * usado por adapters que exigem um argumento por sessão (ex.: Ollama,
+   * `ollama run <modelo>` — o modelo não é fixo por adapter).
+   */
+  args?: string[] | undefined;
 }
 
 export interface AgentSession {

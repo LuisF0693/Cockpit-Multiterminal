@@ -4,6 +4,7 @@ import { CodexAdapter } from '@cockpit/adapter-codex';
 import { GrokAdapter } from '@cockpit/adapter-grok';
 import { GeminiCliAdapter } from '@cockpit/adapter-gemini-cli';
 import { AntigravityAdapter } from '@cockpit/adapter-antigravity';
+import { OllamaAdapter } from '@cockpit/adapter-ollama';
 import { AdapterRegistry } from './adapter-registry';
 import { DaemonServer } from './daemon-server';
 import { DaemonClient } from './daemon-client';
@@ -30,6 +31,7 @@ export async function startDaemon(pipePath: string): Promise<DaemonServer> {
   registry.register(new GrokAdapter());
   registry.register(new GeminiCliAdapter());
   registry.register(new AntigravityAdapter());
+  registry.register(new OllamaAdapter());
 
   const server = new DaemonServer(registry);
   await server.listen(pipePath);

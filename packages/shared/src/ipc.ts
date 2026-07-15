@@ -164,7 +164,9 @@ export const SessionCreateRequestSchema = z.object({
    * conveniência a partir da barra lateral). Determina o cwd default (AC1)
    * quando `cwd` não é passado explicitamente.
    */
-  projectId: z.string().min(1).optional()
+  projectId: z.string().min(1).optional(),
+  /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do nome do modelo. */
+  args: z.string().min(1).array().optional()
 });
 export type SessionCreateRequest = z.infer<typeof SessionCreateRequestSchema>;
 

@@ -99,6 +99,7 @@ export class PtyHostManager {
     cwd?: string;
     adapterId?: string;
     restore?: boolean;
+    args?: string[];
   }): Promise<CreatedPty> {
     const { port1, port2 } = new MessageChannelMain();
     const requestId = ++this.seq;
@@ -130,7 +131,8 @@ export class PtyHostManager {
           rows: opts.rows,
           ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
           ...(opts.adapterId !== undefined ? { adapterId: opts.adapterId } : {}),
-          ...(opts.restore !== undefined ? { restore: opts.restore } : {})
+          ...(opts.restore !== undefined ? { restore: opts.restore } : {}),
+          ...(opts.args !== undefined ? { args: opts.args } : {})
         },
         [port1]
       );
