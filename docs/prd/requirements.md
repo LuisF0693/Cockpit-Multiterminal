@@ -42,6 +42,12 @@
 - **FR38:** Cada adapter (FR3) deve ter uma identidade visual própria (cor/ícone) exibida no tile do terminal e na sessão master, para identificar de relance qual agente está rodando ali.
 - **FR39:** O sistema deve incluir adapters funcionais para Gemini CLI (`gemini`) e Antigravity CLI (`agy`), seguindo o mesmo contrato de adapter já estabelecido (FR3).
 - **FR40:** O canvas deve exibir um minimapa no canto mostrando a posição de todos os tiles, para navegação rápida em canvases com muitos terminais.
+- **FR41:** O sistema deve ter um tema visual coeso definido por tokens centralizados (cores de superfície/texto/borda, tipografia, espaçamento, raios de borda, sombras) num módulo único do pacote de UI, aplicado a TODAS as superfícies (canvas, tiles, barras laterais, sessão master, painéis, modais) — nenhuma superfície com estilos divergentes hardcoded.
+- **FR42:** O canvas deve ter uma toolbar compacta com as ações de canvas (novo terminal, novo preview de browser, zoom in/out/reset, alternar minimapa, alternar overlay de vínculos), com ícones e tooltips — consolidando controles hoje espalhados.
+- **FR43:** O sistema deve exibir uma status bar global persistente (rodapé) com: projeto ativo, branch git do projeto, status do daemon, contagem de sessões ativas e decisões pendentes.
+- **FR44:** O sistema deve detectar e exibir a branch git atual do projeto ativo (lida do repositório em `rootPath`), atualizando ao trocar de projeto e periodicamente — sem executar git no renderer (mesma fronteira Main/renderer do FR23).
+- **FR45:** O sistema deve exibir um catálogo de agentes: painel listando todos os adapters com nome, descrição, cor de identidade (FR38), comando de spawn e disponibilidade no PATH (instalado / não encontrado).
+- **FR46:** O sistema deve ter uma tela de Configurações dedicada com preferências do app (persistidas via a mesma infraestrutura do FR10), incluindo no mínimo: modelo default do Ollama, intervalo de atualização do preview de browser e escala de zoom padrão do canvas.
 
 ### Non Functional
 
