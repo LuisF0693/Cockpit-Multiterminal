@@ -59,7 +59,13 @@ export class LearningManager {
     return record;
   }
 
-  /** Qualificação (Story 11.2, AC1/AC2) — lança em transição inválida (mesmo padrão de `assertTransition`). */
+  /**
+   * Qualificação (Story 11.2, AC1/AC2/AC4) — decisão SEMPRE humana (nunca
+   * chamada automaticamente por nenhum listener deste projeto); lança em
+   * transição inválida (mesmo padrão de `assertTransition`). Trilha
+   * auditável gravada aqui, mesmo padrão do `TaskManager.updateState`
+   * (autor+timestamp na mesma escrita da mudança de estado).
+   */
   updateStatus(id: string, to: LearningStatus): Learning {
     const learning = this.learnings.get(id);
     if (!learning) throw new Error(`Learning desconhecido: ${id}`);
@@ -70,7 +76,16 @@ export class LearningManager {
     const updatedAt = Date.now();
     const updated: Learning = { ...learning, status: to, updatedAt };
     this.learnings.set(id, updated);
-    this.queue.push(() => this.store.updateLearningStatus(id, to, updatedAt));
+    this.queue.push(() => {
+      this.store.updateLearningStatus(id, to, updatedAt);
+      this.store.appendEvent({
+        id: ulid(),
+        ts: updatedAt,
+        origin: 'human',
+        type: 'learning.status_changed',
+        payload: { learningId: id, from, to }
+      });
+    });
     this.emit({ type: 'status_changed', learning: updated, from });
     return updated;
   }

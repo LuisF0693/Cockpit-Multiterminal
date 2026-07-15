@@ -80,6 +80,22 @@ describe('LearningManager (Épico 11, Story 11.1/11.2)', () => {
     expect(() => manager.updateStatus('inexistente', 'reviewed')).toThrow(/desconhecido/);
   });
 
+  it('updateStatus() grava trilha auditável com autor+timestamp (AC4 da 11.2)', () => {
+    const { store, queue, manager } = makeHarness();
+    const learning = manager.create({ text: 'x', category: 'gotcha', projectId: null });
+    queue.flush();
+
+    manager.updateStatus(learning.id, 'reviewed');
+    queue.flush();
+
+    const trail = store.listEvents({ limit: 10, type: 'learning.status_changed' });
+    expect(trail).toHaveLength(1);
+    expect(trail[0]).toMatchObject({
+      origin: 'human',
+      payload: { learningId: learning.id, from: 'draft', to: 'reviewed' }
+    });
+  });
+
   it('list() ordena do mais recente para o mais antigo', () => {
     // createdAt explícito (não wall-clock) — evita colisão de timestamp
     // quando os dois create() caem no mesmo milissegundo (gotcha já

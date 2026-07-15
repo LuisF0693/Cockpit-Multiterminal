@@ -547,6 +547,13 @@ export function App(): JSX.Element {
     void window.cockpit.learning.create({ text, category }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
+  /** Qualificação (Story 11.2, FR32) — decisão humana explícita. */
+  const updateLearningStatus = (id: string, status: Learning['status']): void => {
+    void window.cockpit.learning
+      .updateStatus({ id, status })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
   /**
    * Decisão humana (Story 5.3, FR15) — aprovar/rejeitar/redirecionar. O
    * redirect bem-sucedido dispara a instrução inicial no NOVO agente (AC4);
@@ -846,7 +853,8 @@ export function App(): JSX.Element {
             onRemoveLink={removeTerminalLink}
             onSendLink={sendTerminalLink}
             onCreateLearning={createLearning}
-            learningCount={learnings.length}
+            learnings={learnings}
+            onUpdateLearningStatus={updateLearningStatus}
           />
         )}
 

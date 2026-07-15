@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   classifyTaskRoles,
+  type Learning,
+  type LearningStatus,
   type SessionRecord,
   type Task,
   type TaskRole,
@@ -55,8 +57,10 @@ export interface MasterDashboardProps {
   onSendLink: (link: TerminalLink) => void;
   /** Captura rápida de learning (Story 11.1, AC2) — nasce em status `draft`. */
   onCreateLearning: (text: string, category: string) => void;
-  /** Total de learnings registrados (contador — Story 11.1). */
-  learningCount: number;
+  /** Learnings globais (Épico 11) — NUNCA escopados ao projeto ativo (11.3, AC2). */
+  learnings: Learning[];
+  /** Qualificação (Story 11.2, FR32) — decisão humana explícita. */
+  onUpdateLearningStatus: (id: string, status: LearningStatus) => void;
 }
 
 export function MasterDashboard({
@@ -73,7 +77,8 @@ export function MasterDashboard({
   onRemoveLink,
   onSendLink,
   onCreateLearning,
-  learningCount
+  learnings,
+  onUpdateLearningStatus
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -172,9 +177,66 @@ export function MasterDashboard({
           registrar
         </button>
         <span style={{ fontSize: 11, color: '#4B5563' }} title="learnings no banco global">
-          {learningCount} no banco
+          {learnings.length} no banco
         </span>
       </div>
+
+      {/* Fila de qualificação (Épico 11, Story 11.2, AC3) — draft/reviewed
+          aguardando decisão humana; não bloqueante, mesmo padrão visual da
+          fila de decisões de tarefa acima. */}
+      {(() => {
+        const pending = learnings.filter((l) => l.status === 'draft' || l.status === 'reviewed');
+        if (pending.length === 0) return null;
+        return (
+          <div
+            style={{
+              marginBottom: 20,
+              padding: 14,
+              background: '#0D131B',
+              border: '1px solid #1F2937',
+              borderRadius: 8
+            }}
+          >
+            <h3 style={{ margin: '0 0 10px', fontSize: 13, color: '#9CA3AF' }}>
+              🎓 Learnings para qualificar ({pending.length})
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pending.map((l) => (
+                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ color: '#6B7280', fontSize: 10, textTransform: 'uppercase' }}>{l.category}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {l.text}
+                  </span>
+                  {l.status === 'draft' ? (
+                    <button
+                      onClick={() => onUpdateLearningStatus(l.id, 'reviewed')}
+                      style={queueButtonStyle}
+                      title="marcar como revisado"
+                    >
+                      revisado
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onUpdateLearningStatus(l.id, 'reusable')}
+                      style={queueButtonStyle}
+                      title="qualificar como reutilizável"
+                    >
+                      ✓ reutilizável
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onUpdateLearningStatus(l.id, 'discarded')}
+                    style={queueButtonStyle}
+                    title="descartar"
+                  >
+                    ✗ descartar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Fila de decisões pendentes (Story 3.4/FR9) — unificada com tarefas
           em awaiting_decision desde a Story 5.3, AC3 */}
