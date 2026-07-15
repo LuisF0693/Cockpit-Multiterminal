@@ -9,11 +9,10 @@ import {
 } from '@cockpit/shared';
 import {
   BrowserPreviewTile,
-  FileExplorer,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
-  ProjectSidebar,
+  ProjectFilesSidebar,
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
@@ -60,7 +59,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'files' | 'learnings'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'learnings'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -683,7 +682,6 @@ export function App(): JSX.Element {
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['files', 'Arquivos', 'Explorador de arquivos do projeto ativo (Story 8.4)'],
               ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)']
             ] as const
           ).map(([v, label, title]) => (
@@ -816,12 +814,14 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <ProjectSidebar
+        <ProjectFilesSidebar
           projects={projects}
           activeId={activeProjectId}
-          onSelect={switchProject}
-          onCreate={createProject}
+          onSelectProject={switchProject}
+          onCreateProject={createProject}
           onCreateTerminalIn={newTerminalInProject}
+          onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
+          onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
         />
 
         <Sidebar
@@ -902,16 +902,6 @@ export function App(): JSX.Element {
             onCreate={createTask}
             onMove={transitionTask}
             onOpenReview={goToReview}
-          />
-        )}
-
-        {view === 'files' && (
-          <FileExplorer
-            projectId={activeProjectId}
-            rootLabel={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
-            onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
-            onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
-            onBack={() => setView('master')}
           />
         )}
 

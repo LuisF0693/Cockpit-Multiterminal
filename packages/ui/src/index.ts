@@ -53,11 +53,11 @@ export {
 } from './task-lifecycle-ui';
 export { ReviewPanel } from './review-panel';
 export type { ReviewPanelProps } from './review-panel';
-export { ProjectSidebar } from './project-sidebar';
-export type { ProjectSidebarProps } from './project-sidebar';
-export { FileExplorer } from './file-explorer';
-export type { FileExplorerProps } from './file-explorer';
+export { ProjectFilesSidebar } from './project-files-sidebar';
+export type { ProjectFilesSidebarProps } from './project-files-sidebar';
 export { BrowserPreviewTile } from './browser-preview-tile';
 export type { BrowserPreviewTileProps } from './browser-preview-tile';
 export { LearningsView } from './learnings-view';
 export type { LearningsViewProps } from './learnings-view';
+export { renderMarkdownLite, parseMarkdownLite } from './markdown-lite';
+export type { MarkdownBlock, InlineToken } from './markdown-lite';
