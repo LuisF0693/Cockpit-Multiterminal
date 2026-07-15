@@ -20,6 +20,7 @@ import {
   ReviewPanel,
   SessionReportView,
   Sidebar,
+  StatusBar,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
@@ -592,6 +593,21 @@ export function App(): JSX.Element {
   const [showMinimap, setShowMinimap] = useState(true);
   const [showLinks, setShowLinks] = useState(true);
 
+  // Branch git do projeto ativo (Story 13.3, FR44) — lida no Main; refresh
+  // na troca de projeto + poll de 5s (mesmo padrão de timeline/relatório).
+  const [gitBranch, setGitBranch] = useState<string | null>(null);
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.cockpit.project
+        .gitBranch(activeProjectId ? { projectId: activeProjectId } : {})
+        .then(setGitBranch)
+        .catch(() => setGitBranch(null));
+    };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => clearInterval(timer);
+  }, [activeProjectId]);
+
   // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
   // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
   // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
@@ -766,6 +782,12 @@ export function App(): JSX.Element {
   // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
   const activeProjectColor = projectColorOf(activeProjectId || null);
 
+  // Fila unificada (Story 5.3, AC3): agentes waiting-input + tarefas em
+  // awaiting_decision — consumida pelo badge do header E pela status bar (13.3).
+  const pendingDecisionCount =
+    projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
+    projectTasks.filter((t) => t.state === 'awaiting_decision').length;
+
   // Extent real do conteúdo do canvas — dá um tamanho EXPLÍCITO ao wrapper
   // escalado (zoom) pra section.scrollWidth/Height continuar refletindo a
   // área rolável corretamente mesmo com `transform: scale()` (um wrapper só
@@ -900,12 +922,8 @@ export function App(): JSX.Element {
           </span>
         )}
         {(() => {
-          // Badge unificado (Story 5.3, AC3): agentes aguardando input +
-          // tarefas em awaiting_decision. Escopado ao projeto ativo (8.2) —
-          // clicar leva ao master, que também é escopado.
-          const waiting =
-            projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
-            projectTasks.filter((t) => t.state === 'awaiting_decision').length;
+          // Badge unificado (Story 5.3, AC3) — mesma contagem da status bar (13.3).
+          const waiting = pendingDecisionCount;
           if (waiting === 0) return null;
           return (
             <button
@@ -1294,6 +1312,16 @@ export function App(): JSX.Element {
           )}
         </section>
       </div>
+      {/* Status bar global (Story 13.3, FR43) — visível em TODAS as views. */}
+      <StatusBar
+        projectName={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
+        projectColor={activeProjectColor}
+        gitBranch={gitBranch}
+        daemonState={daemonState}
+        activeSessionCount={projectSessions.filter((s) => s.status === 'running').length}
+        pendingDecisionCount={pendingDecisionCount}
+        onOpenDecisions={() => setView('master')}
+      />
       {promptState && (
         <PromptModal
           message={promptState.message}

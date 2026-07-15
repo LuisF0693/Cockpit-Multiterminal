@@ -38,6 +38,8 @@ export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
 export { CanvasToolbar } from './canvas-toolbar';
 export type { CanvasToolbarProps } from './canvas-toolbar';
+export { StatusBar } from './status-bar';
+export type { StatusBarProps } from './status-bar';
 export { PromptModal } from './prompt-modal';
 export type { PromptModalProps } from './prompt-modal';
 export { MasterDashboard } from './master-dashboard';

@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
-import { readdir, readFile as fsReadFile } from 'node:fs/promises';
+import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
@@ -15,6 +15,8 @@ import {
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
+  parseGitHead,
+  parseGitdirPointer,
   parseGitignorePatterns,
   type StateStore
 } from '@cockpit/core';
@@ -42,6 +44,7 @@ import {
   ProjectUpdateRequestSchema,
   ProjectRemoveRequestSchema,
   ProjectSetActiveRequestSchema,
+  ProjectGitBranchRequestSchema,
   ProjectReadDirRequestSchema,
   ProjectReadFileRequestSchema,
   TerminalLinkCreateRequestSchema,
@@ -390,6 +393,29 @@ export function registerSessionIpc(
     return entries.sort((a, b) =>
       a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1
     );
+  });
+
+  // Branch git do projeto (Story 13.3, FR44) — lê .git/HEAD direto (sem
+  // spawnar git: mais barato, sem dependência de PATH). `.git` como ARQUIVO
+  // (worktree/submódulo) é seguido via gitdir. Qualquer falha = null (projeto
+  // sem repositório mostra estado neutro, nunca erro).
+  ipcMain.handle(IpcChannels.projectGitBranch, async (_event, raw: unknown) => {
+    const req = ProjectGitBranchRequestSchema.parse(raw);
+    const { projects, activeId } = persistence.projects();
+    const project = projects.find((p) => p.id === (req.projectId ?? activeId));
+    if (!project) return null;
+    try {
+      const root = resolve(project.rootPath);
+      let gitDir = join(root, '.git');
+      if ((await fsStat(gitDir)).isFile()) {
+        const pointer = parseGitdirPointer(await fsReadFile(gitDir, 'utf-8'));
+        if (!pointer) return null;
+        gitDir = resolve(root, pointer);
+      }
+      return parseGitHead(await fsReadFile(join(gitDir, 'HEAD'), 'utf-8'));
+    } catch {
+      return null;
+    }
   });
 
   ipcMain.handle(IpcChannels.projectReadFile, async (_event, raw: unknown) => {

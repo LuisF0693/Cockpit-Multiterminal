@@ -45,6 +45,8 @@ export const IpcChannels = {
   /** Explorador de arquivos (Story 8.4) — leitura no Main (node:fs). */
   projectReadDir: 'project.readDir',
   projectReadFile: 'project.readFile',
+  /** Branch git do projeto (Story 13.3, FR44) — lida de .git/HEAD no Main. */
+  projectGitBranch: 'project.gitBranch',
   /** Vínculo terminal-a-terminal (Épico 9, FR25). */
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
@@ -457,6 +459,12 @@ export const ProjectReadDirRequestSchema = z.object({
 });
 export type ProjectReadDirRequest = z.infer<typeof ProjectReadDirRequestSchema>;
 
+/** Branch git do projeto (Story 13.3, FR44) — projectId ausente = ativo. */
+export const ProjectGitBranchRequestSchema = z.object({
+  projectId: z.string().min(1).optional()
+});
+export type ProjectGitBranchRequest = z.infer<typeof ProjectGitBranchRequestSchema>;
+
 export const ProjectReadFileRequestSchema = z.object({
   path: z.string().min(1),
   maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
@@ -697,6 +705,8 @@ export interface CockpitApi {
     readDir(req: ProjectReadDirRequest): Promise<ProjectDirEntry[]>;
     /** Preview de leitura de um arquivo de texto (Story 8.4, AC2) — null se binário/erro. */
     readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
+    /** Branch git atual do projeto (Story 13.3, FR44) — null se não for repositório. */
+    gitBranch(req: ProjectGitBranchRequest): Promise<string | null>;
   };
   terminalLink: {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */

@@ -55,6 +55,7 @@ import {
   type ProjectUpdateRequest,
   type ProjectRemoveRequest,
   type ProjectSetActiveRequest,
+  type ProjectGitBranchRequest,
   type ProjectReadDirRequest,
   type ProjectReadFileRequest,
   type TerminalLinkCreateRequest,
@@ -200,6 +201,10 @@ const api: CockpitApi = {
     readFile: async (req: ProjectReadFileRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadFile, req);
       return raw === null ? null : ProjectReadFileResponseSchema.parse(raw);
+    },
+    gitBranch: async (req: ProjectGitBranchRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectGitBranch, req);
+      return z.string().nullable().parse(raw);
     }
   },
   terminalLink: {
