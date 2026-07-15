@@ -23,6 +23,8 @@ export interface TerminalTileProps {
   onMoveEnd: () => void;
   onResizeTile: (width: number, height: number) => void;
   onResizePty: (size: { cols: number; rows: number }) => void;
+  /** Inicia o arraste de vínculo terminal-a-terminal (Story 12.2, AC4) — alça própria, nunca o header. */
+  onStartLink: () => void;
 }
 
 type DragState =
@@ -107,6 +109,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
 
   return (
     <section
+      data-tile-id={session.id}
       onPointerDown={props.onFocus}
       style={{
         position: 'absolute',
@@ -203,6 +206,28 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             {exited && '  (encerrado)'}
           </span>
         )}
+        <button
+          onPointerDown={(e) => {
+            // Alça DEDICADA de vínculo (Story 12.2, AC4) — stopPropagation
+            // evita disparar o startMove do header; nunca move o tile.
+            e.stopPropagation();
+            props.onStartLink();
+          }}
+          title="Arrastar para vincular a outro terminal"
+          style={{
+            background: 'transparent',
+            color: '#9CA3AF',
+            border: 'none',
+            borderRadius: 4,
+            width: 20,
+            height: 20,
+            lineHeight: '18px',
+            cursor: 'crosshair',
+            fontSize: 13
+          }}
+        >
+          ⇢
+        </button>
         <button
           onClick={props.onClose}
           onPointerDown={(e) => e.stopPropagation()}

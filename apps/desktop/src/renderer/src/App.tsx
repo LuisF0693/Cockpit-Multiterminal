@@ -85,6 +85,12 @@ export function App(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
   const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
+  // Arraste de vínculo por gesture no canvas (Story 12.2) — linha de preview
+  // segue o cursor (AC2); nulo quando nenhum arraste está em curso.
+  const [linkDrag, setLinkDrag] = useState<{ sourceId: string; x: number; y: number } | null>(null);
+  const linkDragRef = useRef(linkDrag);
+  linkDragRef.current = linkDrag;
+  const canvasSectionRef = useRef<HTMLElement | null>(null);
   // Learnings globais (Épico 11): lista espelhada via push — NUNCA escopada
   // ao projeto ativo (Story 11.3, AC2 — "banco separado dos projetos").
   const [learnings, setLearnings] = useState<Learning[]>([]);
@@ -533,6 +539,46 @@ export function App(): JSX.Element {
     void window.cockpit.terminalLink.remove({ id }).catch(() => void 0);
   };
 
+  /** Converte coordenadas de ponteiro (viewport) pro espaço de conteúdo do canvas (scroll-aware). */
+  const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
+    const el = canvasSectionRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: e.clientX - rect.left + el.scrollLeft, y: e.clientY - rect.top + el.scrollTop };
+  };
+
+  const startTerminalLinkDrag = (sourceId: string, originX: number, originY: number): void => {
+    setLinkDrag({ sourceId, x: originX, y: originY });
+  };
+
+  // Listeners globais do arraste de vínculo (Story 12.2) — registrados uma
+  // vez só, lêem o estado mais recente via ref (mesmo gotcha de closure
+  // obsoleta já resolvido no TerminalTile pra move/resize).
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent): void => {
+      if (!linkDragRef.current) return;
+      const coords = pointerToCanvasCoords(e);
+      if (!coords) return;
+      setLinkDrag((prev) => (prev ? { ...prev, ...coords } : prev));
+    };
+    const onPointerUp = (e: PointerEvent): void => {
+      const drag = linkDragRef.current;
+      if (!drag) return;
+      setLinkDrag(null);
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-tile-id]');
+      const targetId = targetEl?.getAttribute('data-tile-id');
+      if (targetId && targetId !== drag.sourceId) {
+        createTerminalLink(drag.sourceId, targetId, 'manual');
+      }
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, []);
+
   /** Envio manual (AC2 da 9.3) — mesma redação-base do roteamento automático (9.2), disparada sob demanda. */
   const sendTerminalLink = (link: TerminalLink): void => {
     const source = useCockpitStore.getState().sessions.find((s) => s.id === link.sourceId);
@@ -908,6 +954,7 @@ export function App(): JSX.Element {
         {view === 'learnings' && <LearningsView learnings={learnings} projects={projects} />}
 
         <section
+          ref={canvasSectionRef}
           style={{
             flex: 1,
             position: 'relative',
@@ -945,6 +992,23 @@ export function App(): JSX.Element {
                 />
               );
             })}
+            {/* Linha de preview do arraste de vínculo em curso (Story 12.2, AC2). */}
+            {linkDrag &&
+              (() => {
+                const source = layout.tiles.find((t) => t.id === linkDrag.sourceId);
+                if (!source) return null;
+                return (
+                  <line
+                    x1={source.x + source.width / 2}
+                    y1={source.y + source.height / 2}
+                    x2={linkDrag.x}
+                    y2={linkDrag.y}
+                    stroke="#22D3EE"
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
+                  />
+                );
+              })()}
           </svg>
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
@@ -971,6 +1035,7 @@ export function App(): JSX.Element {
                 onResizePty={({ cols, rows }) =>
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
+                onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
               />
               </div>
             );
