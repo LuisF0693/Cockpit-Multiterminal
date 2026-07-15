@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { LayoutTile, SessionRecord } from '@cockpit/shared';
+import type { BrowserTile, LayoutTile, SessionRecord } from '@cockpit/shared';
 import {
   addTile,
   bringToFront,
@@ -22,6 +22,8 @@ interface CockpitState {
   layout: CanvasLayout;
   focusedId: string | null;
   ports: ReadonlyMap<string, MessagePort>;
+  /** Tiles de preview de browser (Épico 10) — mesmo `layout.tiles` genérico das sessões. */
+  browserTiles: BrowserTile[];
 
   seedSessions(list: SessionRecord[], savedTiles?: LayoutTile[]): void;
   upsertSession(record: SessionRecord): void;
@@ -31,6 +33,9 @@ interface CockpitState {
   moveTileTo(id: string, x: number, y: number): void;
   snapTile(id: string): void;
   resizeTileTo(id: string, width: number, height: number): void;
+  seedBrowserTiles(list: BrowserTile[], savedTiles?: LayoutTile[]): void;
+  upsertBrowserTile(tile: BrowserTile): void;
+  removeBrowserTile(id: string): void;
 }
 
 export const useCockpitStore = create<CockpitState>((set) => ({
@@ -38,6 +43,7 @@ export const useCockpitStore = create<CockpitState>((set) => ({
   layout: createLayout(),
   focusedId: null,
   ports: new Map<string, MessagePort>(),
+  browserTiles: [],
 
   seedSessions: (list, savedTiles = []) =>
     set((s) => {
@@ -116,5 +122,37 @@ export const useCockpitStore = create<CockpitState>((set) => ({
     }),
 
   resizeTileTo: (id, width, height) =>
-    set((s) => ({ layout: resizeTile(s.layout, id, width, height) }))
+    set((s) => ({ layout: resizeTile(s.layout, id, width, height) })),
+
+  // Tiles de preview de browser (Épico 10) — mesmo princípio de seedSessions:
+  // só ADICIONA tiles para ids ainda não presentes no layout (composição,
+  // não substituição — sessões e browser tiles dividem o mesmo layout.tiles).
+  seedBrowserTiles: (list, savedTiles = []) =>
+    set((s) => {
+      const saved = new Map(savedTiles.map((t) => [t.id, t]));
+      let layout = s.layout;
+      for (const tile of list) {
+        if (layout.tiles.some((t) => t.id === tile.id)) continue;
+        const saved_ = saved.get(tile.id);
+        layout = saved_ ? { ...layout, tiles: [...layout.tiles, { ...saved_ }] } : addTile(layout, tile.id);
+      }
+      return { browserTiles: list, layout };
+    }),
+
+  upsertBrowserTile: (tile) =>
+    set((s) => {
+      const exists = s.browserTiles.some((t) => t.id === tile.id);
+      return {
+        browserTiles: exists ? s.browserTiles.map((t) => (t.id === tile.id ? tile : t)) : [...s.browserTiles, tile],
+        layout: exists ? s.layout : addTile(s.layout, tile.id),
+        focusedId: exists ? s.focusedId : tile.id
+      };
+    }),
+
+  removeBrowserTile: (id) =>
+    set((s) => ({
+      browserTiles: s.browserTiles.filter((t) => t.id !== id),
+      layout: removeTile(s.layout, id),
+      focusedId: s.focusedId === id ? null : s.focusedId
+    }))
 }));
