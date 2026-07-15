@@ -30,6 +30,8 @@ export interface BrowserPreviewTileProps {
   onClick: (selector: string) => Promise<void>;
   /** Lê texto por seletor (ausente = body inteiro); retorna null se falhar. */
   onReadText: (selector: string) => Promise<string | null>;
+  /** Cor do projeto dono (Story 12.3, FR37) — null/undefined = sem projeto, visual neutro (AC2). */
+  projectColor?: string | null;
 }
 
 type DragState =
@@ -135,6 +137,18 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
         overflow: 'hidden'
       }}
     >
+      {/* Anel de identidade de projeto (Story 12.3, AC1/AC3) — mesmo padrão do TerminalTile. */}
+      {props.projectColor && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 8,
+            boxShadow: `inset 0 0 0 2px ${props.projectColor}55`,
+            pointerEvents: 'none'
+          }}
+        />
+      )}
       <header
         onPointerDown={startMove}
         style={{

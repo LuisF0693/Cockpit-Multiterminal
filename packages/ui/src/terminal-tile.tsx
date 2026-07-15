@@ -25,6 +25,8 @@ export interface TerminalTileProps {
   onResizePty: (size: { cols: number; rows: number }) => void;
   /** Inicia o arraste de vínculo terminal-a-terminal (Story 12.2, AC4) — alça própria, nunca o header. */
   onStartLink: () => void;
+  /** Cor do projeto dono (Story 12.3, FR37) — null/undefined = sem projeto, visual neutro (AC2). */
+  projectColor?: string | null;
 }
 
 type DragState =
@@ -136,6 +138,20 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         overflow: 'hidden'
       }}
     >
+      {/* Anel de identidade de projeto (Story 12.3, AC1/AC3) — camada
+          independente do boxShadow de foco/waiting acima, nunca interfere
+          na animação de pulso (que anima só o box-shadow do <section>). */}
+      {props.projectColor && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 8,
+            boxShadow: `inset 0 0 0 2px ${props.projectColor}55`,
+            pointerEvents: 'none'
+          }}
+        />
+      )}
       <header
         onPointerDown={startMove}
         onDoubleClick={() => {

@@ -539,6 +539,10 @@ export function App(): JSX.Element {
     void window.cockpit.terminalLink.remove({ id }).catch(() => void 0);
   };
 
+  /** Cor do projeto dono de um tile (Story 12.3, AC1/AC2) — null = sem projeto, visual neutro. */
+  const projectColorOf = (projectId: string | null): string | null =>
+    projects.find((p) => p.id === projectId)?.color ?? null;
+
   /** Converte coordenadas de ponteiro (viewport) pro espaço de conteúdo do canvas (scroll-aware). */
   const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
     const el = canvasSectionRef.current;
@@ -1036,6 +1040,7 @@ export function App(): JSX.Element {
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
                 onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
+                projectColor={projectColorOf(session.projectId)}
               />
               </div>
             );
@@ -1063,6 +1068,7 @@ export function App(): JSX.Element {
                   onMove={(x, y) => useCockpitStore.getState().moveTileTo(bTile.id, x, y)}
                   onMoveEnd={() => useCockpitStore.getState().snapTile(bTile.id)}
                   onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(bTile.id, w, h)}
+                  projectColor={projectColorOf(bTile.projectId)}
                 />
               </div>
             );
