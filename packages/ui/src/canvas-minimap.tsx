@@ -114,7 +114,7 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
                 width: Math.max(t.width * scale, 4),
                 height: Math.max(t.height * scale, 4),
                 background: t.color ?? theme.border.strong,
-                border: t.focused ? `1px solid ${theme.accent.primary}` : '1px solid #00000055',
+                border: t.focused ? `1px solid ${theme.accent.primary}` : `1px solid ${theme.border.subtle}`,
                 borderRadius: 2,
                 padding: 0,
                 cursor: 'pointer'

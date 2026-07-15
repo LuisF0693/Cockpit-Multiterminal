@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
 import { TASK_NEXT_STATES, TASK_STATE_LABEL } from './task-lifecycle-ui';
+import { theme } from './theme';
 
 const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
 
@@ -66,7 +67,7 @@ export function TasksPanel({
   return (
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Tarefas</h2>
-      <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>
+      <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 20px' }}>
         {tasks.length} {tasks.length === 1 ? 'tarefa' : 'tarefas'} — planejada → execução → decisão → revisada →
         concluída
       </p>
@@ -81,12 +82,12 @@ export function TasksPanel({
           placeholder="Nova tarefa…"
           style={{
             flex: 1,
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '6px 10px',
-            fontSize: 13
+            fontSize: theme.font.size.md
           }}
         />
         <button onClick={submit} style={buttonStyle}>
@@ -95,7 +96,7 @@ export function TasksPanel({
       </div>
 
       {tasks.length === 0 && (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>Nenhuma tarefa ainda.</p>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted }}>Nenhuma tarefa ainda.</p>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -110,10 +111,10 @@ export function TasksPanel({
                 flexDirection: 'column',
                 gap: 8,
                 padding: '10px 14px',
-                background: '#0D131B',
-                border: '1px solid #1F2937',
-                borderRadius: 8,
-                fontSize: 13
+                background: theme.surface.panel,
+                border: `1px solid ${theme.border.default}`,
+                borderRadius: theme.radius.md,
+                fontSize: theme.font.size.md
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -134,7 +135,7 @@ export function TasksPanel({
                     </button>
                   </>
                 )}
-                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{TASK_STATE_LABEL[t.state]}</span>
+                <span style={{ color: theme.text.muted, fontSize: theme.font.size.sm }}>{TASK_STATE_LABEL[t.state]}</span>
                 <span style={{ display: 'flex', gap: 6 }}>
                   {TASK_NEXT_STATES[t.state].map((next) => (
                     <button key={next} onClick={() => onTransition(t.id, next)} style={buttonStyle}>
@@ -147,7 +148,7 @@ export function TasksPanel({
               {/* Vínculo com terminais/agentes (Story 5.2, AC1/AC2) */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 {linked.length === 0 ? (
-                  <span style={{ fontSize: 11, color: '#4B5563' }}>
+                  <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }}>
                     sem terminal vinculado — vincule pelo dropdown no master
                   </span>
                 ) : (
@@ -158,11 +159,11 @@ export function TasksPanel({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 4,
-                        background: '#111827',
-                        border: '1px solid #1F2937',
-                        borderRadius: 12,
+                        background: theme.surface.raised,
+                        border: `1px solid ${theme.border.default}`,
+                        borderRadius: theme.radius.pill,
                         padding: '2px 4px 2px 10px',
-                        fontSize: 11
+                        fontSize: theme.font.size.xs
                       }}
                     >
                       {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
@@ -172,10 +173,10 @@ export function TasksPanel({
                         title="desvincular"
                         style={{
                           background: 'transparent',
-                          color: '#9CA3AF',
+                          color: theme.text.muted,
                           border: 'none',
                           cursor: 'pointer',
-                          fontSize: 12,
+                          fontSize: theme.font.size.sm,
                           padding: '0 4px'
                         }}
                       >
@@ -198,12 +199,12 @@ export function TasksPanel({
                     placeholder={`instrução p/ ${linked.length} agente(s) vinculado(s)…`}
                     style={{
                       flex: 1,
-                      background: '#0B0F14',
-                      color: '#E5E7EB',
-                      border: '1px solid #1F2937',
+                      background: theme.surface.raised,
+                      color: theme.text.primary,
+                      border: `1px solid ${theme.border.default}`,
                       borderRadius: 6,
                       padding: '5px 10px',
-                      fontSize: 12
+                      fontSize: theme.font.size.sm
                     }}
                   />
                   <button onClick={() => submitInstruction(t.id)} style={buttonStyle}>
@@ -220,12 +221,12 @@ export function TasksPanel({
 }
 
 const buttonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '5px 12px',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };

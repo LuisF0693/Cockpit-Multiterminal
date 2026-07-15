@@ -1,5 +1,6 @@
 import type { SessionReport, TimelineEvent } from '@cockpit/shared';
 import { formatDuration } from './format-duration';
+import { theme } from './theme';
 
 /**
  * SessionReportView (Story 3.5) — painel de detalhe da sessão: métricas
@@ -28,7 +29,7 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
         <button onClick={onBack} style={buttonStyle}>
           ← voltar ao master
         </button>
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280', marginTop: 16 }}>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted, marginTop: 16 }}>
           Sessão ainda não persistida — sem relatório.
         </p>
       </section>
@@ -59,7 +60,7 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
           ↻ atualizar
         </button>
       </div>
-      <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px', fontFamily: 'monospace' }}>{report.cwd}</p>
+      <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 20px', fontFamily: theme.font.mono }}>{report.cwd}</p>
 
       <div
         style={{
@@ -72,17 +73,17 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
         {metrics.map(([label, value]) => (
           <div
             key={label}
-            style={{ padding: '10px 14px', background: '#0D131B', border: '1px solid #1F2937', borderRadius: 8 }}
+            style={{ padding: '10px 14px', background: theme.surface.panel, border: `1px solid ${theme.border.default}`, borderRadius: theme.radius.md }}
           >
-            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 14, color: '#E5E7EB', fontFamily: 'monospace' }}>{value}</div>
+            <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 14, color: theme.text.primary, fontFamily: theme.font.mono }}>{value}</div>
           </div>
         ))}
       </div>
 
-      <h3 style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 8px' }}>Últimos eventos</h3>
+      <h3 style={{ fontSize: theme.font.size.md, color: theme.text.muted, margin: '0 0 8px' }}>Últimos eventos</h3>
       {events.length === 0 && (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>Sem eventos registrados.</p>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted }}>Sem eventos registrados.</p>
       )}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {events.map((e) => (
@@ -94,19 +95,19 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
               gap: 10,
               alignItems: 'baseline',
               padding: '7px 12px',
-              background: '#0D131B',
-              border: '1px solid #1F2937',
+              background: theme.surface.panel,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
-              fontSize: 12
+              fontSize: theme.font.size.sm
             }}
           >
-            <span style={{ color: '#6B7280', fontFamily: 'monospace' }}>
+            <span style={{ color: theme.text.faint, fontFamily: theme.font.mono }}>
               {new Date(e.ts).toLocaleTimeString('pt-BR')} · {new Date(e.ts).toLocaleDateString('pt-BR')}
             </span>
             <span title={e.origin}>{ORIGIN_ICON[e.origin]}</span>
-            <span style={{ color: '#E5E7EB', fontFamily: 'monospace' }}>{e.type}</span>
+            <span style={{ color: theme.text.primary, fontFamily: theme.font.mono }}>{e.type}</span>
             <span
-              style={{ color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ color: theme.text.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               title={JSON.stringify(e.payload)}
             >
               {summarize(e.payload)}
@@ -126,12 +127,12 @@ function summarize(payload: Record<string, unknown>): string {
 }
 
 const buttonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '4px 10px',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };

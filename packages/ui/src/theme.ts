@@ -47,7 +47,8 @@ export const theme = {
     ring: '#22D3EE55',
     danger: '#F87171',
     warn: '#FBBF24',
-    ok: '#34D399'
+    ok: '#34D399',
+    info: '#60A5FA'
   },
   radius: { sm: 4, md: 8, lg: 12, pill: 999 },
   shadow: {
