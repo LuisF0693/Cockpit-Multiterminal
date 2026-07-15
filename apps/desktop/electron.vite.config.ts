@@ -57,8 +57,13 @@ export default defineConfig({
           // Smoke de diagnóstico do canal binário (host → MessagePort)
           'dataflow-smoke': resolve(__dirname, 'src/main/dataflow-smoke.ts')
         },
-        // Módulos nativos: carregados em runtime (utilityProcess / Main), nunca bundled.
-        external: ['node-pty', 'better-sqlite3']
+        // Módulos nativos/complexos: carregados em runtime (utilityProcess /
+        // Main), nunca bundled. Playwright (Épico 10) tem um grafo de
+        // módulos interno (ex.: chromium-bidi, referenciado condicionalmente
+        // dentro do próprio playwright-core) que o Rollup não resolve
+        // corretamente ao tentar empacotar — mesmo gotcha de bundling de
+        // dependência complexa já resolvido pra node-pty/better-sqlite3.
+        external: ['node-pty', 'better-sqlite3', 'playwright', 'playwright-core']
       }
     }
   },
