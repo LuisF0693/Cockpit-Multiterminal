@@ -36,6 +36,8 @@ export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-c
 export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
+export { CanvasToolbar } from './canvas-toolbar';
+export type { CanvasToolbarProps } from './canvas-toolbar';
 export { PromptModal } from './prompt-modal';
 export type { PromptModalProps } from './prompt-modal';
 export { MasterDashboard } from './master-dashboard';

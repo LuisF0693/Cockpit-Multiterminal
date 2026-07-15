@@ -10,6 +10,7 @@ import {
 import {
   BrowserPreviewTile,
   CanvasMinimap,
+  CanvasToolbar,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
@@ -586,6 +587,11 @@ export function App(): JSX.Element {
   canvasZoomRef.current = canvasZoom;
   const clampZoom = (z: number): number => Math.min(2, Math.max(0.4, z));
 
+  // Toggles da toolbar do canvas (Story 13.2, FR42) — só visual: ocultar o
+  // overlay NÃO remove vínculos (AC3), ocultar o minimapa não perde estado.
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [showLinks, setShowLinks] = useState(true);
+
   // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
   // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
   // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
@@ -991,23 +997,6 @@ export function App(): JSX.Element {
         >
           + browser
         </button>
-        {view === 'canvas' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <button onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))} title="Diminuir zoom" style={zoomButtonStyle}>
-              −
-            </button>
-            <button
-              onClick={() => setCanvasZoom(1)}
-              title="Redefinir zoom"
-              style={{ ...zoomButtonStyle, width: 44, fontSize: 11 }}
-            >
-              {Math.round(canvasZoom * 100)}%
-            </button>
-            <button onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))} title="Aumentar zoom" style={zoomButtonStyle}>
-              +
-            </button>
-          </div>
-        )}
         {error && (
           <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.accent.danger }}>{error}</span>
         )}
@@ -1137,6 +1126,26 @@ export function App(): JSX.Element {
             transition: 'background-color 200ms'
           }}
         >
+          {/* Toolbar do canvas (Story 13.2, FR42) — FORA do wrapper escalado
+              (não escala com o zoom) e num wrapper sticky de altura 0: fica
+              visível em qualquer scroll (2 eixos) sem empurrar o conteúdo. */}
+          {view === 'canvas' && (
+            <div style={{ position: 'sticky', top: 0, left: 0, height: 0, zIndex: 10000 }}>
+              <CanvasToolbar
+                zoom={canvasZoom}
+                onZoomIn={() => setCanvasZoom((z) => clampZoom(z + 0.1))}
+                onZoomOut={() => setCanvasZoom((z) => clampZoom(z - 0.1))}
+                onZoomReset={() => setCanvasZoom(1)}
+                onNewTerminal={() => void newTerminal()}
+                onNewBrowser={createBrowserTile}
+                minimapVisible={showMinimap}
+                onToggleMinimap={() => setShowMinimap((v) => !v)}
+                linksVisible={showLinks}
+                onToggleLinks={() => setShowLinks((v) => !v)}
+                adapterLabel={adapters.find((a) => a.id === selectedAdapter)?.displayName ?? selectedAdapter}
+              />
+            </div>
+          )}
           {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
               coordenadas de layout.x/y continuarem batendo com o topo-
               esquerda visual) — tamanho explícito pra section.scroll*
@@ -1159,7 +1168,9 @@ export function App(): JSX.Element {
                 <path d="M0,0 L6,3 L0,6 Z" fill={theme.text.muted} />
               </marker>
             </defs>
-            {projectTerminalLinks.map((l) => {
+            {/* Overlay ocultável pela toolbar (13.2, AC3) — só o DESENHO some;
+                vínculos continuam existindo e roteando normalmente. */}
+            {showLinks && projectTerminalLinks.map((l) => {
               const source = layout.tiles.find((t) => t.id === l.sourceId);
               const target = layout.tiles.find((t) => t.id === l.targetId);
               if (!source || !target) return null;
@@ -1278,7 +1289,7 @@ export function App(): JSX.Element {
               tiles (que ficam montados escondidos por causa do xterm/
               portas) — o minimapa não tem nenhum estado de I/O persistente,
               então desmontar é seguro. */}
-          {view === 'canvas' && (
+          {view === 'canvas' && showMinimap && (
             <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
           )}
         </section>
@@ -1310,19 +1321,6 @@ const wsButtonStyle: React.CSSProperties = {
   height: 24,
   cursor: 'pointer',
   fontSize: theme.font.size.sm
-};
-
-const zoomButtonStyle: React.CSSProperties = {
-  background: theme.surface.raised,
-  color: theme.text.muted,
-  border: `1px solid ${theme.border.default}`,
-  borderRadius: theme.radius.sm,
-  width: 24,
-  height: 24,
-  cursor: 'pointer',
-  fontSize: theme.font.size.md,
-  lineHeight: '22px',
-  padding: 0
 };
 
 /** Paleta cíclica p/ cor de novo projeto (Story 8.2) — promovida ao tema (13.1). */
