@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Project, ProjectDirEntry } from '@cockpit/shared';
 import { renderMarkdownLite } from './markdown-lite';
+import { theme } from './theme';
 
 /**
  * ProjectFilesSidebar (Story 12.1, FR34) — une `ProjectSidebar` (8.2) e
@@ -104,8 +105,8 @@ export function ProjectFilesSidebar({
           gap: 6,
           width: 44,
           padding: '8px 0',
-          background: '#0B0F14',
-          borderRight: '1px solid #1F2937',
+          background: theme.surface.app,
+          borderRight: `1px solid ${theme.border.default}`,
           flexShrink: 0
         }}
       >
@@ -118,11 +119,11 @@ export function ProjectFilesSidebar({
             style={{
               width: 32,
               height: 32,
-              borderRadius: 8,
-              border: p.id === activeId ? '2px solid #E5E7EB' : '2px solid transparent',
+              borderRadius: theme.radius.md,
+              border: p.id === activeId ? `2px solid ${theme.text.primary}` : '2px solid transparent',
               background: p.color,
-              color: '#0B0F14',
-              fontSize: 12,
+              color: theme.text.inverse,
+              fontSize: theme.font.size.sm,
               fontWeight: 700,
               cursor: 'pointer'
             }}
@@ -147,8 +148,8 @@ export function ProjectFilesSidebar({
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            background: '#0D131B',
-            borderRight: '1px solid #1F2937',
+            background: theme.surface.panel,
+            borderRight: `1px solid ${theme.border.default}`,
             overflow: 'hidden'
           }}
         >
@@ -165,7 +166,7 @@ export function ProjectFilesSidebar({
                   alignItems: 'center',
                   gap: 6,
                   padding: '8px 10px',
-                  borderBottom: '1px solid #1F2937',
+                  borderBottom: `1px solid ${theme.border.default}`,
                   flexShrink: 0
                 }}
               >
@@ -186,7 +187,7 @@ export function ProjectFilesSidebar({
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 12 }}>
                 {selected.truncated && (
-                  <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 8px' }}>
+                  <p style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '0 0 8px' }}>
                     (truncado — arquivo grande demais para o preview completo)
                   </p>
                 )}
@@ -196,9 +197,9 @@ export function ProjectFilesSidebar({
                   <pre
                     style={{
                       margin: 0,
-                      fontSize: 12,
-                      fontFamily: 'JetBrains Mono, monospace',
-                      color: '#E5E7EB',
+                      fontSize: theme.font.size.sm,
+                      fontFamily: theme.font.mono,
+                      color: theme.text.primary,
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word'
                     }}
@@ -214,7 +215,7 @@ export function ProjectFilesSidebar({
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: '#6B7280',
+                  color: theme.text.faint,
                   letterSpacing: 1,
                   margin: '2px 8px 6px',
                   textTransform: 'uppercase'
@@ -223,9 +224,9 @@ export function ProjectFilesSidebar({
                 Arquivos
               </p>
               {rootEntries === null ? (
-                <p style={{ fontSize: 12, color: '#6B7280', margin: '4px 8px' }}>carregando…</p>
+                <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '4px 8px' }}>carregando…</p>
               ) : rootEntries.length === 0 ? (
-                <p style={{ fontSize: 12, color: '#6B7280', margin: '4px 8px' }}>pasta vazia</p>
+                <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '4px 8px' }}>pasta vazia</p>
               ) : (
                 rootEntries.map((e) => (
                   <TreeNode
@@ -287,29 +288,29 @@ function TreeNode({
           width: '100%',
           padding: '3px 4px',
           paddingLeft: 8 + depth * 14,
-          background: selectedPath === entry.path ? '#111827' : 'transparent',
+          background: selectedPath === entry.path ? theme.surface.raised : 'transparent',
           border: 'none',
-          color: '#E5E7EB',
-          fontSize: 12,
+          color: theme.text.primary,
+          fontSize: theme.font.size.sm,
           textAlign: 'left',
           cursor: 'pointer'
         }}
       >
-        <span style={{ width: 12, color: '#6B7280' }}>{entry.isDirectory ? (expanded ? '▾' : '▸') : ''}</span>
+        <span style={{ width: 12, color: theme.text.faint }}>{entry.isDirectory ? (expanded ? '▾' : '▸') : ''}</span>
         <span>{entry.isDirectory ? '📁' : '📄'}</span>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {entry.name}
         </span>
-        {loadingFile === entry.path && <span style={{ fontSize: 10, color: '#6B7280' }}>…</span>}
+        {loadingFile === entry.path && <span style={{ fontSize: 10, color: theme.text.faint }}>…</span>}
       </button>
       {entry.isDirectory && expanded && (
         <div>
           {children === null ? (
-            <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0', paddingLeft: 8 + (depth + 1) * 14 }}>
+            <p style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '2px 0', paddingLeft: 8 + (depth + 1) * 14 }}>
               carregando…
             </p>
           ) : children.length === 0 ? (
-            <p style={{ fontSize: 11, color: '#4B5563', margin: '2px 0', paddingLeft: 8 + (depth + 1) * 14 }}>
+            <p style={{ fontSize: theme.font.size.xs, color: theme.text.faint, margin: '2px 0', paddingLeft: 8 + (depth + 1) * 14 }}>
               vazio
             </p>
           ) : (
@@ -335,9 +336,9 @@ const dashedButtonStyle: React.CSSProperties = {
   width: 32,
   height: 22,
   borderRadius: 6,
-  border: '1px solid #1F2937',
+  border: `1px solid ${theme.border.default}`,
   background: 'transparent',
-  color: '#9CA3AF',
-  fontSize: 12,
+  color: theme.text.muted,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer'
 };

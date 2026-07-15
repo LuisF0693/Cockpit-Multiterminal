@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BrowserTile } from '@cockpit/shared';
+import { theme } from './theme';
 import type { TileLayout } from './layout';
 
 /**
@@ -136,10 +137,10 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
         zIndex: layout.zIndex,
         display: 'flex',
         flexDirection: 'column',
-        background: '#0B0F14',
-        border: focused ? '1px solid #22D3EE' : '1px solid #1F2937',
-        borderRadius: 8,
-        boxShadow: focused ? '0 0 0 1px #22D3EE55, 0 8px 24px #00000066' : '0 4px 16px #00000044',
+        background: theme.surface.tile,
+        border: focused ? `1px solid ${theme.accent.primary}` : `1px solid ${theme.border.default}`,
+        borderRadius: theme.radius.lg,
+        boxShadow: focused ? theme.shadow.tileFocused : theme.shadow.tile,
         overflow: 'hidden'
       }}
     >
@@ -149,7 +150,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           style={{
             position: 'absolute',
             inset: 0,
-            borderRadius: 8,
+            borderRadius: theme.radius.lg,
             boxShadow: `inset 0 0 0 2px ${props.projectColor}55`,
             pointerEvents: 'none'
           }}
@@ -161,9 +162,9 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          padding: '6px 10px',
-          background: focused ? '#111827' : '#0D131B',
-          borderBottom: '1px solid #1F2937',
+          padding: `${theme.space.xs + 3}px ${theme.space.md}px`,
+          background: focused ? theme.surface.header : theme.surface.panel,
+          borderBottom: `1px solid ${theme.border.subtle}`,
           cursor: 'grab',
           userSelect: 'none',
           flexShrink: 0
@@ -202,13 +203,13 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           style={{
             flex: 1,
             minWidth: 0,
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
-            borderRadius: 4,
+            background: theme.surface.tile,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
+            borderRadius: theme.radius.sm,
             padding: '2px 8px',
-            fontSize: 11,
-            fontFamily: 'monospace'
+            fontSize: theme.font.size.xs,
+            fontFamily: theme.font.mono
           }}
         />
         <button
@@ -219,7 +220,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
             ...navButtonStyle,
             width: 'auto',
             padding: '0 6px',
-            color: automationOpen ? '#22D3EE' : '#9CA3AF'
+            color: automationOpen ? theme.accent.primary : theme.text.muted
           }}
         >
           ⚙
@@ -228,7 +229,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           onClick={props.onClose}
           onPointerDown={(e) => e.stopPropagation()}
           title="fechar preview"
-          style={{ background: 'transparent', color: '#9CA3AF', border: 'none', cursor: 'pointer', fontSize: 14 }}
+          style={{ background: 'transparent', color: theme.text.muted, border: 'none', cursor: 'pointer', fontSize: 14 }}
         >
           ×
         </button>
@@ -242,8 +243,8 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
             flexDirection: 'column',
             gap: 4,
             padding: '6px 10px',
-            borderBottom: '1px solid #1F2937',
-            background: '#0D131B',
+            borderBottom: `1px solid ${theme.border.subtle}`,
+            background: theme.surface.panel,
             flexShrink: 0
           }}
         >
@@ -255,13 +256,13 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
               style={{
                 flex: 1,
                 minWidth: 0,
-                background: '#0B0F14',
-                color: '#E5E7EB',
-                border: '1px solid #1F2937',
-                borderRadius: 4,
+                background: theme.surface.tile,
+                color: theme.text.primary,
+                border: `1px solid ${theme.border.default}`,
+                borderRadius: theme.radius.sm,
                 padding: '2px 8px',
-                fontSize: 11,
-                fontFamily: 'monospace'
+                fontSize: theme.font.size.xs,
+                fontFamily: theme.font.mono
               }}
             />
             <button
@@ -282,8 +283,8 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
                 maxHeight: 80,
                 overflow: 'auto',
                 fontSize: 10,
-                color: '#9CA3AF',
-                fontFamily: 'monospace',
+                color: theme.text.muted,
+                fontFamily: theme.font.mono,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word'
               }}
@@ -294,7 +295,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, background: '#000', display: 'grid', placeItems: 'center' }}>
+      <div style={{ flex: 1, minHeight: 0, background: theme.surface.canvas, display: 'grid', placeItems: 'center' }}>
         {screenshot ? (
           <img
             src={screenshot}
@@ -302,7 +303,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
           />
         ) : (
-          <p style={{ fontSize: 12, color: '#6B7280', fontFamily: 'monospace' }}>carregando preview…</p>
+          <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, fontFamily: theme.font.mono }}>carregando preview…</p>
         )}
       </div>
 
@@ -324,12 +325,12 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
 
 const navButtonStyle: React.CSSProperties = {
   background: 'transparent',
-  color: '#9CA3AF',
-  border: '1px solid #1F2937',
-  borderRadius: 4,
+  color: theme.text.muted,
+  border: `1px solid ${theme.border.default}`,
+  borderRadius: theme.radius.sm,
   width: 20,
   height: 20,
   lineHeight: '16px',
   cursor: 'pointer',
-  fontSize: 12
+  fontSize: theme.font.size.sm
 };
