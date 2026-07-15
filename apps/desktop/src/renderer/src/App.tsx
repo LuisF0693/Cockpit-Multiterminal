@@ -9,6 +9,7 @@ import {
 } from '@cockpit/shared';
 import {
   BrowserPreviewTile,
+  CanvasMinimap,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
@@ -22,7 +23,8 @@ import {
   TerminalTile,
   TimelineView,
   matchShortcut,
-  statusColor
+  statusColor,
+  type MinimapTile
 } from '@cockpit/ui';
 import type {
   CrashSummary,
@@ -543,6 +545,40 @@ export function App(): JSX.Element {
   const projectColorOf = (projectId: string | null): string | null =>
     projects.find((p) => p.id === projectId)?.color ?? null;
 
+  // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
+  // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
+  // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
+  // ativo, então o ref já existe quando este efeito roda).
+  const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  useEffect(() => {
+    const el = canvasSectionRef.current;
+    if (!el) return;
+    const update = (): void =>
+      setCanvasViewport({ x: el.scrollLeft, y: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
+    update();
+    el.addEventListener('scroll', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, []);
+
+  /** Foca o tile (mesmo focus/bringToFront já existente) e rola até ele (Story 12.5, AC2). */
+  const focusAndScrollTo = (id: string): void => {
+    useCockpitStore.getState().focus(id);
+    const tile = layout.tiles.find((t) => t.id === id);
+    const el = canvasSectionRef.current;
+    if (tile && el) {
+      el.scrollTo({
+        left: Math.max(0, tile.x + tile.width / 2 - el.clientWidth / 2),
+        top: Math.max(0, tile.y + tile.height / 2 - el.clientHeight / 2),
+        behavior: 'smooth'
+      });
+    }
+  };
+
   /** Converte coordenadas de ponteiro (viewport) pro espaço de conteúdo do canvas (scroll-aware). */
   const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
     const el = canvasSectionRef.current;
@@ -671,6 +707,28 @@ export function App(): JSX.Element {
 
   const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
+
+  // Tiles do minimapa (Story 12.5) — MESMO filtro de visibilidade do canvas
+  // (workspace ativo + projeto ativo pra sessões; só projeto pra browser
+  // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
+  const minimapTiles: MinimapTile[] = [
+    ...sessions
+      .filter((s) => s.workspace === workspaces.active && (!activeProjectId || s.projectId === activeProjectId))
+      .map((s): MinimapTile | null => {
+        const t = layout.tiles.find((lt) => lt.id === s.id);
+        if (!t) return null;
+        return { id: s.id, x: t.x, y: t.y, width: t.width, height: t.height, color: projectColorOf(s.projectId), focused: focusedId === s.id };
+      })
+      .filter((t): t is MinimapTile => t !== null),
+    ...browserTiles
+      .filter((b) => !activeProjectId || b.projectId === activeProjectId)
+      .map((b): MinimapTile | null => {
+        const t = layout.tiles.find((lt) => lt.id === b.id);
+        if (!t) return null;
+        return { id: b.id, x: t.x, y: t.y, width: t.width, height: t.height, color: projectColorOf(b.projectId), focused: focusedId === b.id };
+      })
+      .filter((t): t is MinimapTile => t !== null)
+  ];
 
   return (
     <main
@@ -1087,6 +1145,13 @@ export function App(): JSX.Element {
             >
               Ctrl+N ou "+ novo terminal" para começar
             </p>
+          )}
+          {/* Minimapa (Story 12.5, AC4) — só MONTA quando o canvas está
+              realmente ativo, ao contrário dos tiles (que ficam montados
+              escondidos por causa do xterm/portas); o minimapa não tem
+              nenhum estado de I/O persistente, então desmontar é seguro. */}
+          {view === 'canvas' && (
+            <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
           )}
         </section>
       </div>
