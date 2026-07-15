@@ -62,6 +62,18 @@ export interface PersistedTerminalLink {
   createdAt: number;
 }
 
+/**
+ * Tile de preview de browser (Épico 10, FR28) — a POSIÇÃO/tamanho no canvas
+ * usa o MESMO `LayoutTile`/`persistLayout` já existente (id genérico); esta
+ * entidade só guarda o que é específico do preview (URL atual, projeto).
+ */
+export interface PersistedBrowserTile {
+  id: string;
+  url: string;
+  projectId: string | null;
+  createdAt: number;
+}
+
 export interface StateStore {
   /** Cria/migra o schema (app_meta.schema_version). */
   init(): void;
@@ -104,5 +116,10 @@ export interface StateStore {
   createTerminalLink(link: PersistedTerminalLink): void;
   removeTerminalLink(id: string): void;
   listTerminalLinks(): PersistedTerminalLink[];
+  /** Tiles de preview de browser (Épico 10, FR28). */
+  createBrowserTile(tile: PersistedBrowserTile): void;
+  updateBrowserTileUrl(id: string, url: string): void;
+  removeBrowserTile(id: string): void;
+  listBrowserTiles(): PersistedBrowserTile[];
   close(): void;
 }

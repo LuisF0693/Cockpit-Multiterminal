@@ -1,5 +1,6 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type {
+  PersistedBrowserTile,
   PersistedEvent,
   PersistedTask,
   PersistedTerminal,
@@ -30,7 +31,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '8';
+const SCHEMA_VERSION = '9';
 
 interface TerminalRow {
   id: string;
@@ -62,6 +63,13 @@ interface TerminalLinkRow {
   source_id: string;
   target_id: string;
   mode: string;
+  project_id: string | null;
+  created_at: number;
+}
+
+interface BrowserTileRow {
+  id: string;
+  url: string;
   project_id: string | null;
   created_at: number;
 }
@@ -111,6 +119,12 @@ export class SqliteStateStore implements StateStore {
         source_id TEXT NOT NULL,
         target_id TEXT NOT NULL,
         mode TEXT NOT NULL,
+        project_id TEXT,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS browser_tiles (
+        id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
         project_id TEXT,
         created_at INTEGER NOT NULL
       );
@@ -205,6 +219,7 @@ export class SqliteStateStore implements StateStore {
     // v7 → v8 (Épico 9): tabela terminal_links é NOVA — CREATE TABLE IF NOT
     // EXISTS acima já cobre instalações antigas e novas; nenhum ALTER necessário
     // (mesmo caso da tabela tasks na v3→v4).
+    // v8 → v9 (Épico 10): tabela browser_tiles é NOVA — mesmo caso acima.
   }
 
   upsertTerminal(t: PersistedTerminal): void {
@@ -433,6 +448,25 @@ export class SqliteStateStore implements StateStore {
       projectId: r.project_id ?? null,
       createdAt: r.created_at
     }));
+  }
+
+  createBrowserTile(t: PersistedBrowserTile): void {
+    this.db
+      .prepare('INSERT INTO browser_tiles (id, url, project_id, created_at) VALUES (?, ?, ?, ?)')
+      .run(t.id, t.url, t.projectId, t.createdAt);
+  }
+
+  updateBrowserTileUrl(id: string, url: string): void {
+    this.db.prepare('UPDATE browser_tiles SET url = ? WHERE id = ?').run(url, id);
+  }
+
+  removeBrowserTile(id: string): void {
+    this.db.prepare('DELETE FROM browser_tiles WHERE id = ?').run(id);
+  }
+
+  listBrowserTiles(): PersistedBrowserTile[] {
+    const rows = this.db.prepare('SELECT * FROM browser_tiles ORDER BY created_at').all() as BrowserTileRow[];
+    return rows.map((r) => ({ id: r.id, url: r.url, projectId: r.project_id ?? null, createdAt: r.created_at }));
   }
 
   /** Executa um batch da WriteQueue numa transação única (atomicidade — NFR5). */

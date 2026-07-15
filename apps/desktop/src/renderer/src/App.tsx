@@ -8,6 +8,7 @@ import {
   type TerminalPortMessage
 } from '@cockpit/shared';
 import {
+  BrowserPreviewTile,
   FileExplorer,
   LifecycleBoard,
   MasterDashboard,
@@ -151,12 +152,34 @@ export function App(): JSX.Element {
   const layout = useCockpitStore((s) => s.layout);
   const focusedId = useCockpitStore((s) => s.focusedId);
   const ports = useCockpitStore((s) => s.ports);
+  const browserTiles = useCockpitStore((s) => s.browserTiles);
   // Escopo por projeto ativo (Story 8.2, AC2) — sidebar/master/tasks/board
   // só veem o projeto ativo; o canvas (tiles) usa filtro por CSS (abaixo),
   // nunca desmonta (matar xterm/porta é o gotcha da 1.3/3.6).
   const projectSessions = sessions.filter((s) => !activeProjectId || s.projectId === activeProjectId);
   const projectTasks = tasks.filter((t) => !activeProjectId || t.projectId === activeProjectId);
   const projectTerminalLinks = terminalLinks.filter((l) => !activeProjectId || l.projectId === activeProjectId);
+  const projectBrowserTiles = browserTiles.filter((t) => !activeProjectId || t.projectId === activeProjectId);
+
+  // Preview de browser (Story 10.1): screenshot da mesma página Playwright
+  // do Main, atualizado por poll enquanto o canvas está ativo (mesmo
+  // princípio de refresh periódico já usado em timeline/relatório/revisão —
+  // não há canal de streaming, seria over-engineering criar um só p/ isto).
+  const [browserScreenshots, setBrowserScreenshots] = useState<Record<string, string | null>>({});
+  useEffect(() => {
+    if (view !== 'canvas' || projectBrowserTiles.length === 0) return;
+    const refresh = (): void => {
+      for (const tile of projectBrowserTiles) {
+        void window.cockpit.browser
+          .screenshot({ id: tile.id })
+          .then((shot) => setBrowserScreenshots((prev) => ({ ...prev, [tile.id]: shot })))
+          .catch(() => void 0);
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 1500);
+    return () => clearInterval(timer);
+  }, [view, projectBrowserTiles]);
 
   useEffect(() => {
     void window.cockpit
@@ -247,6 +270,13 @@ export function App(): JSX.Element {
       else st.upsertSession(event.session);
     });
 
+    // Tiles de preview de browser (Épico 10) — mesmo padrão de espelho por push.
+    const unsubBrowserTiles = window.cockpit.browser.onEvent((event) => {
+      const st = useCockpitStore.getState();
+      if (event.type === 'removed') st.removeBrowserTile(event.tile.id);
+      else st.upsertBrowserTile(event.tile);
+    });
+
     // Recuperação pós-crash (Story 4.3, AC1): se há resumo pendente, a
     // Recovery Screen decide ANTES — sem seed nem terminal automático.
     void window.cockpit.recovery
@@ -305,6 +335,7 @@ export function App(): JSX.Element {
       unsubSdcCorrection();
       unsubTerminalLinkRouted();
       unsubTerminalLinks();
+      unsubBrowserTiles();
     };
   }, []);
 
@@ -317,9 +348,10 @@ export function App(): JSX.Element {
   const seedFromMain = (): void => {
     if (bootRef.current) return;
     bootRef.current = true;
-    void Promise.all([window.cockpit.session.list(), window.cockpit.layout.get()])
-      .then(([list, savedTiles]) => {
+    void Promise.all([window.cockpit.session.list(), window.cockpit.layout.get(), window.cockpit.browser.list()])
+      .then(([list, savedTiles, browserList]) => {
         useCockpitStore.getState().seedSessions(list, savedTiles);
+        useCockpitStore.getState().seedBrowserTiles(browserList, savedTiles);
         if (list.length === 0) return newTerminal();
         return undefined;
       })
@@ -533,6 +565,30 @@ export function App(): JSX.Element {
     }
   };
 
+  /** Preview de browser (Story 10.1) — o push (browser.onEvent) já atualiza o store. */
+  const createBrowserTile = (): void => {
+    void window.cockpit.browser.create({ url: 'about:blank' }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  const closeBrowserTile = (id: string): void => {
+    void window.cockpit.browser.remove({ id }).catch(() => void 0);
+  };
+
+  const navigateBrowserTile = (id: string, url: string): void => {
+    void window.cockpit.browser.navigate({ id, url }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  const browserTileAction = (action: 'back' | 'forward' | 'reload') => (id: string): void => {
+    void window.cockpit.browser[action]({ id }).catch(() => void 0);
+  };
+
+  /** Automação manual (Story 10.2, AC1/AC2) — mesma página do tile visível. */
+  const clickBrowserTile = (id: string, selector: string): Promise<void> =>
+    window.cockpit.browser.click({ id, selector });
+
+  const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
+    window.cockpit.browser.readText(selector ? { id, selector } : { id });
+
   return (
     <main
       style={{
@@ -703,6 +759,22 @@ export function App(): JSX.Element {
         >
           + novo terminal
         </button>
+        <button
+          onClick={createBrowserTile}
+          disabled={view === 'recovery'}
+          title="Novo preview de browser (Playwright)"
+          style={{
+            background: '#111827',
+            color: view === 'recovery' ? '#4B5563' : '#E5E7EB',
+            border: '1px solid #1F2937',
+            borderRadius: 6,
+            padding: '4px 12px',
+            fontSize: 12,
+            cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
+          }}
+        >
+          + browser
+        </button>
         {error && (
           <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#F87171' }}>{error}</span>
         )}
@@ -870,6 +942,33 @@ export function App(): JSX.Element {
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
               />
+              </div>
+            );
+          })}
+          {browserTiles.map((bTile) => {
+            const tile = layout.tiles.find((t) => t.id === bTile.id);
+            if (!tile) return null;
+            // Preview de browser não tem workspace (10.1, AC4) — só projeto.
+            const inActive = !activeProjectId || bTile.projectId === activeProjectId;
+            return (
+              <div key={bTile.id} style={{ display: inActive ? 'contents' : 'none' }}>
+                <BrowserPreviewTile
+                  tile={bTile}
+                  layout={tile}
+                  focused={focusedId === bTile.id}
+                  screenshot={browserScreenshots[bTile.id] ?? null}
+                  onFocus={() => useCockpitStore.getState().focus(bTile.id)}
+                  onClose={() => closeBrowserTile(bTile.id)}
+                  onNavigate={(url) => navigateBrowserTile(bTile.id, url)}
+                  onBack={() => browserTileAction('back')(bTile.id)}
+                  onForward={() => browserTileAction('forward')(bTile.id)}
+                  onReload={() => browserTileAction('reload')(bTile.id)}
+                  onClick={(selector) => clickBrowserTile(bTile.id, selector)}
+                  onReadText={(selector) => readTextBrowserTile(bTile.id, selector)}
+                  onMove={(x, y) => useCockpitStore.getState().moveTileTo(bTile.id, x, y)}
+                  onMoveEnd={() => useCockpitStore.getState().snapTile(bTile.id)}
+                  onResizeTile={(w, h) => useCockpitStore.getState().resizeTileTo(bTile.id, w, h)}
+                />
               </div>
             );
           })}

@@ -25,6 +25,8 @@ import {
   TerminalLinkSchema,
   TerminalLinkEventSchema,
   TerminalLinkRoutedEventSchema,
+  BrowserTileSchema,
+  BrowserTileEventSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -56,7 +58,13 @@ import {
   type TerminalLinkCreateRequest,
   type TerminalLinkRemoveRequest,
   type TerminalLinkEvent,
-  type TerminalLinkRoutedEvent
+  type TerminalLinkRoutedEvent,
+  type BrowserTileCreateRequest,
+  type BrowserTileIdRequest,
+  type BrowserNavigateRequest,
+  type BrowserClickRequest,
+  type BrowserReadTextRequest,
+  type BrowserTileEvent
 } from '@cockpit/shared';
 
 /**
@@ -214,6 +222,50 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.terminalLinkRouted, listener);
       return () => ipcRenderer.removeListener(IpcChannels.terminalLinkRouted, listener);
+    }
+  },
+  browser: {
+    create: async (req: BrowserTileCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.browserCreate, req);
+      return BrowserTileSchema.parse(raw);
+    },
+    remove: async (req: BrowserTileIdRequest) => {
+      await ipcRenderer.invoke(IpcChannels.browserRemove, req);
+    },
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.browserList);
+      return BrowserTileSchema.array().parse(raw);
+    },
+    navigate: async (req: BrowserNavigateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.browserNavigate, req);
+      return BrowserTileSchema.parse(raw);
+    },
+    back: async (req: BrowserTileIdRequest) => {
+      await ipcRenderer.invoke(IpcChannels.browserBack, req);
+    },
+    forward: async (req: BrowserTileIdRequest) => {
+      await ipcRenderer.invoke(IpcChannels.browserForward, req);
+    },
+    reload: async (req: BrowserTileIdRequest) => {
+      await ipcRenderer.invoke(IpcChannels.browserReload, req);
+    },
+    screenshot: async (req: BrowserTileIdRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.browserScreenshot, req);
+      return z.string().nullable().parse(raw);
+    },
+    click: async (req: BrowserClickRequest) => {
+      await ipcRenderer.invoke(IpcChannels.browserClick, req);
+    },
+    readText: async (req: BrowserReadTextRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.browserReadText, req);
+      return z.string().nullable().parse(raw);
+    },
+    onEvent: (cb: (event: BrowserTileEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(BrowserTileEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.browserTileEvent, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.browserTileEvent, listener);
     }
   },
   recovery: {

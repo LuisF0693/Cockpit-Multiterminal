@@ -53,6 +53,19 @@ export const IpcChannels = {
   terminalLinkEvent: 'terminalLink.event',
   /** Push Main → renderer: roteamento automático de vínculo (Story 9.2). */
   terminalLinkRouted: 'terminalLink.routed',
+  /** Preview de browser via Playwright (Épico 10, FR28/FR29). */
+  browserCreate: 'browser.create',
+  browserRemove: 'browser.remove',
+  browserList: 'browser.list',
+  browserNavigate: 'browser.navigate',
+  browserBack: 'browser.back',
+  browserForward: 'browser.forward',
+  browserReload: 'browser.reload',
+  browserScreenshot: 'browser.screenshot',
+  browserClick: 'browser.click',
+  browserReadText: 'browser.readText',
+  /** Push Main → renderer com eventos de domínio do tile de browser. */
+  browserTileEvent: 'browser.tileEvent',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -497,6 +510,52 @@ export const TerminalLinkRoutedEventSchema = z.object({
 });
 export type TerminalLinkRoutedEvent = z.infer<typeof TerminalLinkRoutedEventSchema>;
 
+/**
+ * Tile de preview de browser (Épico 10, FR28) — a posição/tamanho no canvas
+ * usa o `LayoutTile` já existente (Story 1.4); este schema só tem o que é
+ * específico do preview (URL, projeto).
+ */
+export const BrowserTileSchema = z.object({
+  id: z.string().min(1),
+  url: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
+  createdAt: z.number().int().nonnegative()
+});
+export type BrowserTile = z.infer<typeof BrowserTileSchema>;
+
+export const BrowserTileCreateRequestSchema = z.object({
+  url: z.string().min(1).default('about:blank')
+});
+export type BrowserTileCreateRequest = z.infer<typeof BrowserTileCreateRequestSchema>;
+
+export const BrowserTileIdRequestSchema = z.object({ id: z.string().min(1) });
+export type BrowserTileIdRequest = z.infer<typeof BrowserTileIdRequestSchema>;
+
+export const BrowserNavigateRequestSchema = z.object({ id: z.string().min(1), url: z.string().min(1) });
+export type BrowserNavigateRequest = z.infer<typeof BrowserNavigateRequestSchema>;
+
+/** Push Main → renderer (Épico 10) — mesmo padrão do TerminalLinkEvent. */
+export const BrowserTileEventSchema = z.object({
+  type: z.enum(['created', 'updated', 'removed']),
+  tile: BrowserTileSchema
+});
+export type BrowserTileEvent = z.infer<typeof BrowserTileEventSchema>;
+
+/**
+ * Automação via Playwright (Story 10.2, FR29) — opera sobre a MESMA
+ * instância/página do tile visível (10.1), nunca uma sessão headless
+ * paralela (decisão de design do épico).
+ */
+export const BrowserClickRequestSchema = z.object({ id: z.string().min(1), selector: z.string().min(1) });
+export type BrowserClickRequest = z.infer<typeof BrowserClickRequestSchema>;
+
+export const BrowserReadTextRequestSchema = z.object({
+  id: z.string().min(1),
+  /** Seletor opcional — ausente lê o `body` inteiro. */
+  selector: z.string().min(1).optional()
+});
+export type BrowserReadTextRequest = z.infer<typeof BrowserReadTextRequestSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -602,6 +661,23 @@ export interface CockpitApi {
     onEvent(cb: (event: TerminalLinkEvent) => void): () => void;
     /** Roteamento automático de vínculo (Story 9.2, FR26); retorna unsubscribe. */
     onRouted(cb: (event: TerminalLinkRoutedEvent) => void): () => void;
+  };
+  browser: {
+    /** Cria um tile de preview de browser (Story 10.1, AC1) — Chromium via Playwright no Main. */
+    create(req: BrowserTileCreateRequest): Promise<BrowserTile>;
+    remove(req: BrowserTileIdRequest): Promise<void>;
+    list(): Promise<BrowserTile[]>;
+    navigate(req: BrowserNavigateRequest): Promise<BrowserTile>;
+    back(req: BrowserTileIdRequest): Promise<void>;
+    forward(req: BrowserTileIdRequest): Promise<void>;
+    reload(req: BrowserTileIdRequest): Promise<void>;
+    /** Snapshot atual da página (data URL) — null se o tile não existe/falhou. */
+    screenshot(req: BrowserTileIdRequest): Promise<string | null>;
+    /** Automação (Story 10.2, FR29) — mesma página do tile visível. */
+    click(req: BrowserClickRequest): Promise<void>;
+    readText(req: BrowserReadTextRequest): Promise<string | null>;
+    /** Assina eventos de domínio do tile; retorna unsubscribe. */
+    onEvent(cb: (event: BrowserTileEvent) => void): () => void;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

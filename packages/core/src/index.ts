@@ -23,3 +23,5 @@ export { TerminalLinkManager } from './terminal-link-manager';
 export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';
 export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
+export { BrowserTileManager } from './browser-tile-manager';
+export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';

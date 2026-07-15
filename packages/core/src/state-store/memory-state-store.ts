@@ -1,5 +1,6 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type {
+  PersistedBrowserTile,
   PersistedEvent,
   PersistedTask,
   PersistedTerminal,
@@ -18,6 +19,7 @@ export class MemoryStateStore implements StateStore {
   readonly events: PersistedEvent[] = [];
   readonly tasks = new Map<string, PersistedTask>();
   readonly terminalLinks = new Map<string, PersistedTerminalLink>();
+  readonly browserTiles = new Map<string, PersistedBrowserTile>();
 
   init(): void {
     this.meta.set('schema_version', '1');
@@ -140,6 +142,23 @@ export class MemoryStateStore implements StateStore {
 
   listTerminalLinks(): PersistedTerminalLink[] {
     return [...this.terminalLinks.values()].sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  createBrowserTile(t: PersistedBrowserTile): void {
+    this.browserTiles.set(t.id, t);
+  }
+
+  updateBrowserTileUrl(id: string, url: string): void {
+    const t = this.browserTiles.get(id);
+    if (t) this.browserTiles.set(id, { ...t, url });
+  }
+
+  removeBrowserTile(id: string): void {
+    this.browserTiles.delete(id);
+  }
+
+  listBrowserTiles(): PersistedBrowserTile[] {
+    return [...this.browserTiles.values()].sort((a, b) => a.createdAt - b.createdAt);
   }
 
   close(): void {

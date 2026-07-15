@@ -7,6 +7,8 @@ import { AppInfoSchema, IpcChannels, type AppInfo } from '@cockpit/shared';
 import { PtyHostManager } from './pty-host-manager';
 import { DaemonManager } from './daemon-manager';
 import { registerSessionIpc, type PtyBackend, type SessionIpcHandle } from './session-ipc';
+import { registerBrowserIpc } from './browser-ipc';
+import type { BrowserPreviewManager } from './browser-preview-manager';
 
 /**
  * Main process — janela, ciclo de vida e IPC de controle.
@@ -116,6 +118,11 @@ app.whenReady().then(async () => {
     scrollbackDir: scrollback.scrollbackDir
   });
 
+  // Preview de browser via Playwright (Épico 10) — arquivo/instância à
+  // parte; reusa o MESMO stateStore/queue/persistence da sessão principal.
+  const browserIpcHandle = registerBrowserIpc(stateStore, sessionIpc.queue, sessionIpc.persistence);
+  browserPreview = browserIpcHandle.manager;
+
   if (sessionIpc.crashDetected) {
     // Story 4.3: boot NÃO relança/adota sozinho — a janela sobe imediatamente
     // e o renderer resolve via Recovery Screen (recovery.summary/resolve).
@@ -146,6 +153,7 @@ app.whenReady().then(async () => {
 let ptyHostManager: PtyHostManager | null = null;
 let daemonManager: DaemonManager | null = null;
 let sessionIpc: SessionIpcHandle | null = null;
+let browserPreview: BrowserPreviewManager | null = null;
 let quitting = false;
 
 function startUtilityHost(scrollback: {
@@ -167,13 +175,17 @@ app.on('before-quit', (event) => {
   event.preventDefault();
   quitting = true;
   const finalize = (): void => {
-    try {
-      sessionIpc?.persistence.markCleanShutdown();
-      sessionIpc?.queue.dispose();
-    } catch (err) {
-      console.error('[state] falha no clean shutdown:', err);
-    }
-    app.quit();
+    // Playwright/Chromium (Épico 10) — encerramento gracioso, 0 processos
+    // órfãos, mesmo cuidado já aplicado a PTY/daemon nesta função.
+    void (browserPreview?.dispose() ?? Promise.resolve()).finally(() => {
+      try {
+        sessionIpc?.persistence.markCleanShutdown();
+        sessionIpc?.queue.dispose();
+      } catch (err) {
+        console.error('[state] falha no clean shutdown:', err);
+      }
+      app.quit();
+    });
   };
   if (daemonManager) {
     daemonManager.disconnect();
