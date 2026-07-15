@@ -62,6 +62,17 @@ describe('GeminiCliAdapter (Story 12.4, FR39)', () => {
     expect(result.reason).toMatch(/PATH/);
   });
 
+  it('comando default tem extensão .cmd (node-pty/CreateProcess não faz resolução PATHEXT no Windows)', async () => {
+    const commands: string[] = [];
+    const spawnFn: GeminiSpawnFn = (command) => {
+      commands.push(command);
+      return makeFakePty();
+    };
+    const adapter = new GeminiCliAdapter(spawnFn, () => 'C:/npm/gemini.cmd');
+    await adapter.spawn(CONFIG);
+    expect(commands).toEqual(['gemini.cmd']);
+  });
+
   it('heurística de input: Enter → working (com dedupe)', async () => {
     const { adapter } = makeHarness();
     const session = await adapter.spawn(CONFIG);

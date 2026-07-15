@@ -32,7 +32,11 @@ export interface GeminiPtyLike {
 export type GeminiSpawnFn = (command: string, args: string[], config: SpawnConfig) => GeminiPtyLike;
 export type WhichFn = (command: string) => string | null;
 
-const DEFAULT_COMMAND = 'gemini';
+// Windows: node-pty usa CreateProcess diretamente, sem a resolução PATHEXT
+// que `where`/cmd.exe fazem — precisa do nome de arquivo EXATO, extensão
+// incluída (mesmo motivo pelo qual claude-code/codex/grok usam `.cmd`).
+// `gemini` é instalado via npm, cujo shim Windows é `gemini.cmd`.
+const DEFAULT_COMMAND = 'gemini.cmd';
 const KILL_GRACE_MS = 1500;
 
 function isPidAlive(pid: number): boolean {

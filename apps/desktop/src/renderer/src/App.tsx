@@ -14,6 +14,7 @@ import {
   LifecycleBoard,
   MasterDashboard,
   ProjectFilesSidebar,
+  PromptModal,
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
@@ -421,29 +422,47 @@ export function App(): JSX.Element {
     void newTerminal(undefined, { projectId });
   };
 
+  /**
+   * `window.prompt` NÃO é implementado pelo Electron no renderer (retorna
+   * `null` sempre, sem mostrar nada — limitação documentada do Chromium
+   * fora de um browser completo). `promptText` substitui as 3 chamadas que
+   * dependiam disso por um modal React controlado (`PromptModal`).
+   */
+  const [promptState, setPromptState] = useState<{
+    message: string;
+    defaultValue: string;
+    resolve: (value: string | null) => void;
+  } | null>(null);
+  const promptText = (message: string, defaultValue = ''): Promise<string | null> =>
+    new Promise((resolve) => setPromptState({ message, defaultValue, resolve }));
+
   /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
   const switchWorkspace = (name: string): void => {
     void window.cockpit.workspace.setActive({ name }).then(setWorkspaces).catch(() => void 0);
   };
 
   const createWorkspace = (): void => {
-    const name = window.prompt('Nome do novo workspace:')?.trim();
-    if (!name) return;
-    void window.cockpit.workspace
-      .create({ name })
-      .then((list) => window.cockpit.workspace.setActive({ name }).catch(() => list))
-      .then(setWorkspaces)
-      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    void promptText('Nome do novo workspace:').then((raw) => {
+      const name = raw?.trim();
+      if (!name) return;
+      void window.cockpit.workspace
+        .create({ name })
+        .then((list) => window.cockpit.workspace.setActive({ name }).catch(() => list))
+        .then(setWorkspaces)
+        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    });
   };
 
   const renameWorkspace = (): void => {
     const from = workspacesRef.current.active;
-    const to = window.prompt(`Renomear workspace "${from}" para:`, from)?.trim();
-    if (!to || to === from) return;
-    void window.cockpit.workspace
-      .rename({ from, to })
-      .then(setWorkspaces)
-      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    void promptText(`Renomear workspace "${from}" para:`, from).then((raw) => {
+      const to = raw?.trim();
+      if (!to || to === from) return;
+      void window.cockpit.workspace
+        .rename({ from, to })
+        .then(setWorkspaces)
+        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    });
   };
 
   /** Projetos (Story 8.2): operações sempre re-sincronizam a lista do Main. */
@@ -458,26 +477,28 @@ export function App(): JSX.Element {
   };
 
   const createProject = (): void => {
-    const name = window.prompt('Nome do novo projeto:')?.trim();
-    if (!name) return;
-    void window.cockpit.project
-      .pickFolder()
-      .then((rootPath) => {
-        if (!rootPath) return null;
-        const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]!;
-        return window.cockpit.project.create({ name, color, rootPath });
-      })
-      .then((list) => {
-        if (!list) return null;
-        const created = list.projects[list.projects.length - 1]!;
-        return window.cockpit.project.setActive({ id: created.id }).catch(() => list);
-      })
-      .then((list) => {
-        if (!list) return;
-        setProjects(list.projects);
-        setActiveProjectId(list.activeId);
-      })
-      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    void promptText('Nome do novo projeto:').then((raw) => {
+      const name = raw?.trim();
+      if (!name) return;
+      void window.cockpit.project
+        .pickFolder()
+        .then((rootPath) => {
+          if (!rootPath) return null;
+          const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]!;
+          return window.cockpit.project.create({ name, color, rootPath });
+        })
+        .then((list) => {
+          if (!list) return null;
+          const created = list.projects[list.projects.length - 1]!;
+          return window.cockpit.project.setActive({ id: created.id }).catch(() => list);
+        })
+        .then((list) => {
+          if (!list) return;
+          setProjects(list.projects);
+          setActiveProjectId(list.activeId);
+        })
+        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    });
   };
 
   /** Tarefas (Story 5.1) — o push (task.onEvent) já atualiza a lista. */
@@ -928,7 +949,12 @@ export function App(): JSX.Element {
           onSelectProject={switchProject}
           onCreateProject={createProject}
           onCreateTerminalIn={newTerminalInProject}
-          onReadDir={(dirPath) => window.cockpit.project.readDir({ projectId: activeProjectId, ...(dirPath !== undefined ? { dirPath } : {}) })}
+          onReadDir={(dirPath) =>
+            window.cockpit.project.readDir({
+              ...(activeProjectId ? { projectId: activeProjectId } : {}),
+              ...(dirPath !== undefined ? { dirPath } : {})
+            })
+          }
           onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
         />
 
@@ -1155,6 +1181,20 @@ export function App(): JSX.Element {
           )}
         </section>
       </div>
+      {promptState && (
+        <PromptModal
+          message={promptState.message}
+          defaultValue={promptState.defaultValue}
+          onConfirm={(value) => {
+            promptState.resolve(value || null);
+            setPromptState(null);
+          }}
+          onCancel={() => {
+            promptState.resolve(null);
+            setPromptState(null);
+          }}
+        />
+      )}
     </main>
   );
 }

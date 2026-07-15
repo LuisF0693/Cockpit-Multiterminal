@@ -38,7 +38,11 @@ export type AntigravitySpawnFn = (
 ) => AntigravityPtyLike;
 export type WhichFn = (command: string) => string | null;
 
-const DEFAULT_COMMAND = 'agy';
+// Windows: node-pty usa CreateProcess diretamente, sem a resolução PATHEXT
+// que `where`/cmd.exe fazem — precisa do nome de arquivo EXATO, extensão
+// incluída (mesmo motivo pelo qual claude-code/codex/grok usam `.cmd`).
+// `agy` é instalado como `agy.exe` (confirmado pelo fundador).
+const DEFAULT_COMMAND = 'agy.exe';
 const KILL_GRACE_MS = 1500;
 
 function isPidAlive(pid: number): boolean {

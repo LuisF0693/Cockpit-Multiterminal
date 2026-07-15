@@ -62,6 +62,17 @@ describe('AntigravityAdapter (Story 12.4, FR39)', () => {
     expect(result.reason).toMatch(/antigravity\.google/);
   });
 
+  it('comando default tem extensão .exe (node-pty/CreateProcess não faz resolução PATHEXT no Windows)', async () => {
+    const commands: string[] = [];
+    const spawnFn: AntigravitySpawnFn = (command) => {
+      commands.push(command);
+      return makeFakePty();
+    };
+    const adapter = new AntigravityAdapter(spawnFn, () => 'C:/Users/dev/AppData/Local/agy/bin/agy.exe');
+    await adapter.spawn(CONFIG);
+    expect(commands).toEqual(['agy.exe']);
+  });
+
   it('heurística de input: Enter → working (com dedupe)', async () => {
     const { adapter } = makeHarness();
     const session = await adapter.spawn(CONFIG);
