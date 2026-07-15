@@ -1,7 +1,9 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type {
+  LearningStatus,
   PersistedBrowserTile,
   PersistedEvent,
+  PersistedLearning,
   PersistedTask,
   PersistedTerminal,
   PersistedTerminalLink,
@@ -31,7 +33,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '9';
+const SCHEMA_VERSION = '10';
 
 interface TerminalRow {
   id: string;
@@ -72,6 +74,16 @@ interface BrowserTileRow {
   url: string;
   project_id: string | null;
   created_at: number;
+}
+
+interface LearningRow {
+  id: string;
+  text: string;
+  category: string;
+  project_id: string | null;
+  status: string;
+  created_at: number;
+  updated_at: number;
 }
 
 export class SqliteStateStore implements StateStore {
@@ -127,6 +139,15 @@ export class SqliteStateStore implements StateStore {
         url TEXT NOT NULL,
         project_id TEXT,
         created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS learnings (
+        id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        category TEXT NOT NULL,
+        project_id TEXT,
+        status TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_terminal_links_source ON terminal_links (source_id);
@@ -220,6 +241,7 @@ export class SqliteStateStore implements StateStore {
     // EXISTS acima já cobre instalações antigas e novas; nenhum ALTER necessário
     // (mesmo caso da tabela tasks na v3→v4).
     // v8 → v9 (Épico 10): tabela browser_tiles é NOVA — mesmo caso acima.
+    // v9 → v10 (Épico 11): tabela learnings é NOVA — mesmo caso acima.
   }
 
   upsertTerminal(t: PersistedTerminal): void {
@@ -467,6 +489,31 @@ export class SqliteStateStore implements StateStore {
   listBrowserTiles(): PersistedBrowserTile[] {
     const rows = this.db.prepare('SELECT * FROM browser_tiles ORDER BY created_at').all() as BrowserTileRow[];
     return rows.map((r) => ({ id: r.id, url: r.url, projectId: r.project_id ?? null, createdAt: r.created_at }));
+  }
+
+  createLearning(l: PersistedLearning): void {
+    this.db
+      .prepare(
+        `INSERT INTO learnings (id, text, category, project_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(l.id, l.text, l.category, l.projectId, l.status, l.createdAt, l.updatedAt);
+  }
+
+  updateLearningStatus(id: string, status: LearningStatus, updatedAt: number): void {
+    this.db.prepare('UPDATE learnings SET status = ?, updated_at = ? WHERE id = ?').run(status, updatedAt, id);
+  }
+
+  listLearnings(): PersistedLearning[] {
+    const rows = this.db.prepare('SELECT * FROM learnings ORDER BY created_at DESC').all() as LearningRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      text: r.text,
+      category: r.category,
+      projectId: r.project_id ?? null,
+      status: r.status as LearningStatus,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
   }
 
   /** Executa um batch da WriteQueue numa transação única (atomicidade — NFR5). */

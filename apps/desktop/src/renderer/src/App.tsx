@@ -27,6 +27,7 @@ import {
 import type {
   CrashSummary,
   DaemonStatus,
+  Learning,
   Project,
   SessionReport,
   Task,
@@ -84,6 +85,9 @@ export function App(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
   const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
+  // Learnings globais (Épico 11): lista espelhada via push — NUNCA escopada
+  // ao projeto ativo (Story 11.3, AC2 — "banco separado dos projetos").
+  const [learnings, setLearnings] = useState<Learning[]>([]);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -235,6 +239,22 @@ export function App(): JSX.Element {
       );
     });
 
+    void window.cockpit.learning
+      .list()
+      .then(setLearnings)
+      .catch(() => void 0);
+
+    // Espelho por push (Épico 11) — upsert por id (mesmo padrão de tasks).
+    const unsubLearnings = window.cockpit.learning.onEvent((event) => {
+      setLearnings((prev) => {
+        const idx = prev.findIndex((l) => l.id === event.learning.id);
+        if (idx === -1) return [event.learning, ...prev];
+        const next = [...prev];
+        next[idx] = event.learning;
+        return next;
+      });
+    });
+
     // Roteamento automático de revisão (Story 7.2, FR17) — o Main decide
     // QUANDO rotear; só o renderer escreve na PTY (decisão crítica 4), daí
     // instructAgent aqui em vez de no Main.
@@ -336,6 +356,7 @@ export function App(): JSX.Element {
       unsubTerminalLinkRouted();
       unsubTerminalLinks();
       unsubBrowserTiles();
+      unsubLearnings();
     };
   }, []);
 
@@ -519,6 +540,11 @@ export function App(): JSX.Element {
       `Instrução manual (vínculo terminal-a-terminal): avalie o trabalho mais recente do ` +
       `terminal "${source?.name ?? link.sourceId}" (${source?.adapterId ?? '—'}) e aja sobre o resultado.`;
     instructAgent(link.targetId, message);
+  };
+
+  /** Captura rápida de learning (Épico 11, Story 11.1, AC2) — o push (onEvent) já atualiza a lista. */
+  const createLearning = (text: string, category: string): void => {
+    void window.cockpit.learning.create({ text, category }).catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
   /**
@@ -819,6 +845,8 @@ export function App(): JSX.Element {
             onCreateLink={createTerminalLink}
             onRemoveLink={removeTerminalLink}
             onSendLink={sendTerminalLink}
+            onCreateLearning={createLearning}
+            learningCount={learnings.length}
           />
         )}
 

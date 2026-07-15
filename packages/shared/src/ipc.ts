@@ -66,6 +66,12 @@ export const IpcChannels = {
   browserReadText: 'browser.readText',
   /** Push Main → renderer com eventos de domínio do tile de browser. */
   browserTileEvent: 'browser.tileEvent',
+  /** Learnings globais (Épico 11, FR30-33). */
+  learningCreate: 'learning.create',
+  learningUpdateStatus: 'learning.updateStatus',
+  learningList: 'learning.list',
+  /** Push Main → renderer com eventos de domínio de learning. */
+  learningEvent: 'learning.event',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -556,6 +562,44 @@ export const BrowserReadTextRequestSchema = z.object({
 });
 export type BrowserReadTextRequest = z.infer<typeof BrowserReadTextRequestSchema>;
 
+/**
+ * Learning (Épico 11, FR30) — "banco separado dos projetos": `projectId` é
+ * só rastreabilidade de ORIGEM, nunca escopo (a UI nunca filtra por projeto
+ * ativo automaticamente — Story 11.3, AC2).
+ */
+export const LearningStatusSchema = z.enum(['draft', 'reviewed', 'reusable', 'discarded']);
+export type LearningStatus = z.infer<typeof LearningStatusSchema>;
+
+export const LearningSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(2000),
+  category: z.string().min(1).max(40),
+  projectId: z.string().min(1).nullable(),
+  status: LearningStatusSchema,
+  createdAt: z.number().int().nonnegative(),
+  updatedAt: z.number().int().nonnegative()
+});
+export type Learning = z.infer<typeof LearningSchema>;
+
+export const LearningCreateRequestSchema = z.object({
+  text: z.string().min(1).max(2000),
+  category: z.string().min(1).max(40)
+});
+export type LearningCreateRequest = z.infer<typeof LearningCreateRequestSchema>;
+
+export const LearningUpdateStatusRequestSchema = z.object({
+  id: z.string().min(1),
+  status: LearningStatusSchema
+});
+export type LearningUpdateStatusRequest = z.infer<typeof LearningUpdateStatusRequestSchema>;
+
+/** Push Main → renderer (Épico 11) — mesmo padrão do TaskEvent. */
+export const LearningEventSchema = z.object({
+  type: z.enum(['created', 'status_changed']),
+  learning: LearningSchema
+});
+export type LearningEvent = z.infer<typeof LearningEventSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -678,6 +722,15 @@ export interface CockpitApi {
     readText(req: BrowserReadTextRequest): Promise<string | null>;
     /** Assina eventos de domínio do tile; retorna unsubscribe. */
     onEvent(cb: (event: BrowserTileEvent) => void): () => void;
+  };
+  learning: {
+    /** Registra um aprendizado (Story 11.1, FR30) — nasce em status `draft`. */
+    create(req: LearningCreateRequest): Promise<Learning>;
+    /** Qualificação (Story 11.2, FR32) — decisão humana, rejeita transição inválida. */
+    updateStatus(req: LearningUpdateStatusRequest): Promise<Learning>;
+    list(): Promise<Learning[]>;
+    /** Assina eventos de domínio de learning; retorna unsubscribe. */
+    onEvent(cb: (event: LearningEvent) => void): () => void;
   };
   task: {
     /** Tarefas com lifecycle (Story 5.1, FR13). */

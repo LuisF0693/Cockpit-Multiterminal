@@ -53,6 +53,10 @@ export interface MasterDashboardProps {
   onRemoveLink: (id: string) => void;
   /** Envio manual (Story 9.3, AC2) — só faz sentido para vínculos em modo `manual`. */
   onSendLink: (link: TerminalLink) => void;
+  /** Captura rápida de learning (Story 11.1, AC2) — nasce em status `draft`. */
+  onCreateLearning: (text: string, category: string) => void;
+  /** Total de learnings registrados (contador — Story 11.1). */
+  learningCount: number;
 }
 
 export function MasterDashboard({
@@ -67,12 +71,16 @@ export function MasterDashboard({
   terminalLinks,
   onCreateLink,
   onRemoveLink,
-  onSendLink
+  onSendLink,
+  onCreateLearning,
+  learningCount
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sentAt, setSentAt] = useState<Record<string, number>>({});
   const [redirectTargets, setRedirectTargets] = useState<Record<string, string>>({});
+  const [learningText, setLearningText] = useState('');
+  const [learningCategory, setLearningCategory] = useState('gotcha');
   const [linkSource, setLinkSource] = useState('');
   const [linkTarget, setLinkTarget] = useState('');
   const [linkMode, setLinkMode] = useState<TerminalLinkMode>('manual');
@@ -102,12 +110,71 @@ export function MasterDashboard({
     }
   };
 
+  const submitLearning = (): void => {
+    const text = learningText.trim();
+    if (!text) return;
+    onCreateLearning(text, learningCategory.trim() || 'geral');
+    setLearningText('');
+  };
+
   return (
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Sessão Master</h2>
       <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>
         {sessions.length} {sessions.length === 1 ? 'agente' : 'agentes'} sob governança — Ctrl+M alterna com o canvas
       </p>
+
+      {/* Captura rápida de learning (Épico 11, Story 11.1, AC2) — sem
+          precisar navegar a uma tela dedicada para o caso comum. */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 20 }}>
+        <span style={{ fontSize: 12 }} title="registrar aprendizado">
+          📝
+        </span>
+        <input
+          value={learningText}
+          onChange={(e) => setLearningText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submitLearning();
+          }}
+          placeholder="registrar um aprendizado (gotcha, decisão, padrão)…"
+          list="learning-categories"
+          style={{
+            flex: 1,
+            background: '#0B0F14',
+            color: '#E5E7EB',
+            border: '1px solid #1F2937',
+            borderRadius: 6,
+            padding: '5px 10px',
+            fontSize: 12
+          }}
+        />
+        <input
+          value={learningCategory}
+          onChange={(e) => setLearningCategory(e.target.value)}
+          list="learning-categories"
+          placeholder="categoria"
+          style={{
+            width: 110,
+            background: '#111827',
+            color: '#E5E7EB',
+            border: '1px solid #1F2937',
+            borderRadius: 6,
+            padding: '5px 8px',
+            fontSize: 12
+          }}
+        />
+        <datalist id="learning-categories">
+          <option value="gotcha" />
+          <option value="decisão" />
+          <option value="padrão" />
+        </datalist>
+        <button onClick={submitLearning} disabled={!learningText.trim()} style={queueButtonStyle}>
+          registrar
+        </button>
+        <span style={{ fontSize: 11, color: '#4B5563' }} title="learnings no banco global">
+          {learningCount} no banco
+        </span>
+      </div>
 
       {/* Fila de decisões pendentes (Story 3.4/FR9) — unificada com tarefas
           em awaiting_decision desde a Story 5.3, AC3 */}

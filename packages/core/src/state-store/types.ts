@@ -74,6 +74,24 @@ export interface PersistedBrowserTile {
   createdAt: number;
 }
 
+/** Qualificação de learning (Épico 11, FR32) — decisão HUMANA, nunca automática. */
+export type LearningStatus = 'draft' | 'reviewed' | 'reusable' | 'discarded';
+
+/**
+ * Learning (Épico 11, FR30) — "banco separado dos projetos": `projectId` é
+ * só rastreabilidade de ORIGEM, nunca escopo (Story 11.3, AC2). Remover um
+ * projeto (Épico 8) nunca cascade-deleta learnings associados (FR31).
+ */
+export interface PersistedLearning {
+  id: string;
+  text: string;
+  category: string;
+  projectId: string | null;
+  status: LearningStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface StateStore {
   /** Cria/migra o schema (app_meta.schema_version). */
   init(): void;
@@ -121,5 +139,9 @@ export interface StateStore {
   updateBrowserTileUrl(id: string, url: string): void;
   removeBrowserTile(id: string): void;
   listBrowserTiles(): PersistedBrowserTile[];
+  /** Learnings globais (Épico 11, FR30/FR31) — independentes do projeto de origem. */
+  createLearning(learning: PersistedLearning): void;
+  updateLearningStatus(id: string, status: LearningStatus, updatedAt: number): void;
+  listLearnings(): PersistedLearning[];
   close(): void;
 }
