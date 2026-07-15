@@ -49,6 +49,19 @@ export interface PersistedTask {
   projectId: string | null;
 }
 
+/** Modo do vínculo terminal-a-terminal (Épico 9, FR25/FR26). */
+export type TerminalLinkMode = 'manual' | 'auto';
+
+export interface PersistedTerminalLink {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  mode: TerminalLinkMode;
+  /** Projeto dono do vínculo (Story 9.1, AC4) — origem e alvo pertencem ao mesmo. */
+  projectId: string | null;
+  createdAt: number;
+}
+
 export interface StateStore {
   /** Cria/migra o schema (app_meta.schema_version). */
   init(): void;
@@ -87,5 +100,9 @@ export interface StateStore {
   updateTask(id: string, patch: { title?: string; description?: string; state?: TaskState; updatedAt: number }): void;
   listTasks(): PersistedTask[];
   getTask(id: string): PersistedTask | null;
+  /** Vínculos terminal-a-terminal (Épico 9, FR25). */
+  createTerminalLink(link: PersistedTerminalLink): void;
+  removeTerminalLink(id: string): void;
+  listTerminalLinks(): PersistedTerminalLink[];
   close(): void;
 }

@@ -132,6 +132,20 @@ export class PersistenceManager {
     );
   }
 
+  /** Roteamento automático de vínculo terminal-a-terminal (Épico 9, FR26) — trilha auditável, origem system. */
+  recordTerminalLinkRouting(targetId: string, payload: { sourceId: string }): void {
+    this.queue.push(() =>
+      this.store.appendEvent({
+        id: ulid(),
+        ts: Date.now(),
+        origin: 'system',
+        type: 'terminal_link.routed',
+        terminalId: targetId,
+        payload
+      })
+    );
+  }
+
   /** Layout do canvas (debounced no renderer) → tiles persistidos. */
   persistLayout(tiles: LayoutTile[]): void {
     this.queue.push(() => {

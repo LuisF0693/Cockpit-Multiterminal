@@ -1,5 +1,12 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
-import type { PersistedEvent, PersistedTask, PersistedTerminal, StateStore, TaskState } from './types';
+import type {
+  PersistedEvent,
+  PersistedTask,
+  PersistedTerminal,
+  PersistedTerminalLink,
+  StateStore,
+  TaskState
+} from './types';
 
 /**
  * Implementação em memória — testes vitest (Node) nunca importam
@@ -10,6 +17,7 @@ export class MemoryStateStore implements StateStore {
   readonly meta = new Map<string, string>();
   readonly events: PersistedEvent[] = [];
   readonly tasks = new Map<string, PersistedTask>();
+  readonly terminalLinks = new Map<string, PersistedTerminalLink>();
 
   init(): void {
     this.meta.set('schema_version', '1');
@@ -120,6 +128,18 @@ export class MemoryStateStore implements StateStore {
 
   getTask(id: string): PersistedTask | null {
     return this.tasks.get(id) ?? null;
+  }
+
+  createTerminalLink(l: PersistedTerminalLink): void {
+    this.terminalLinks.set(l.id, l);
+  }
+
+  removeTerminalLink(id: string): void {
+    this.terminalLinks.delete(id);
+  }
+
+  listTerminalLinks(): PersistedTerminalLink[] {
+    return [...this.terminalLinks.values()].sort((a, b) => a.createdAt - b.createdAt);
   }
 
   close(): void {
