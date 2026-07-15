@@ -3,6 +3,7 @@ import type { SessionRecord } from '@cockpit/shared';
 import { TerminalView } from './terminal-view';
 import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
+import { theme } from './theme';
 import type { TileLayout } from './layout';
 
 /**
@@ -146,18 +147,14 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         zIndex: layout.zIndex,
         display: 'flex',
         flexDirection: 'column',
-        background: '#0B0F14',
+        background: theme.surface.tile,
         border: waiting
           ? `1px solid ${dotColor}`
           : focused
-            ? '1px solid #22D3EE'
-            : '1px solid #1F2937',
-        borderRadius: 8,
-        boxShadow: waiting
-          ? undefined
-          : focused
-            ? '0 0 0 1px #22D3EE55, 0 8px 24px #00000066'
-            : '0 4px 16px #00000044',
+            ? `1px solid ${theme.accent.primary}`
+            : `1px solid ${theme.border.default}`,
+        borderRadius: theme.radius.lg,
+        boxShadow: waiting ? undefined : focused ? theme.shadow.tileFocused : theme.shadow.tile,
         animation: waiting ? 'cockpit-waiting-pulse 1.2s ease-in-out infinite' : undefined,
         overflow: 'hidden'
       }}
@@ -170,7 +167,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           style={{
             position: 'absolute',
             inset: 0,
-            borderRadius: 8,
+            borderRadius: theme.radius.lg,
             boxShadow: `inset 0 0 0 2px ${props.projectColor}55`,
             pointerEvents: 'none'
           }}
@@ -185,10 +182,10 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '6px 10px',
-          background: focused ? '#111827' : '#0D131B',
-          borderBottom: '1px solid #1F2937',
+          gap: theme.space.sm,
+          padding: `${theme.space.xs + 3}px ${theme.space.md}px`,
+          background: focused ? theme.surface.header : theme.surface.panel,
+          borderBottom: `1px solid ${theme.border.subtle}`,
           cursor: 'grab',
           userSelect: 'none',
           flexShrink: 0
@@ -202,16 +199,17 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           style={{
             width: 8,
             height: 8,
-            borderRadius: 2,
+            borderRadius: theme.radius.sm / 2,
             background: adapterColor(session.adapterId),
+            boxShadow: `0 0 6px ${adapterColor(session.adapterId)}66`,
             flexShrink: 0
           }}
         />
         <span
           title={`${session.adapterId} · ${statusLabel(session.agentStatus)}`}
           style={{
-            fontSize: waiting ? 14 : 11,
-            color: exited ? '#F87171' : dotColor,
+            fontSize: waiting ? 14 : theme.font.size.xs,
+            color: exited ? theme.accent.danger : dotColor,
             transition: 'font-size 150ms'
           }}
         >
@@ -233,12 +231,12 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             onPointerDown={(e) => e.stopPropagation()}
             style={{
               flex: 1,
-              background: '#0B0F14',
-              color: '#E5E7EB',
-              border: '1px solid #22D3EE',
-              borderRadius: 4,
+              background: theme.surface.tile,
+              color: theme.text.primary,
+              border: `1px solid ${theme.accent.primary}`,
+              borderRadius: theme.radius.sm,
               padding: '1px 6px',
-              fontSize: 12,
+              fontSize: theme.font.size.sm,
               fontFamily: 'inherit'
             }}
           />
@@ -247,9 +245,9 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             title="Duplo-clique para renomear"
             style={{
               flex: 1,
-              fontSize: 12,
+              fontSize: theme.font.size.sm,
               fontWeight: 600,
-              color: '#E5E7EB',
+              color: theme.text.primary,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis'
@@ -265,9 +263,9 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           title="Fechar terminal (Ctrl+W)"
           style={{
             background: 'transparent',
-            color: '#9CA3AF',
+            color: theme.text.muted,
             border: 'none',
-            borderRadius: 4,
+            borderRadius: theme.radius.sm,
             width: 20,
             height: 20,
             lineHeight: '18px',
@@ -283,7 +281,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
         {port ? (
           <TerminalView port={port} focused={focused} onResize={props.onResizePty} />
         ) : (
-          <p style={{ fontSize: 12, color: '#6B7280', padding: 8, fontFamily: 'monospace' }}>
+          <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, padding: theme.space.sm, fontFamily: theme.font.mono }}>
             conectando PTY…
           </p>
         )}

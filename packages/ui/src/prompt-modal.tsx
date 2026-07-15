@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { theme } from './theme';
 
 /**
  * PromptModal — substitui `window.prompt`, que o Electron NÃO implementa no
@@ -23,7 +24,7 @@ export function PromptModal({ message, defaultValue = '', onConfirm, onCancel }:
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#00000099',
+        background: theme.surface.overlay,
         display: 'grid',
         placeItems: 'center',
         zIndex: 100000
@@ -36,14 +37,14 @@ export function PromptModal({ message, defaultValue = '', onConfirm, onCancel }:
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
-          padding: 16,
-          background: '#0D131B',
-          border: '1px solid #1F2937',
-          borderRadius: 8,
-          boxShadow: '0 8px 24px #00000066'
+          padding: theme.space.lg,
+          background: theme.surface.panel,
+          border: `1px solid ${theme.border.default}`,
+          borderRadius: theme.radius.lg,
+          boxShadow: theme.shadow.overlay
         }}
       >
-        <p style={{ margin: 0, fontSize: 13, color: '#E5E7EB' }}>{message}</p>
+        <p style={{ margin: 0, fontSize: theme.font.size.md, color: theme.text.primary }}>{message}</p>
         <input
           autoFocus
           value={value}
@@ -53,12 +54,12 @@ export function PromptModal({ message, defaultValue = '', onConfirm, onCancel }:
             if (e.key === 'Escape') onCancel();
           }}
           style={{
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #22D3EE',
-            borderRadius: 4,
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.accent.primary}`,
+            borderRadius: theme.radius.sm,
             padding: '6px 8px',
-            fontSize: 13,
+            fontSize: theme.font.size.md,
             fontFamily: 'inherit'
           }}
         />
@@ -67,11 +68,11 @@ export function PromptModal({ message, defaultValue = '', onConfirm, onCancel }:
             onClick={onCancel}
             style={{
               background: 'transparent',
-              color: '#9CA3AF',
-              border: '1px solid #1F2937',
+              color: theme.text.muted,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
               padding: '5px 12px',
-              fontSize: 12,
+              fontSize: theme.font.size.sm,
               cursor: 'pointer'
             }}
           >
@@ -80,12 +81,12 @@ export function PromptModal({ message, defaultValue = '', onConfirm, onCancel }:
           <button
             onClick={() => onConfirm(value.trim())}
             style={{
-              background: '#22D3EE',
-              color: '#0B0F14',
+              background: theme.accent.primary,
+              color: theme.text.inverse,
               border: 'none',
               borderRadius: 6,
               padding: '5px 12px',
-              fontSize: 12,
+              fontSize: theme.font.size.sm,
               fontWeight: 600,
               cursor: 'pointer'
             }}

@@ -21,10 +21,13 @@ import {
   Sidebar,
   StatusPulseStyles,
   TasksPanel,
+  PROJECT_PALETTE,
   TerminalTile,
   TimelineView,
+  canvasBackground,
   matchShortcut,
   statusColor,
+  theme,
   type MinimapTile
 } from '@cockpit/ui';
 import type {
@@ -790,9 +793,9 @@ export function App(): JSX.Element {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: '#0B0F14',
-        color: '#E5E7EB',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        background: theme.surface.app,
+        color: theme.text.primary,
+        fontFamily: theme.font.ui,
         overflow: 'hidden'
       }}
     >
@@ -801,9 +804,9 @@ export function App(): JSX.Element {
         style={{
           display: 'flex',
           alignItems: 'baseline',
-          gap: 12,
-          padding: '10px 16px',
-          borderBottom: '1px solid #1F2937',
+          gap: theme.space.md,
+          padding: `${theme.space.sm + 2}px ${theme.space.lg}px`,
+          borderBottom: `1px solid ${theme.border.default}`,
           flexShrink: 0
         }}
       >
@@ -815,12 +818,12 @@ export function App(): JSX.Element {
             onChange={(e) => switchWorkspace(e.target.value)}
             title="Workspace ativo (filtra o canvas)"
             style={{
-              background: '#111827',
-              color: '#E5E7EB',
-              border: '1px solid #1F2937',
+              background: theme.surface.raised,
+              color: theme.text.primary,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
               padding: '4px 8px',
-              fontSize: 12
+              fontSize: theme.font.size.sm
             }}
           >
             {workspaces.names.map((w) => (
@@ -852,12 +855,12 @@ export function App(): JSX.Element {
               onClick={() => setView(v)}
               title={title}
               style={{
-                background: view === v ? '#1F2937' : 'transparent',
-                color: view === v ? '#E5E7EB' : '#9CA3AF',
-                border: '1px solid #1F2937',
+                background: view === v ? theme.surface.raised : 'transparent',
+                color: view === v ? theme.text.primary : theme.text.muted,
+                border: `1px solid ${view === v ? theme.border.strong : theme.border.default}`,
                 borderRadius: 6,
                 padding: '3px 10px',
-                fontSize: 12,
+                fontSize: theme.font.size.sm,
                 cursor: 'pointer'
               }}
             >
@@ -866,7 +869,7 @@ export function App(): JSX.Element {
           ))}
         </nav>
         {info && (
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#9CA3AF' }}>
+          <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.text.muted }}>
             v{info.version} · {info.platform} · {projectSessions.length}{' '}
             {projectSessions.length === 1 ? 'sessão' : 'sessões'}
           </span>
@@ -877,11 +880,11 @@ export function App(): JSX.Element {
           <span
             title="Estado do daemon de terminais"
             style={{
-              fontSize: 12,
+              fontSize: theme.font.size.sm,
               fontWeight: 700,
-              color: '#0B0F14',
-              background: daemonState === 'disconnected' ? '#F87171' : '#FBBF24',
-              borderRadius: 12,
+              color: theme.text.inverse,
+              background: daemonState === 'disconnected' ? theme.accent.danger : theme.accent.warn,
+              borderRadius: theme.radius.pill,
               padding: '3px 10px'
             }}
           >
@@ -904,11 +907,11 @@ export function App(): JSX.Element {
               title="Ir à fila de decisões pendentes"
               style={{
                 background: statusColor('waiting-input'),
-                color: '#0B0F14',
+                color: theme.text.inverse,
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: theme.font.size.sm,
                 border: 'none',
-                borderRadius: 12,
+                borderRadius: theme.radius.pill,
                 padding: '3px 10px',
                 cursor: 'pointer'
               }}
@@ -923,12 +926,12 @@ export function App(): JSX.Element {
             onChange={(e) => setSelectedAdapter(e.target.value)}
             title="Adapter do novo terminal"
             style={{
-              background: '#111827',
-              color: '#E5E7EB',
-              border: '1px solid #1F2937',
+              background: theme.surface.raised,
+              color: theme.text.primary,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
               padding: '4px 8px',
-              fontSize: 12
+              fontSize: theme.font.size.sm
             }}
           >
             {adapters.map((a) => (
@@ -946,13 +949,13 @@ export function App(): JSX.Element {
             placeholder="modelo (ex.: llama3)"
             style={{
               width: 110,
-              background: '#111827',
-              color: '#E5E7EB',
-              border: '1px solid #1F2937',
+              background: theme.surface.raised,
+              color: theme.text.primary,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
               padding: '4px 8px',
-              fontSize: 12,
-              fontFamily: 'monospace'
+              fontSize: theme.font.size.sm,
+              fontFamily: theme.font.mono
             }}
           />
         )}
@@ -961,12 +964,12 @@ export function App(): JSX.Element {
           disabled={view === 'recovery'}
           title={`Novo terminal ${selectedAdapter} (Ctrl+N)`}
           style={{
-            background: '#111827',
-            color: view === 'recovery' ? '#4B5563' : '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: view === 'recovery' ? theme.text.faint : theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '4px 12px',
-            fontSize: 12,
+            fontSize: theme.font.size.sm,
             cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
           }}
         >
@@ -977,12 +980,12 @@ export function App(): JSX.Element {
           disabled={view === 'recovery'}
           title="Novo preview de browser (Playwright)"
           style={{
-            background: '#111827',
-            color: view === 'recovery' ? '#4B5563' : '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: view === 'recovery' ? theme.text.faint : theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '4px 12px',
-            fontSize: 12,
+            fontSize: theme.font.size.sm,
             cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
           }}
         >
@@ -1006,7 +1009,7 @@ export function App(): JSX.Element {
           </div>
         )}
         {error && (
-          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#F87171' }}>{error}</span>
+          <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.accent.danger }}>{error}</span>
         )}
       </header>
 
@@ -1124,13 +1127,13 @@ export function App(): JSX.Element {
             // Canvas fica MONTADO quando o master está ativo (desmontar
             // mataria xterm/portas) — apenas escondido.
             display: view === 'canvas' ? 'block' : 'none',
-            // Fundo do canvas na cor do projeto ativo (pedido do fundador na
-            // validação visual, além do anel fino por-tile da 12.3) — os
-            // tiles continuam com fundo próprio opaco (#0B0F14), só o
-            // "chão" do canvas entre eles fica tingido, pra bater de
-            // relance qual projeto está aberto sem ler nome nenhum.
-            background: activeProjectColor ? `${activeProjectColor}26` : '#0B0F14',
-            transition: 'background 200ms'
+            // Fundo com profundidade (Story 13.1, AC2): chão mais fundo do
+            // tema + grade de pontos sutil; quando o projeto ativo tem cor
+            // (12.6/FR37), entra uma lavagem translúcida da cor — os tiles
+            // continuam com fundo próprio opaco, só o "chão" entre eles
+            // tinge, pra bater de relance qual projeto está aberto.
+            ...canvasBackground(activeProjectColor),
+            transition: 'background-color 200ms'
           }}
         >
           {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
@@ -1152,7 +1155,7 @@ export function App(): JSX.Element {
           <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
             <defs>
               <marker id="terminal-link-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 Z" fill="#6B7280" />
+                <path d="M0,0 L6,3 L0,6 Z" fill={theme.text.muted} />
               </marker>
             </defs>
             {projectTerminalLinks.map((l) => {
@@ -1166,7 +1169,7 @@ export function App(): JSX.Element {
                   y1={source.y + source.height / 2}
                   x2={target.x + target.width / 2}
                   y2={target.y + target.height / 2}
-                  stroke={l.mode === 'auto' ? '#34D399' : '#6B7280'}
+                  stroke={l.mode === 'auto' ? theme.accent.ok : theme.text.muted}
                   strokeWidth={2}
                   strokeDasharray={l.mode === 'manual' ? '4 3' : undefined}
                   markerEnd="url(#terminal-link-arrow)"
@@ -1184,7 +1187,7 @@ export function App(): JSX.Element {
                     y1={source.y + source.height / 2}
                     x2={linkDrag.x}
                     y2={linkDrag.y}
-                    stroke="#22D3EE"
+                    stroke={theme.accent.primary}
                     strokeWidth={2}
                     strokeDasharray="4 3"
                   />
@@ -1259,9 +1262,9 @@ export function App(): JSX.Element {
                 inset: 0,
                 display: 'grid',
                 placeItems: 'center',
-                color: '#6B7280',
-                fontFamily: 'monospace',
-                fontSize: 13
+                color: theme.text.muted,
+                fontFamily: theme.font.mono,
+                fontSize: theme.font.size.md
               }}
             >
               Ctrl+N ou "+ novo terminal" para começar
@@ -1299,27 +1302,27 @@ export function App(): JSX.Element {
 
 const wsButtonStyle: React.CSSProperties = {
   background: 'transparent',
-  color: '#9CA3AF',
-  border: '1px solid #1F2937',
-  borderRadius: 4,
+  color: theme.text.muted,
+  border: `1px solid ${theme.border.default}`,
+  borderRadius: theme.radius.sm,
   width: 24,
   height: 24,
   cursor: 'pointer',
-  fontSize: 12
+  fontSize: theme.font.size.sm
 };
 
 const zoomButtonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#9CA3AF',
-  border: '1px solid #1F2937',
-  borderRadius: 4,
+  background: theme.surface.raised,
+  color: theme.text.muted,
+  border: `1px solid ${theme.border.default}`,
+  borderRadius: theme.radius.sm,
   width: 24,
   height: 24,
   cursor: 'pointer',
-  fontSize: 13,
+  fontSize: theme.font.size.md,
   lineHeight: '22px',
   padding: 0
 };
 
-/** Paleta cíclica p/ cor de novo projeto (Story 8.2) — sem seletor de cor nesta story. */
-const PROJECT_COLORS = ['#3B82F6', '#F87171', '#34D399', '#FBBF24', '#A78BFA', '#F472B6'];
+/** Paleta cíclica p/ cor de novo projeto (Story 8.2) — promovida ao tema (13.1). */
+const PROJECT_COLORS = PROJECT_PALETTE;

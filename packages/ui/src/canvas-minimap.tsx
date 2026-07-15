@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { theme } from './theme';
 
 /**
  * CanvasMinimap (Story 12.5) — retângulo por tile, proporcional à posição
@@ -61,11 +62,11 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
         right: 12,
         bottom: 12,
         zIndex: 9999,
-        background: '#0B0F14DD',
-        border: '1px solid #1F2937',
-        borderRadius: 8,
+        background: `${theme.surface.panel}DD`,
+        border: `1px solid ${theme.border.default}`,
+        borderRadius: theme.radius.md,
         overflow: 'hidden',
-        boxShadow: '0 4px 16px #00000066'
+        boxShadow: theme.shadow.tile
       }}
     >
       <div
@@ -75,9 +76,9 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
           justifyContent: 'space-between',
           gap: 6,
           padding: '3px 6px',
-          borderBottom: collapsed ? 'none' : '1px solid #1F2937',
+          borderBottom: collapsed ? 'none' : `1px solid ${theme.border.default}`,
           fontSize: 10,
-          color: '#6B7280',
+          color: theme.text.faint,
           letterSpacing: 0.5,
           textTransform: 'uppercase'
         }}
@@ -89,7 +90,7 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#9CA3AF',
+            color: theme.text.muted,
             cursor: 'pointer',
             fontSize: 11,
             lineHeight: 1,
@@ -112,8 +113,8 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
                 top: t.y * scale,
                 width: Math.max(t.width * scale, 4),
                 height: Math.max(t.height * scale, 4),
-                background: t.color ?? '#374151',
-                border: t.focused ? '1px solid #22D3EE' : '1px solid #00000055',
+                background: t.color ?? theme.border.strong,
+                border: t.focused ? `1px solid ${theme.accent.primary}` : '1px solid #00000055',
                 borderRadius: 2,
                 padding: 0,
                 cursor: 'pointer'
@@ -128,7 +129,7 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
               top: viewport.y * scale,
               width: viewport.width * scale,
               height: viewport.height * scale,
-              border: '1px solid #22D3EE99',
+              border: `1px solid ${theme.accent.primary}99`,
               pointerEvents: 'none'
             }}
           />

@@ -33,6 +33,7 @@ export {
   statusLabel
 } from './status-colors';
 export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
+export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
 export { PromptModal } from './prompt-modal';
