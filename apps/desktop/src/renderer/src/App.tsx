@@ -31,6 +31,8 @@ import type {
   Task,
   TaskRole,
   TaskState,
+  TerminalLink,
+  TerminalLinkMode,
   TimelineEvent,
   WorkspaceList
 } from '@cockpit/shared';
@@ -79,6 +81,8 @@ export function App(): JSX.Element {
   const [crashSummary, setCrashSummary] = useState<CrashSummary | null>(null);
   // Tarefas (Story 5.1): lista espelhada via push (mesmo padrão de sessões).
   const [tasks, setTasks] = useState<Task[]>([]);
+  // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
+  const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
   const bootRef = useRef(false);
 
   const refreshTimeline = (): void => {
@@ -152,6 +156,7 @@ export function App(): JSX.Element {
   // nunca desmonta (matar xterm/porta é o gotcha da 1.3/3.6).
   const projectSessions = sessions.filter((s) => !activeProjectId || s.projectId === activeProjectId);
   const projectTasks = tasks.filter((t) => !activeProjectId || t.projectId === activeProjectId);
+  const projectTerminalLinks = terminalLinks.filter((l) => !activeProjectId || l.projectId === activeProjectId);
 
   useEffect(() => {
     void window.cockpit
@@ -193,6 +198,18 @@ export function App(): JSX.Element {
         next[idx] = event.task;
         return next;
       });
+    });
+
+    void window.cockpit.terminalLink
+      .list()
+      .then(setTerminalLinks)
+      .catch(() => void 0);
+
+    // Espelho por push (Épico 9) — created adiciona, removed tira da lista.
+    const unsubTerminalLinks = window.cockpit.terminalLink.onEvent((event) => {
+      setTerminalLinks((prev) =>
+        event.type === 'created' ? [...prev, event.link] : prev.filter((l) => l.id !== event.link.id)
+      );
     });
 
     // Roteamento automático de revisão (Story 7.2, FR17) — o Main decide
@@ -287,6 +304,7 @@ export function App(): JSX.Element {
       unsubSdc();
       unsubSdcCorrection();
       unsubTerminalLinkRouted();
+      unsubTerminalLinks();
     };
   }, []);
 
@@ -449,6 +467,26 @@ export function App(): JSX.Element {
     for (const s of useCockpitStore.getState().sessions) {
       if (s.taskId === taskId) instructAgent(s.id, text);
     }
+  };
+
+  /** Vínculo terminal-a-terminal (Épico 9, Story 9.3) — o push (onEvent) já atualiza a lista. */
+  const createTerminalLink = (sourceId: string, targetId: string, mode: TerminalLinkMode): void => {
+    void window.cockpit.terminalLink
+      .create({ sourceId, targetId, mode })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  const removeTerminalLink = (id: string): void => {
+    void window.cockpit.terminalLink.remove({ id }).catch(() => void 0);
+  };
+
+  /** Envio manual (AC2 da 9.3) — mesma redação-base do roteamento automático (9.2), disparada sob demanda. */
+  const sendTerminalLink = (link: TerminalLink): void => {
+    const source = useCockpitStore.getState().sessions.find((s) => s.id === link.sourceId);
+    const message =
+      `Instrução manual (vínculo terminal-a-terminal): avalie o trabalho mais recente do ` +
+      `terminal "${source?.name ?? link.sourceId}" (${source?.adapterId ?? '—'}) e aja sobre o resultado.`;
+    instructAgent(link.targetId, message);
   };
 
   /**
@@ -705,6 +743,10 @@ export function App(): JSX.Element {
             onLinkTask={linkTask}
             onDecide={decideTask}
             onOpenReview={goToReview}
+            terminalLinks={projectTerminalLinks}
+            onCreateLink={createTerminalLink}
+            onRemoveLink={removeTerminalLink}
+            onSendLink={sendTerminalLink}
           />
         )}
 
@@ -774,6 +816,34 @@ export function App(): JSX.Element {
             display: view === 'canvas' ? 'block' : 'none'
           }}
         >
+          {/* Indicação visual de vínculos (Épico 9, Story 9.3, AC1) — SVG
+              atrás dos tiles (ordem no DOM), pointer-events:none pra não
+              atrapalhar arrastar/redimensionar. */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+            <defs>
+              <marker id="terminal-link-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#6B7280" />
+              </marker>
+            </defs>
+            {projectTerminalLinks.map((l) => {
+              const source = layout.tiles.find((t) => t.id === l.sourceId);
+              const target = layout.tiles.find((t) => t.id === l.targetId);
+              if (!source || !target) return null;
+              return (
+                <line
+                  key={l.id}
+                  x1={source.x + source.width / 2}
+                  y1={source.y + source.height / 2}
+                  x2={target.x + target.width / 2}
+                  y2={target.y + target.height / 2}
+                  stroke={l.mode === 'auto' ? '#34D399' : '#6B7280'}
+                  strokeWidth={2}
+                  strokeDasharray={l.mode === 'manual' ? '4 3' : undefined}
+                  markerEnd="url(#terminal-link-arrow)"
+                />
+              );
+            })}
+          </svg>
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;
