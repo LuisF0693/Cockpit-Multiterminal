@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  type AdapterCheckCommandRequest,
   CrashSummarySchema,
   DaemonStatusSchema,
   IpcChannels,
@@ -134,6 +135,10 @@ const api: CockpitApi = {
     list: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterList);
       return AdapterInfoSchema.array().parse(raw);
+    },
+    checkCommand: async (req: AdapterCheckCommandRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterCheckCommand, req);
+      return z.string().nullable().parse(raw);
     }
   },
   timeline: {

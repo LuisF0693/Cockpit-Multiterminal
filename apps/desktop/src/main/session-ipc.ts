@@ -21,6 +21,7 @@ import {
   type StateStore
 } from '@cockpit/core';
 import {
+  AdapterCheckCommandRequestSchema,
   AgentStatusSchema,
   IpcChannels,
   LayoutUpdateRequestSchema,
@@ -542,6 +543,23 @@ export function registerSessionIpc(
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
+
+  // Disponibilidade de comando no PATH (Story 13.4, FR45) — scan manual de
+  // fs.access (nada é executado; `where` spawnaria um processo por checagem).
+  // O schema já rejeita separadores de caminho — só nome de arquivo simples.
+  ipcMain.handle(IpcChannels.adapterCheckCommand, async (_event, raw: unknown) => {
+    const req = AdapterCheckCommandRequestSchema.parse(raw);
+    const dirs = (process.env.PATH ?? '').split(';').filter(Boolean);
+    for (const dir of dirs) {
+      const candidate = join(dir, req.command);
+      try {
+        if ((await fsStat(candidate)).isFile()) return candidate;
+      } catch {
+        // não existe neste diretório — segue
+      }
+    }
+    return null;
+  });
 
   ipcMain.handle(IpcChannels.timelineGet, (_event, raw: unknown) => {
     const req = TimelineGetRequestSchema.parse(raw ?? {});

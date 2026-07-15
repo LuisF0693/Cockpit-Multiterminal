@@ -8,6 +8,8 @@ import {
   type TerminalPortMessage
 } from '@cockpit/shared';
 import {
+  ADAPTER_CATALOG,
+  AgentCatalog,
   BrowserPreviewTile,
   CanvasMinimap,
   CanvasToolbar,
@@ -70,7 +72,7 @@ export function App(): JSX.Element {
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'learnings'
+    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'learnings' | 'agents'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -593,6 +595,24 @@ export function App(): JSX.Element {
   const [showMinimap, setShowMinimap] = useState(true);
   const [showLinks, setShowLinks] = useState(true);
 
+  // Catálogo de agentes (Story 13.4, FR45) — disponibilidade no PATH checada
+  // no Main ao ENTRAR na view (não no boot: 8 stats de fs sem ninguém olhando).
+  const [adapterAvailability, setAdapterAvailability] = useState<Record<string, string | null | undefined>>({});
+  useEffect(() => {
+    if (view !== 'agents') return;
+    for (const a of adapters) {
+      const command = ADAPTER_CATALOG[a.id]?.command;
+      if (!command) {
+        setAdapterAvailability((prev) => ({ ...prev, [a.id]: null }));
+        continue;
+      }
+      void window.cockpit.adapter
+        .checkCommand({ command })
+        .then((path) => setAdapterAvailability((prev) => ({ ...prev, [a.id]: path })))
+        .catch(() => setAdapterAvailability((prev) => ({ ...prev, [a.id]: null })));
+    }
+  }, [view, adapters]);
+
   // Branch git do projeto ativo (Story 13.3, FR44) — lida no Main; refresh
   // na troca de projeto + poll de 5s (mesmo padrão de timeline/relatório).
   const [gitBranch, setGitBranch] = useState<string | null>(null);
@@ -875,7 +895,8 @@ export function App(): JSX.Element {
               ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)']
+              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)'],
+              ['agents', 'Agentes', 'Catálogo de agentes com disponibilidade no PATH (Story 13.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -1119,6 +1140,16 @@ export function App(): JSX.Element {
         )}
 
         {view === 'learnings' && <LearningsView learnings={learnings} projects={projects} />}
+
+        {view === 'agents' && (
+          <AgentCatalog
+            adapters={adapters}
+            availability={adapterAvailability}
+            onCreateTerminal={(adapterId) => void newTerminal(adapterId)}
+            ollamaModel={ollamaModel}
+            onOllamaModelChange={setOllamaModel}
+          />
+        )}
 
         <section
           ref={canvasSectionRef}

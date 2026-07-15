@@ -28,6 +28,8 @@ export const IpcChannels = {
   /** Relatório de sessão (Story 3.5) — projeção da trilha de eventos. */
   sessionReport: 'session.report',
   adapterList: 'adapter.list',
+  /** Disponibilidade de um comando no PATH (Story 13.4, FR45) — lookup no Main, sem executar nada. */
+  adapterCheckCommand: 'adapter.checkCommand',
   timelineGet: 'timeline.get',
   /** Workspaces (Story 3.6). */
   workspaceList: 'workspace.list',
@@ -120,6 +122,19 @@ export const AdapterInfoSchema = z.object({
   displayName: z.string().min(1)
 });
 export type AdapterInfo = z.infer<typeof AdapterInfoSchema>;
+
+/**
+ * Checagem de comando no PATH (Story 13.4, FR45) — nome de ARQUIVO simples
+ * (com extensão), nunca um caminho: separadores são rejeitados no schema.
+ */
+export const AdapterCheckCommandRequestSchema = z.object({
+  command: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/, 'nome de comando simples, sem separadores de caminho')
+});
+export type AdapterCheckCommandRequest = z.infer<typeof AdapterCheckCommandRequestSchema>;
 
 /**
  * Sessão de terminal (Story 1.3) — fonte de verdade no SessionRegistry (core,
@@ -668,6 +683,8 @@ export interface CockpitApi {
   adapter: {
     /** Adapters registrados no PTY Host (Story 2.1+). */
     list(): Promise<AdapterInfo[]>;
+    /** Caminho resolvido do comando no PATH, ou null se não instalado (Story 13.4, FR45). */
+    checkCommand(req: AdapterCheckCommandRequest): Promise<string | null>;
   };
   timeline: {
     /** Eventos da trilha, mais recentes primeiro (Story 3.3). */
