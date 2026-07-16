@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { matchShortcut } from './shortcuts';
-import { theme } from './theme';
+import { getActiveTheme, subscribeTheme, type ThemeData } from './theme-runtime';
 import '@xterm/xterm/css/xterm.css';
 
 /**
@@ -29,9 +29,12 @@ export interface TerminalViewProps {
   onResize?: (size: { cols: number; rows: number }) => void;
 }
 
-// Tema do xterm coordenado pelo tema global (Story 13.1) — o fundo do
-// terminal casa com surface.tile pra área do xterm não "vazar" outra cor.
-const THEME = { ...theme.terminal };
+// Tema do xterm coordenado pelo tema ATIVO (Story 15.2, FR55) — xterm não
+// lê CSS variables, então consome os dados CRUS do runtime e re-tematiza
+// ao vivo via subscribeTheme (o fundo casa com surface.tile do tema).
+const xtermTheme = (t: ThemeData): { background: string; foreground: string; cursor: string; selectionBackground: string } => ({
+  ...t.terminal
+});
 
 export function TerminalView({ port, focused = true, onResize }: TerminalViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,13 +52,19 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
     let disposed = false;
 
     const term = new Terminal({
-      fontFamily: theme.font.mono,
+      fontFamily: getActiveTheme().font.mono,
       fontSize: 14,
-      theme: THEME,
+      theme: xtermTheme(getActiveTheme()),
       scrollback: 5000,
       allowProposedApi: true
     });
     termRef.current = term;
+
+    // Re-tematiza ao vivo na troca de tema (15.2) — options é mutável no xterm 5.
+    const unsubTheme = subscribeTheme((t) => {
+      term.options.theme = xtermTheme(t);
+      term.options.fontFamily = t.font.mono;
+    });
 
     // Atalhos globais (Ctrl+N/W/1..9) não são consumidos pelo xterm:
     // retornar false pula o handling interno e deixa o evento subir à window.
@@ -132,6 +141,7 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
       flushRef.current = null;
       termRef.current = null;
       observer.disconnect();
+      unsubTheme();
       inputSub.dispose();
       webgl?.dispose();
       term.dispose();

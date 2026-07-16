@@ -11,6 +11,7 @@ import {
   ADAPTER_CATALOG,
   AgentCatalog,
   AppSidebar,
+  AppToolbar,
   BrowserPreviewTile,
   CanvasMinimap,
   FilePreviewPanel,
@@ -22,14 +23,16 @@ import {
   ReviewPanel,
   SessionCardsBar,
   SessionReportView,
-  SettingsView,
+  SettingsWindow,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
   TelemetryPanel,
   TerminalTile,
   TimelineView,
+  applyTheme,
   canvasBackground,
+  composeTheme,
   matchShortcut,
   statusColor,
   theme,
@@ -37,6 +40,8 @@ import {
   type PreviewFile
 } from '@cockpit/ui';
 import type {
+  ApiProvider,
+  ApiProviderCreateRequest,
   AppSettings,
   CrashSummary,
   DaemonStatus,
@@ -80,6 +85,14 @@ export function App(): JSX.Element {
   // Declarado AQUI (antes dos efeitos que dependem de `settings`) — o array
   // de dependências avalia durante o render, TDZ derrubaria o boot.
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  // Larguras dos painéis (Story 15.1, FR52) — persistidas nas settings.
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [telemetryWidth, setTelemetryWidth] = useState(230);
+  const [previewWidth, setPreviewWidth] = useState(520);
+  // Colapsáveis (Story 15.5, FR58) — canvas maior; persistidos nas settings.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [telemetryCollapsed, setTelemetryCollapsed] = useState(false);
+  const [sessionsBarCollapsed, setSessionsBarCollapsed] = useState(false);
   useEffect(() => {
     void window.cockpit.settings
       .get()
@@ -87,16 +100,59 @@ export function App(): JSX.Element {
         setSettings(s);
         setOllamaModel(s.ollamaDefaultModel);
         setCanvasZoom(clampZoom(s.canvasDefaultZoom));
+        setSidebarWidth(s.sidebarWidth);
+        setTelemetryWidth(s.telemetryWidth);
+        setPreviewWidth(s.previewWidth);
+        setSidebarCollapsed(s.sidebarCollapsed);
+        setTelemetryCollapsed(s.telemetryCollapsed);
+        setSessionsBarCollapsed(s.sessionsBarCollapsed);
+        // Tema vivo (15.2, FR55): compõe preset+destaque+fontes das settings
+        // e aplica nas CSS vars — sem reiniciar, xterm re-tematiza junto.
+        applyTheme(
+          composeTheme({
+            themePreset: s.themePreset,
+            accentColor: s.accentColor,
+            fontText: s.fontText,
+            fontMono: s.fontMono
+          })
+        );
       })
       .catch(() => void 0);
   }, []);
 
-  const saveSettings = (next: AppSettings): void => {
+  /** Persiste uma largura ao SOLTAR o arraste (15.1) — merge parcial no Main. */
+  const persistPanelWidth = (patch: Partial<AppSettings>): void => {
+    void window.cockpit.settings.update(patch).then(setSettings).catch(() => void 0);
+  };
+
+  /** Alterna um colapsável (15.5) e persiste — estado local responde na hora. */
+  const toggleCollapsed = (
+    key: 'sidebarCollapsed' | 'telemetryCollapsed' | 'sessionsBarCollapsed',
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    current: boolean
+  ): void => {
+    setter(!current);
+    persistPanelWidth({ [key]: !current });
+  };
+
+  /**
+   * Atualiza settings (merge parcial no Main) e RE-APLICA o tema vivo (15.2)
+   * — usado pela janela de Configurações (15.3, salvo automático).
+   */
+  const updateSettings = (patch: Partial<AppSettings>): void => {
     void window.cockpit.settings
-      .update(next)
+      .update(patch)
       .then((s) => {
         setSettings(s);
         setOllamaModel(s.ollamaDefaultModel);
+        applyTheme(
+          composeTheme({
+            themePreset: s.themePreset,
+            accentColor: s.accentColor,
+            fontText: s.fontText,
+            fontMono: s.fontMono
+          })
+        );
       })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
@@ -113,8 +169,25 @@ export function App(): JSX.Element {
     | 'review'
     | 'learnings'
     | 'agents'
-    | 'settings'
   >('master');
+  // Janela de Configurações em overlay (Story 15.3, FR54) — não é view:
+  // flutua sobre qualquer tela, como na referência OmniRift.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Central de API (Story 15.4, FR56) — lista SEM chaves; carrega ao abrir
+  // a janela (não no boot: ninguém olha antes disso).
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    void window.cockpit.apiProvider.list().then(setApiProviders).catch(() => void 0);
+  }, [settingsOpen]);
+
+  const createApiProvider = (req: ApiProviderCreateRequest): Promise<void> =>
+    window.cockpit.apiProvider.create(req).then(setApiProviders);
+
+  const removeApiProvider = (id: string): void => {
+    void window.cockpit.apiProvider.remove({ id }).then(setApiProviders).catch(() => void 0);
+  };
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -631,7 +704,8 @@ export function App(): JSX.Element {
   const canvasZoomRef = useRef(canvasZoom);
   canvasZoomRef.current = canvasZoom;
   // Faixa do mock Multerminal (14.3): 35%–160%.
-  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.35, z));
+  // Zoom out ampliado a pedido do fundador (15.1, FR53): 15%–160%.
+  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.15, z));
 
   // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
@@ -1192,7 +1266,30 @@ export function App(): JSX.Element {
         )}
       </header>
 
+      {/* Toolbar de ícones (Story 15.5, FR57) — só ações REAIS, com toggles
+          de colapso (FR58) e a pill de prontidão calculada das sessões. */}
+      <AppToolbar
+        onNewTerminal={() => {
+          if (view !== 'recovery') void newTerminal();
+        }}
+        onNewBrowser={createBrowserTile}
+        onOpenTimeline={() => setView('timeline')}
+        onOpenLearnings={() => setView('learnings')}
+        onOpenAgents={() => setView('agents')}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onZoomReset={() => setCanvasZoom(1)}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => toggleCollapsed('sidebarCollapsed', setSidebarCollapsed, sidebarCollapsed)}
+        telemetryCollapsed={telemetryCollapsed}
+        onToggleTelemetry={() => toggleCollapsed('telemetryCollapsed', setTelemetryCollapsed, telemetryCollapsed)}
+        sessionsBarCollapsed={sessionsBarCollapsed}
+        onToggleSessionsBar={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+        readyCount={sessions.filter((s) => s.status === 'running' && (s.agentStatus === 'idle' || s.agentStatus === 'done')).length}
+        runningCount={sessions.filter((s) => s.status === 'running').length}
+      />
+
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {!sidebarCollapsed && (
         <AppSidebar
           projects={projects}
           activeProjectId={activeProjectId}
@@ -1217,10 +1314,14 @@ export function App(): JSX.Element {
             { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => setView('timeline') },
             { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => setView('learnings') },
             { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => setView('agents') },
-            { icon: '⚙', label: 'Configurações', active: view === 'settings', onClick: () => setView('settings') }
+            { icon: '⚙', label: 'Configurações', active: settingsOpen, onClick: () => setSettingsOpen(true) }
           ]}
           appVersion={info?.version ?? '—'}
+          width={sidebarWidth}
+          onResize={setSidebarWidth}
+          onResizeEnd={(w) => persistPanelWidth({ sidebarWidth: w })}
         />
+        )}
 
         {view === 'recovery' && crashSummary && (
           <RecoveryScreen summary={crashSummary} onResolve={resolveRecovery} />
@@ -1307,7 +1408,6 @@ export function App(): JSX.Element {
           />
         )}
 
-        {view === 'settings' && settings && <SettingsView settings={settings} onSave={saveSettings} />}
 
         <section
           ref={canvasSectionRef}
@@ -1592,22 +1692,52 @@ export function App(): JSX.Element {
 
         {/* Painel de preview de arquivo (Story 14.5, FR51) — entre o canvas
             e a telemetria, como no mock (linhas 205-259). */}
-        {previewFile && <FilePreviewPanel file={previewFile} onClose={() => setPreviewFile(null)} />}
+        {previewFile && (
+          <FilePreviewPanel
+            file={previewFile}
+            onClose={() => setPreviewFile(null)}
+            width={previewWidth}
+            onResize={setPreviewWidth}
+            onResizeEnd={(w) => persistPanelWidth({ previewWidth: w })}
+          />
+        )}
 
         {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
             pendentes reais + eventos da timeline (mock linhas 261-275). */}
-        <TelemetryPanel
-          pendingDecisionCount={pendingDecisionCount}
-          onOpenDecisions={() => setView('master')}
-          events={telemetryEvents}
-          sessions={sessions}
-        />
+        {!telemetryCollapsed && (
+          <TelemetryPanel
+            pendingDecisionCount={pendingDecisionCount}
+            onOpenDecisions={() => setView('master')}
+            events={telemetryEvents}
+            sessions={sessions}
+            width={telemetryWidth}
+            onResize={setTelemetryWidth}
+            onResizeEnd={(w) => persistPanelWidth({ telemetryWidth: w })}
+          />
+        )}
       </div>
 
       {/* Rodapé de cards de sessões (Story 14.2, FR48) — substitui a antiga
           sidebar de sessões E a status bar da 13.3 (informação preservada:
           daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
-      <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
+      <SessionCardsBar
+        sessions={sessions}
+        focusedId={focusedId}
+        onFocusSession={goToTerminal}
+        collapsed={sessionsBarCollapsed}
+        onToggleCollapsed={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+      />
+      {/* Janela de Configurações (Story 15.3, FR54) — overlay estilo OmniRift. */}
+      {settingsOpen && settings && (
+        <SettingsWindow
+          settings={settings}
+          onUpdate={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+          apiProviders={apiProviders}
+          onCreateApiProvider={createApiProvider}
+          onRemoveApiProvider={removeApiProvider}
+        />
+      )}
       {promptState && (
         <PromptModal
           message={promptState.message}

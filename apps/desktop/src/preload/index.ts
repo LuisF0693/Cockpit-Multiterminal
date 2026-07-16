@@ -3,8 +3,11 @@ import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  ApiProviderSchema,
   AppSettingsSchema,
   type AdapterCheckCommandRequest,
+  type ApiProviderCreateRequest,
+  type ApiProviderRemoveRequest,
   type SettingsUpdateRequest,
   CrashSummarySchema,
   DaemonStatusSchema,
@@ -222,6 +225,20 @@ const api: CockpitApi = {
     update: async (req: SettingsUpdateRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.settingsUpdate, req);
       return AppSettingsSchema.parse(raw);
+    }
+  },
+  apiProvider: {
+    list: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.apiProviderList);
+      return ApiProviderSchema.array().parse(raw);
+    },
+    create: async (req: ApiProviderCreateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.apiProviderCreate, req);
+      return ApiProviderSchema.array().parse(raw);
+    },
+    remove: async (req: ApiProviderRemoveRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.apiProviderRemove, req);
+      return ApiProviderSchema.array().parse(raw);
     }
   },
   terminalLink: {

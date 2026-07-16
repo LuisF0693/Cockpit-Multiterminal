@@ -39,14 +39,41 @@ describe('AppSettingsSchema (Story 13.5, FR46)', () => {
     expect(AppSettingsSchema.parse({})).toEqual({
       ollamaDefaultModel: 'llama3',
       browserPreviewIntervalMs: 1500,
-      canvasDefaultZoom: 1
+      canvasDefaultZoom: 1,
+      sidebarWidth: 240,
+      telemetryWidth: 230,
+      previewWidth: 520,
+      sidebarCollapsed: false,
+      telemetryCollapsed: false,
+      sessionsBarCollapsed: false,
+      themePreset: 'multerminal-dark',
+      accentColor: '#22D3EE',
+      fontText: 'JetBrains Mono',
+      fontMono: 'JetBrains Mono'
     });
   });
 
-  it('valores válidos são preservados', () => {
-    expect(
-      AppSettingsSchema.parse({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 })
-    ).toEqual({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 });
+  it('valores válidos são preservados (15.1 e 15.2 inclusive)', () => {
+    const full = {
+      ollamaDefaultModel: 'mistral',
+      browserPreviewIntervalMs: 3000,
+      canvasDefaultZoom: 0.8,
+      sidebarWidth: 300,
+      telemetryWidth: 260,
+      previewWidth: 600,
+      sidebarCollapsed: true,
+      telemetryCollapsed: false,
+      sessionsBarCollapsed: true,
+      themePreset: 'midnight',
+      accentColor: '#A78BFA',
+      fontText: 'Inter',
+      fontMono: 'Consolas'
+    };
+    expect(AppSettingsSchema.parse(full)).toEqual(full);
+  });
+
+  it('accentColor inválido degrada pro ciano default', () => {
+    expect(AppSettingsSchema.parse({ accentColor: 'vermelho' }).accentColor).toBe('#22D3EE');
   });
 
   it('valor inválido degrada pro default do CAMPO, sem derrubar os demais', () => {

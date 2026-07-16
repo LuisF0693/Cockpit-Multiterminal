@@ -2,6 +2,7 @@ import type { AdapterInfo, Project, ProjectDirEntry } from '@cockpit/shared';
 import { adapterCatalogEntry } from './adapter-catalog';
 import { adapterColor } from './adapter-colors';
 import { FileTree } from './file-tree';
+import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
 
 /**
@@ -31,6 +32,10 @@ export interface AppSidebarProps {
   /** Entradas de APP & SISTEMA — views secundárias reais (label + ícone + ativo). */
   systemEntries: Array<{ icon: string; label: string; active: boolean; onClick: () => void }>;
   appVersion: string;
+  /** Largura atual (Story 15.1, FR52) — redimensionável por arraste. */
+  width: number;
+  onResize: (width: number) => void;
+  onResizeEnd: (width: number) => void;
 }
 
 export function AppSidebar(props: AppSidebarProps): JSX.Element {
@@ -39,8 +44,9 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
   return (
     <aside
       style={{
-        width: 240,
-        minWidth: 240,
+        position: 'relative',
+        width: props.width,
+        minWidth: props.width,
         background: theme.surface.panel,
         borderRight: `1px solid ${theme.border.subtle}`,
         display: 'flex',
@@ -49,6 +55,7 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
         fontFamily: theme.font.ui
       }}
     >
+      <PanelResizeHandle side="right" width={props.width} min={200} max={400} onResize={props.onResize} onResizeEnd={props.onResizeEnd} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', fontSize: theme.font.size.sm }}>
         <SectionTitle>PROJETO</SectionTitle>
         {active ? (
@@ -120,10 +127,23 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: adapterColor(a.id), flexShrink: 0 }} />
-                <span style={{ fontSize: theme.font.size.sm + 0.5, color: theme.text.primary }}>{a.displayName}</span>
+                {/* Glifo COLORIDO por agente (15.6, FR58) — como a referência. */}
+                <span
+                  style={{
+                    color: adapterColor(a.id),
+                    fontSize: theme.font.size.sm + 1,
+                    width: 14,
+                    textAlign: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  {meta?.glyph ?? '◆'}
+                </span>
+                <span style={{ fontSize: theme.font.size.sm + 0.5, color: theme.text.primary, fontWeight: 600 }}>
+                  {a.displayName}
+                </span>
               </span>
-              <span style={{ fontSize: 9.5, color: theme.text.faint, paddingLeft: 13 }}>
+              <span style={{ fontSize: 9.5, color: theme.text.faint, paddingLeft: 20 }}>
                 {meta?.description ?? 'adapter registrado'}
               </span>
             </button>
@@ -161,8 +181,17 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
                 fontFamily: theme.font.ui
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, flexShrink: 0 }} />
-              <span style={{ fontSize: theme.font.size.md, color: isActive ? theme.text.bright : theme.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
+              <span
+                style={{
+                  fontSize: theme.font.size.md,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? theme.text.bright : theme.text.secondary,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {p.name}
               </span>
             </button>

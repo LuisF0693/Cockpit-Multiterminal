@@ -117,8 +117,8 @@ export function LifecycleBoard({
                 gap: 8,
                 background: isDragOver
                   ? dropValid
-                    ? `${theme.accent.ok}14`
-                    : `${theme.accent.danger}14`
+                    ? `color-mix(in srgb, ${theme.accent.ok} 8%, transparent)`
+                    : `color-mix(in srgb, ${theme.accent.danger} 8%, transparent)`
                   : theme.surface.panel,
                 border: `1px solid ${isDragOver ? (dropValid ? theme.accent.ok : theme.accent.danger) : theme.border.default}`,
                 borderRadius: theme.radius.md,

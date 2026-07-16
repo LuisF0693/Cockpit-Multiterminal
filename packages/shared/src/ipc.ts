@@ -52,6 +52,10 @@ export const IpcChannels = {
   /** Configurações do app (Story 13.5, FR46) — app_meta.settings, JSON único. */
   settingsGet: 'settings.get',
   settingsUpdate: 'settings.update',
+  /** Central de API (Story 15.4, FR56) — chaves criptografadas no keychain do SO. */
+  apiProviderList: 'apiProvider.list',
+  apiProviderCreate: 'apiProvider.create',
+  apiProviderRemove: 'apiProvider.remove',
   /** Vínculo terminal-a-terminal (Épico 9, FR25). */
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
@@ -492,12 +496,56 @@ export type ProjectGitBranchRequest = z.infer<typeof ProjectGitBranchRequestSche
 export const AppSettingsSchema = z.object({
   ollamaDefaultModel: z.string().min(1).max(64).catch('llama3').default('llama3'),
   browserPreviewIntervalMs: z.number().int().min(500).max(60000).catch(1500).default(1500),
-  canvasDefaultZoom: z.number().min(0.4).max(2).catch(1).default(1)
+  canvasDefaultZoom: z.number().min(0.15).max(2).catch(1).default(1),
+  /** Larguras dos painéis (Story 15.1, FR52) — defaults do mock Multerminal. */
+  sidebarWidth: z.number().int().min(200).max(400).catch(240).default(240),
+  telemetryWidth: z.number().int().min(200).max(400).catch(230).default(230),
+  previewWidth: z.number().int().min(380).max(800).catch(520).default(520),
+  /** Painéis colapsáveis (Story 15.5, FR58) — canvas maior quando true. */
+  sidebarCollapsed: z.boolean().catch(false).default(false),
+  telemetryCollapsed: z.boolean().catch(false).default(false),
+  sessionsBarCollapsed: z.boolean().catch(false).default(false),
+  /** Tema vivo (Story 15.2, FR55) — preset + destaque + fontes. */
+  themePreset: z.string().min(1).max(40).catch('multerminal-dark').default('multerminal-dark'),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .catch('#22D3EE')
+    .default('#22D3EE'),
+  fontText: z.string().min(1).max(40).catch('JetBrains Mono').default('JetBrains Mono'),
+  fontMono: z.string().min(1).max(40).catch('JetBrains Mono').default('JetBrains Mono')
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
 export const SettingsUpdateRequestSchema = AppSettingsSchema.partial();
 export type SettingsUpdateRequest = z.infer<typeof SettingsUpdateRequestSchema>;
+
+/**
+ * Central de API (Story 15.4, FR56) — o que o RENDERER vê de um provider
+ * cadastrado: NUNCA inclui a chave (nem criptografada). A chave só existe
+ * em texto plano no trajeto único cadastro→Main (IPC local) e é
+ * criptografada via safeStorage antes de tocar o disco.
+ */
+export const ApiProviderSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  baseUrl: z.string().min(1).max(200),
+  defaultModel: z.string().max(80).optional()
+});
+export type ApiProvider = z.infer<typeof ApiProviderSchema>;
+
+export const ApiProviderCreateRequestSchema = z.object({
+  type: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  baseUrl: z.string().min(1).max(200),
+  apiKey: z.string().min(1).max(500),
+  defaultModel: z.string().max(80).optional()
+});
+export type ApiProviderCreateRequest = z.infer<typeof ApiProviderCreateRequestSchema>;
+
+export const ApiProviderRemoveRequestSchema = z.object({ id: z.string().min(1) });
+export type ApiProviderRemoveRequest = z.infer<typeof ApiProviderRemoveRequestSchema>;
 
 export const ProjectReadFileRequestSchema = z.object({
   path: z.string().min(1),
@@ -749,6 +797,13 @@ export interface CockpitApi {
     get(): Promise<AppSettings>;
     /** Merge parcial e persiste; retorna o estado completo resultante. */
     update(req: SettingsUpdateRequest): Promise<AppSettings>;
+  };
+  apiProvider: {
+    /** Providers cadastrados (Story 15.4, FR56) — SEM chaves, nem cifradas. */
+    list(): Promise<ApiProvider[]>;
+    /** Cadastra: chave criptografada via safeStorage; recusa sem keychain. */
+    create(req: ApiProviderCreateRequest): Promise<ApiProvider[]>;
+    remove(req: ApiProviderRemoveRequest): Promise<ApiProvider[]>;
   };
   terminalLink: {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */

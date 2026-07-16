@@ -16,6 +16,8 @@ export { SessionCardsBar } from './session-cards-bar';
 export type { SessionCardsBarProps } from './session-cards-bar';
 export { FilePreviewPanel } from './file-preview-panel';
 export type { FilePreviewPanelProps, PreviewFile } from './file-preview-panel';
+export { PanelResizeHandle } from './panel-resize-handle';
+export type { PanelResizeHandleProps } from './panel-resize-handle';
 export {
   addTile,
   bringToFront,
@@ -42,14 +44,29 @@ export {
 } from './status-colors';
 export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
 export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
+export {
+  ACCENT_OPTIONS,
+  FONT_MONO_OPTIONS,
+  FONT_TEXT_OPTIONS,
+  THEME_PRESETS,
+  applyTheme,
+  composeTheme,
+  fontStackOf,
+  getActiveTheme,
+  subscribeTheme,
+  themeToCssVars
+} from './theme-runtime';
+export type { ThemeData, ThemeSelection } from './theme-runtime';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
 export { ADAPTER_CATALOG, adapterCatalogEntry } from './adapter-catalog';
 export type { AdapterCatalogEntry } from './adapter-catalog';
 export { AgentCatalog } from './agent-catalog';
 export type { AgentCatalogProps } from './agent-catalog';
-export { SettingsView } from './settings-view';
-export type { SettingsViewProps } from './settings-view';
+export { SettingsWindow } from './settings-window';
+export type { SettingsWindowProps } from './settings-window';
+export { AppToolbar } from './app-toolbar';
+export type { AppToolbarProps } from './app-toolbar';
 export { PromptModal } from './prompt-modal';
 export type { PromptModalProps } from './prompt-modal';
 export { MasterDashboard } from './master-dashboard';

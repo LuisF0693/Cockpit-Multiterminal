@@ -4,6 +4,16 @@ import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
 import { theme } from './theme';
 
+const collapseButtonStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: theme.text.faint,
+  cursor: 'pointer',
+  fontSize: 11,
+  padding: 0,
+  lineHeight: 1
+};
+
 /**
  * SessionCardsBar (Story 14.2, FR48) — rodapé de 88px do mockup (linhas
  * 278-293): um card por sessão ATIVA com dot de status, nome, cwd e tempo
@@ -15,10 +25,46 @@ export interface SessionCardsBarProps {
   sessions: SessionRecord[];
   focusedId: string | null;
   onFocusSession: (id: string) => void;
+  /** Colapsado (Story 15.5, FR58) — vira uma linha fina; canvas ganha a altura. */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export function SessionCardsBar({ sessions, focusedId, onFocusSession }: SessionCardsBarProps): JSX.Element {
+export function SessionCardsBar({
+  sessions,
+  focusedId,
+  onFocusSession,
+  collapsed,
+  onToggleCollapsed
+}: SessionCardsBarProps): JSX.Element {
   const active = sessions.filter((s) => s.status === 'running');
+
+  if (collapsed) {
+    return (
+      <footer
+        style={{
+          height: 22,
+          minHeight: 22,
+          background: theme.surface.app,
+          borderTop: `1px solid ${theme.border.default}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '0 14px',
+          fontFamily: theme.font.ui
+        }}
+      >
+        <span style={{ fontSize: 10, color: theme.text.faint, letterSpacing: 0.6 }}>
+          SESSÕES · {active.length} ativa{active.length === 1 ? '' : 's'}
+        </span>
+        <div style={{ flex: 1 }} />
+        <button onClick={onToggleCollapsed} title="Expandir rodapé de sessões" style={collapseButtonStyle}>
+          ▴
+        </button>
+      </footer>
+    );
+  }
+
   return (
     <footer
       style={{
@@ -34,8 +80,13 @@ export function SessionCardsBar({ sessions, focusedId, onFocusSession }: Session
         fontFamily: theme.font.ui
       }}
     >
-      <div style={{ fontSize: 10, color: theme.text.faint, letterSpacing: 0.6, whiteSpace: 'nowrap', marginRight: 4 }}>
-        SESSÕES · {active.length} ativa{active.length === 1 ? '' : 's'}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginRight: 4 }}>
+        <span style={{ fontSize: 10, color: theme.text.faint, letterSpacing: 0.6, whiteSpace: 'nowrap' }}>
+          SESSÕES · {active.length} ativa{active.length === 1 ? '' : 's'}
+        </span>
+        <button onClick={onToggleCollapsed} title="Recolher rodapé (canvas maior)" style={collapseButtonStyle}>
+          ▾
+        </button>
       </div>
       {active.length === 0 && (
         <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }}>Ctrl+N para criar a primeira.</span>

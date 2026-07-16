@@ -62,7 +62,7 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
         right: 12,
         bottom: 12,
         zIndex: 9999,
-        background: `${theme.surface.panel}DD`,
+        background: `color-mix(in srgb, ${theme.surface.panel} 87%, transparent)`,
         border: `1px solid ${theme.border.default}`,
         borderRadius: theme.radius.md,
         overflow: 'hidden',
@@ -129,7 +129,7 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
               top: viewport.y * scale,
               width: viewport.width * scale,
               height: viewport.height * scale,
-              border: `1px solid ${theme.accent.primary}99`,
+              border: `1px solid color-mix(in srgb, ${theme.accent.primary} 60%, transparent)`,
               pointerEvents: 'none'
             }}
           />
