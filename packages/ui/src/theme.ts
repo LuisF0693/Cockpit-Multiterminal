@@ -1,74 +1,78 @@
 /**
- * Tema visual global (Story 13.1, FR41) — fonte de verdade ÚNICA de
- * superfícies, texto, bordas, acentos, raios, sombras, tipografia e
- * espaçamento. Evolui a paleta que o app já tinha (dark azul-acinzentado,
- * acento ciano) para uma versão em CAMADAS de profundidade — mesma
- * identidade, mais acabamento. `STATUS_COLORS` (2.5) e `ADAPTER_COLORS`
- * (12.4) continuam sendo as fontes de cor de ESTADO e IDENTIDADE; este
- * módulo cobre tudo o que é superfície/cromo.
+ * Tema visual global (Story 13.1, FR41; valores Multerminal na 14.1, FR47)
+ * — fonte de verdade ÚNICA de superfícies, texto, bordas, acentos, raios,
+ * sombras, tipografia e espaçamento. Os VALORES vêm do mockup de referência
+ * do fundador (`docs/prd/referencia-visual-multerminal.dc.html`): paleta
+ * quase-preta NEUTRA (sem tinta azul) e interface inteira monoespaçada.
+ * `STATUS_COLORS` (2.5) e `ADAPTER_COLORS` (12.4) continuam sendo as
+ * fontes de cor de ESTADO e IDENTIDADE; este módulo cobre superfície/cromo.
  */
 
 export const theme = {
   /** Superfícies em camadas — do chão do canvas (mais fundo) ao overlay. */
   surface: {
-    /** Cromo geral do app (header, nav). */
-    app: '#0A0E14',
+    /** Cromo geral do app (header, rodapé). */
+    app: '#111113',
     /** Chão do canvas — a camada mais funda de todas. */
-    canvas: '#07090D',
+    canvas: '#0C0C0E',
     /** Painéis e sidebars. */
-    panel: '#0C1118',
+    panel: '#0E0E10',
     /** Fundo de tile de terminal/browser. */
-    tile: '#0E131B',
+    tile: '#0F0F11',
     /** Cabeçalho de tile e superfícies levemente elevadas. */
-    header: '#121926',
+    header: '#151517',
     /** Inputs, hovers, cards elevados. */
-    raised: '#172033',
+    raised: '#19191C',
     /** Scrim de modal. */
-    overlay: 'rgba(4, 7, 12, 0.72)'
+    overlay: 'rgba(4, 4, 6, 0.72)'
   },
   text: {
-    primary: '#E7ECF3',
-    secondary: '#A9B4C4',
-    muted: '#76818F',
-    faint: '#586374',
+    /** Destaques (títulos, texto ativo). */
+    bright: '#F4F4F5',
+    primary: '#E4E4E7',
+    secondary: '#A1A1AA',
+    muted: '#71717A',
+    faint: '#52525B',
     /** Texto sobre acentos claros (badges). */
-    inverse: '#0B0F14'
+    inverse: '#0A0A0C'
   },
   border: {
-    default: '#1E2836',
-    subtle: '#151C28',
-    strong: '#2C3A4F'
+    default: '#232326',
+    subtle: '#1C1C1F',
+    strong: '#2A2A2E'
   },
   accent: {
     primary: '#22D3EE',
+    /** Variante clara do ciano (texto/linhas de destaque, como no mock). */
+    bright: '#67E8F9',
     /** Fundo suave do acento (seleções, hovers acentuados). */
     soft: '#22D3EE1A',
     /** Borda/anel do acento. */
     ring: '#22D3EE55',
     danger: '#F87171',
     warn: '#FBBF24',
-    ok: '#34D399',
+    ok: '#4ADE80',
     info: '#60A5FA'
   },
-  radius: { sm: 4, md: 8, lg: 12, pill: 999 },
+  radius: { sm: 4, md: 8, lg: 9, xl: 16, pill: 999 },
   shadow: {
-    tile: '0 4px 18px #00000055',
-    tileFocused: '0 0 0 1px #22D3EE55, 0 10px 30px #00000077',
+    tile: '0 6px 18px -6px #00000088',
+    tileFocused: '0 12px 34px -8px #000000CC',
     overlay: '0 16px 48px #000000AA'
   },
   font: {
-    ui: 'Inter, "Segoe UI", system-ui, sans-serif',
-    mono: '"Cascadia Mono", "JetBrains Mono", Consolas, monospace',
-    size: { xs: 11, sm: 12, md: 13, lg: 15, xl: 18 }
+    ui: '"JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace',
+    mono: '"JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace',
+    size: { xs: 10, sm: 11, md: 12, lg: 13, xl: 16 }
   },
   /** Escala de espaçamento (px) — base 4. */
   space: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
   /** Tema do xterm (terminal-view) — coordenado com surface.tile. */
   terminal: {
-    background: '#0E131B',
-    foreground: '#E7ECF3',
+    background: '#0F0F11',
+    foreground: '#D4D4D8',
     cursor: '#22D3EE',
-    selectionBackground: '#2C3A4F'
+    selectionBackground: '#2A2A2E'
   }
 } as const;
 
@@ -76,10 +80,10 @@ export const theme = {
  * Paleta cíclica de identidade de PROJETO (Story 8.2 → promovida ao tema na
  * 13.1) — mesmo papel do `ADAPTER_COLORS`: identidade, não superfície.
  */
-export const PROJECT_PALETTE = ['#3B82F6', '#F87171', '#34D399', '#FBBF24', '#A78BFA', '#F472B6'] as const;
+export const PROJECT_PALETTE = ['#22D3EE', '#4ADE80', '#A78BFA', '#F472B6', '#FBBF24', '#FB923C'] as const;
 
-/** Cor dos pontos da grade do canvas — sutil sobre `surface.canvas`. */
-const CANVAS_DOT = '#1A2230';
+/** Cor dos pontos da grade do canvas — valores do mockup Multerminal. */
+const CANVAS_DOT = '#1C1C1F';
 
 /**
  * Fundo do canvas com profundidade (Story 13.1, AC2): grade de pontos sutil
@@ -92,17 +96,17 @@ export function canvasBackground(projectColor?: string | null): {
   backgroundImage: string;
   backgroundSize: string;
 } {
-  const dots = `radial-gradient(circle, ${CANVAS_DOT} 1px, transparent 1px)`;
+  const dots = `radial-gradient(circle at 1px 1px, ${CANVAS_DOT} 1.5px, transparent 0)`;
   if (!projectColor) {
     return {
       backgroundColor: theme.surface.canvas,
       backgroundImage: dots,
-      backgroundSize: '24px 24px'
+      backgroundSize: '22px 22px'
     };
   }
   return {
     backgroundColor: theme.surface.canvas,
     backgroundImage: `linear-gradient(${projectColor}1F, ${projectColor}12), ${dots}`,
-    backgroundSize: 'auto, 24px 24px'
+    backgroundSize: 'auto, 22px 22px'
   };
 }

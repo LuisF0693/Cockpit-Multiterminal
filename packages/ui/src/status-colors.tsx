@@ -5,9 +5,11 @@ import type { AgentStatus } from '@cockpit/shared';
  * tile, sidebar e header consomem daqui (front-end spec: tokens-first).
  */
 
+// Valores alinhados à paleta Multerminal (Story 14.1, FR47) — âmbar do
+// waiting-input preservado (contrato do FR9/teste).
 export const STATUS_COLORS: Record<AgentStatus, string> = {
-  idle: '#6B7280',
-  working: '#34D399',
+  idle: '#71717A',
+  working: '#4ADE80',
   'waiting-input': '#FBBF24',
   done: '#60A5FA',
   error: '#F87171'
