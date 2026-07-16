@@ -3,7 +3,9 @@ import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  AppSettingsSchema,
   type AdapterCheckCommandRequest,
+  type SettingsUpdateRequest,
   CrashSummarySchema,
   DaemonStatusSchema,
   IpcChannels,
@@ -210,6 +212,16 @@ const api: CockpitApi = {
     gitBranch: async (req: ProjectGitBranchRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectGitBranch, req);
       return z.string().nullable().parse(raw);
+    }
+  },
+  settings: {
+    get: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.settingsGet);
+      return AppSettingsSchema.parse(raw);
+    },
+    update: async (req: SettingsUpdateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.settingsUpdate, req);
+      return AppSettingsSchema.parse(raw);
     }
   },
   terminalLink: {

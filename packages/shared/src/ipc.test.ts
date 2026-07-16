@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AppInfoSchema, IpcChannels } from './ipc';
+import { AppInfoSchema, AppSettingsSchema, IpcChannels } from './ipc';
 
 describe('AppInfoSchema (teste canário do pipeline — Story 1.1)', () => {
   it('aceita payload válido', () => {
@@ -31,5 +31,32 @@ describe('AppInfoSchema (teste canário do pipeline — Story 1.1)', () => {
 
   it('expõe canal canônico app.info', () => {
     expect(IpcChannels.appInfo).toBe('app.info');
+  });
+});
+
+describe('AppSettingsSchema (Story 13.5, FR46)', () => {
+  it('objeto vazio vira os defaults (quem nunca configurou não muda nada)', () => {
+    expect(AppSettingsSchema.parse({})).toEqual({
+      ollamaDefaultModel: 'llama3',
+      browserPreviewIntervalMs: 1500,
+      canvasDefaultZoom: 1
+    });
+  });
+
+  it('valores válidos são preservados', () => {
+    expect(
+      AppSettingsSchema.parse({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 })
+    ).toEqual({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 });
+  });
+
+  it('valor inválido degrada pro default do CAMPO, sem derrubar os demais', () => {
+    const parsed = AppSettingsSchema.parse({
+      ollamaDefaultModel: '',
+      browserPreviewIntervalMs: 10,
+      canvasDefaultZoom: 1.5
+    });
+    expect(parsed.ollamaDefaultModel).toBe('llama3');
+    expect(parsed.browserPreviewIntervalMs).toBe(1500);
+    expect(parsed.canvasDefaultZoom).toBe(1.5);
   });
 });

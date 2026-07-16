@@ -21,6 +21,7 @@ import {
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
+  SettingsView,
   Sidebar,
   StatusBar,
   StatusPulseStyles,
@@ -35,6 +36,7 @@ import {
   type MinimapTile
 } from '@cockpit/ui';
 import type {
+  AppSettings,
   CrashSummary,
   DaemonStatus,
   Learning,
@@ -69,10 +71,45 @@ export function App(): JSX.Element {
   // Modelo do Ollama (Story 12.6) — só relevante quando o adapter selecionado
   // é 'ollama'; ollama exige `run <modelo>` por sessão, não é fixo no adapter.
   const [ollamaModel, setOllamaModel] = useState('llama3');
+  // Configurações (Story 13.5, FR46) — carregadas no boot e APLICADAS de
+  // verdade: modelo default do Ollama, intervalo do preview, zoom inicial.
+  // Declarado AQUI (antes dos efeitos que dependem de `settings`) — o array
+  // de dependências avalia durante o render, TDZ derrubaria o boot.
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  useEffect(() => {
+    void window.cockpit.settings
+      .get()
+      .then((s) => {
+        setSettings(s);
+        setOllamaModel(s.ollamaDefaultModel);
+        setCanvasZoom(clampZoom(s.canvasDefaultZoom));
+      })
+      .catch(() => void 0);
+  }, []);
+
+  const saveSettings = (next: AppSettings): void => {
+    void window.cockpit.settings
+      .update(next)
+      .then((s) => {
+        setSettings(s);
+        setOllamaModel(s.ollamaDefaultModel);
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
   // Master é a tela inicial (Story 3.1, AC4); o canvas fica montado escondido.
   // 'recovery' (4.3) precede tudo quando o boot anterior não fechou gracioso.
   const [view, setView] = useState<
-    'master' | 'canvas' | 'timeline' | 'report' | 'recovery' | 'tasks' | 'board' | 'review' | 'learnings' | 'agents'
+    | 'master'
+    | 'canvas'
+    | 'timeline'
+    | 'report'
+    | 'recovery'
+    | 'tasks'
+    | 'board'
+    | 'review'
+    | 'learnings'
+    | 'agents'
+    | 'settings'
   >('master');
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -200,9 +237,10 @@ export function App(): JSX.Element {
       }
     };
     refresh();
-    const timer = setInterval(refresh, 1500);
+    // Intervalo configurável (Story 13.5, FR46) — default preserva os 1.5s da 10.1.
+    const timer = setInterval(refresh, settings?.browserPreviewIntervalMs ?? 1500);
     return () => clearInterval(timer);
-  }, [view, projectBrowserTiles]);
+  }, [view, projectBrowserTiles, settings?.browserPreviewIntervalMs]);
 
   useEffect(() => {
     void window.cockpit
@@ -896,7 +934,8 @@ export function App(): JSX.Element {
               ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
               ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
               ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)'],
-              ['agents', 'Agentes', 'Catálogo de agentes com disponibilidade no PATH (Story 13.4)']
+              ['agents', 'Agentes', 'Catálogo de agentes com disponibilidade no PATH (Story 13.4)'],
+              ['settings', '⚙', 'Configurações (Story 13.5)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -1150,6 +1189,8 @@ export function App(): JSX.Element {
             onOllamaModelChange={setOllamaModel}
           />
         )}
+
+        {view === 'settings' && settings && <SettingsView settings={settings} onSave={saveSettings} />}
 
         <section
           ref={canvasSectionRef}

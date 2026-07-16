@@ -49,6 +49,9 @@ export const IpcChannels = {
   projectReadFile: 'project.readFile',
   /** Branch git do projeto (Story 13.3, FR44) — lida de .git/HEAD no Main. */
   projectGitBranch: 'project.gitBranch',
+  /** Configurações do app (Story 13.5, FR46) — app_meta.settings, JSON único. */
+  settingsGet: 'settings.get',
+  settingsUpdate: 'settings.update',
   /** Vínculo terminal-a-terminal (Épico 9, FR25). */
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
@@ -480,6 +483,22 @@ export const ProjectGitBranchRequestSchema = z.object({
 });
 export type ProjectGitBranchRequest = z.infer<typeof ProjectGitBranchRequestSchema>;
 
+/**
+ * Configurações do app (Story 13.5, FR46) — os DEFAULTS preservam exatamente
+ * o comportamento anterior à story (llama3 da 12.6, poll de 1.5s da 10.1,
+ * zoom 100% da 12.6); valor ausente OU inválido degrada pro default (catch),
+ * nunca erro — quem nunca abrir a tela de Configurações não muda nada.
+ */
+export const AppSettingsSchema = z.object({
+  ollamaDefaultModel: z.string().min(1).max(64).catch('llama3').default('llama3'),
+  browserPreviewIntervalMs: z.number().int().min(500).max(60000).catch(1500).default(1500),
+  canvasDefaultZoom: z.number().min(0.4).max(2).catch(1).default(1)
+});
+export type AppSettings = z.infer<typeof AppSettingsSchema>;
+
+export const SettingsUpdateRequestSchema = AppSettingsSchema.partial();
+export type SettingsUpdateRequest = z.infer<typeof SettingsUpdateRequestSchema>;
+
 export const ProjectReadFileRequestSchema = z.object({
   path: z.string().min(1),
   maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
@@ -724,6 +743,12 @@ export interface CockpitApi {
     readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
     /** Branch git atual do projeto (Story 13.3, FR44) — null se não for repositório. */
     gitBranch(req: ProjectGitBranchRequest): Promise<string | null>;
+  };
+  settings: {
+    /** Configurações efetivas (defaults aplicados) — Story 13.5, FR46. */
+    get(): Promise<AppSettings>;
+    /** Merge parcial e persiste; retorna o estado completo resultante. */
+    update(req: SettingsUpdateRequest): Promise<AppSettings>;
   };
   terminalLink: {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */

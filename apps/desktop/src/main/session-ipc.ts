@@ -23,7 +23,10 @@ import {
 import {
   AdapterCheckCommandRequestSchema,
   AgentStatusSchema,
+  AppSettingsSchema,
   IpcChannels,
+  SettingsUpdateRequestSchema,
+  type AppSettings,
   LayoutUpdateRequestSchema,
   TimelineGetRequestSchema,
   RecoveryResolveRequestSchema,
@@ -394,6 +397,26 @@ export function registerSessionIpc(
     return entries.sort((a, b) =>
       a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1
     );
+  });
+
+  // Configurações do app (Story 13.5, FR46) — JSON único em app_meta;
+  // parsing tolerante: JSON quebrado ou valores inválidos degradam pros
+  // defaults (o schema tem catch/default por campo), nunca erro.
+  const readSettings = (): AppSettings => {
+    let parsed: unknown = {};
+    try {
+      parsed = JSON.parse(persistence.appSettingsRaw() ?? '{}');
+    } catch {
+      parsed = {};
+    }
+    return AppSettingsSchema.parse(typeof parsed === 'object' && parsed !== null ? parsed : {});
+  };
+  ipcMain.handle(IpcChannels.settingsGet, () => readSettings());
+  ipcMain.handle(IpcChannels.settingsUpdate, (_event, raw: unknown) => {
+    const req = SettingsUpdateRequestSchema.parse(raw);
+    const next = { ...readSettings(), ...req };
+    persistence.setAppSettingsRaw(JSON.stringify(next));
+    return next;
   });
 
   // Branch git do projeto (Story 13.3, FR44) — lê .git/HEAD direto (sem

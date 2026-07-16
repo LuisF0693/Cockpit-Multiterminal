@@ -294,6 +294,19 @@ export class PersistenceManager {
     return this.workspaces();
   }
 
+  /**
+   * Configurações do app (Story 13.5, FR46) — JSON único em app_meta.settings.
+   * Parsing/merge com defaults acontece no Main (schema Zod em @cockpit/shared);
+   * aqui só o transporte cru, mesmo padrão de projects/workspaces.
+   */
+  appSettingsRaw(): string | null {
+    return this.store.getMeta('settings');
+  }
+
+  setAppSettingsRaw(json: string): void {
+    this.store.setMeta('settings', json);
+  }
+
   private parseWorkspacesMeta(): string[] {
     try {
       const raw = this.store.getMeta('workspaces');
