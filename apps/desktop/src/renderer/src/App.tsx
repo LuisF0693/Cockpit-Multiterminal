@@ -630,7 +630,8 @@ export function App(): JSX.Element {
   const [canvasZoom, setCanvasZoom] = useState(1);
   const canvasZoomRef = useRef(canvasZoom);
   canvasZoomRef.current = canvasZoom;
-  const clampZoom = (z: number): number => Math.min(2, Math.max(0.4, z));
+  // Faixa do mock Multerminal (14.3): 35%–160%.
+  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.35, z));
 
   // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
@@ -709,52 +710,77 @@ export function App(): JSX.Element {
     return () => clearInterval(timer);
   }, [activeProjectId]);
 
-  // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
-  // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
-  // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
-  // ativo, então o ref já existe quando este efeito roda).
+  // Canvas INFINITO (Story 14.3, FR49) — navegação por PAN (arrastar o
+  // fundo) + zoom, mundo transformado por translate+scale; substitui o
+  // scroll da 12.6. Pan vive em ref durante o gesto (sem re-render por
+  // pixel) e em estado pro render.
+  const [canvasPan, setCanvasPan] = useState({ x: 60, y: 40 });
+  const canvasPanRef = useRef(canvasPan);
+  canvasPanRef.current = canvasPan;
+  const panGestureRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  const startCanvasPan = (e: React.PointerEvent): void => {
+    // Só o FUNDO faz pan — tiles/minimapa têm gestos próprios.
+    if ((e.target as Element).closest('[data-tile-id], [data-no-pan]')) return;
+    panGestureRef.current = { sx: e.clientX, sy: e.clientY, ox: canvasPanRef.current.x, oy: canvasPanRef.current.y };
+  };
+  useEffect(() => {
+    const onMove = (e: PointerEvent): void => {
+      const g = panGestureRef.current;
+      if (!g) return;
+      setCanvasPan({ x: g.ox + (e.clientX - g.sx), y: g.oy + (e.clientY - g.sy) });
+    };
+    const onUp = (): void => {
+      panGestureRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, []);
+
+  // Viewport do minimapa (12.5, adaptado ao pan da 14.3): deriva de pan/zoom
+  // + tamanho do section (ResizeObserver).
   const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width: 0, height: 0 });
   useEffect(() => {
     const el = canvasSectionRef.current;
     if (!el) return;
     const update = (): void =>
       setCanvasViewport({
-        x: el.scrollLeft / canvasZoom,
-        y: el.scrollTop / canvasZoom,
+        x: -canvasPan.x / canvasZoom,
+        y: -canvasPan.y / canvasZoom,
         width: el.clientWidth / canvasZoom,
         height: el.clientHeight / canvasZoom
       });
     update();
-    el.addEventListener('scroll', update);
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', update);
-      ro.disconnect();
-    };
-  }, [canvasZoom]);
+    return () => ro.disconnect();
+  }, [canvasZoom, canvasPan]);
 
-  /** Foca o tile (mesmo focus/bringToFront já existente) e rola até ele (Story 12.5, AC2). */
+  /** Foca o tile e CENTRALIZA o pan nele (Story 12.5 AC2, adaptado à 14.3). */
   const focusAndScrollTo = (id: string): void => {
     useCockpitStore.getState().focus(id);
     const tile = layout.tiles.find((t) => t.id === id);
     const el = canvasSectionRef.current;
     if (tile && el) {
-      el.scrollTo({
-        left: Math.max(0, (tile.x + tile.width / 2) * canvasZoom - el.clientWidth / 2),
-        top: Math.max(0, (tile.y + tile.height / 2) * canvasZoom - el.clientHeight / 2),
-        behavior: 'smooth'
+      setCanvasPan({
+        x: el.clientWidth / 2 - (tile.x + tile.width / 2) * canvasZoom,
+        y: el.clientHeight / 2 - (tile.y + tile.height / 2) * canvasZoom
       });
     }
   };
 
-  /** Converte coordenadas de ponteiro (viewport) pro espaço LÓGICO de conteúdo do canvas (scroll+zoom-aware). */
+  /** Converte coordenadas de ponteiro (viewport) pro espaço LÓGICO do mundo (pan+zoom-aware, 14.3). */
   const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
     const el = canvasSectionRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     const zoom = canvasZoomRef.current;
-    return { x: (e.clientX - rect.left + el.scrollLeft) / zoom, y: (e.clientY - rect.top + el.scrollTop) / zoom };
+    const pan = canvasPanRef.current;
+    return { x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom };
   };
 
   const startTerminalLinkDrag = (sourceId: string, originX: number, originY: number): void => {
@@ -878,28 +904,25 @@ export function App(): JSX.Element {
   const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
 
-  // Tiles do minimapa (Story 12.5) — MESMO filtro de visibilidade do canvas
-  // (workspace ativo + projeto ativo pra sessões; só projeto pra browser
-  // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
-  const activeProjectColor = projectColorOf(activeProjectId || null);
-
   // Fila unificada (Story 5.3, AC3): agentes waiting-input + tarefas em
-  // awaiting_decision — consumida pelo badge do header E pela status bar (13.3).
+  // awaiting_decision — badge do header + card da telemetria (14.2).
   const pendingDecisionCount =
     projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
     projectTasks.filter((t) => t.state === 'awaiting_decision').length;
 
-  // Extent real do conteúdo do canvas — dá um tamanho EXPLÍCITO ao wrapper
-  // escalado (zoom) pra section.scrollWidth/Height continuar refletindo a
-  // área rolável corretamente mesmo com `transform: scale()` (um wrapper só
-  // com filhos position:absolute e sem tamanho próprio colapsaria pra 0×0,
-  // quebrando o scroll do canvas inteiro).
-  const canvasContentWidth = Math.max(2400, ...layout.tiles.map((t) => t.x + t.width + 200));
-  const canvasContentHeight = Math.max(1400, ...layout.tiles.map((t) => t.y + t.height + 200));
+  // Mundo do canvas infinito (14.3) — tamanho explícito cobre o extent real
+  // dos tiles (mínimo 2600×1800 como o mock); a navegação é por pan, o
+  // tamanho só garante que zonas/SVG cubram tudo.
+  const canvasContentWidth = Math.max(2600, ...layout.tiles.map((t) => t.x + t.width + 200));
+  const canvasContentHeight = Math.max(1800, ...layout.tiles.map((t) => t.y + t.height + 200));
+
+  // Visibilidade no canvas (14.3, FR49): TODOS os projetos aparecem (zonas
+  // dão o agrupamento); workspace (3.6) continua filtrando. O projeto ativo
+  // é destaque/escopo de criação, não filtro.
+  const canvasVisibleSessions = sessions.filter((s) => s.workspace === workspaces.active);
 
   const minimapTiles: MinimapTile[] = [
-    ...sessions
-      .filter((s) => s.workspace === workspaces.active && (!activeProjectId || s.projectId === activeProjectId))
+    ...canvasVisibleSessions
       .map((s): MinimapTile | null => {
         const t = layout.tiles.find((lt) => lt.id === s.id);
         if (!t) return null;
@@ -907,7 +930,6 @@ export function App(): JSX.Element {
       })
       .filter((t): t is MinimapTile => t !== null),
     ...browserTiles
-      .filter((b) => !activeProjectId || b.projectId === activeProjectId)
       .map((b): MinimapTile | null => {
         const t = layout.tiles.find((lt) => lt.id === b.id);
         if (!t) return null;
@@ -915,6 +937,27 @@ export function App(): JSX.Element {
       })
       .filter((t): t is MinimapTile => t !== null)
   ];
+
+  // Zonas de projeto (14.3, FR49) — bounding box dos tiles de cada projeto
+  // + padding, com etiqueta pill (mock linhas 631-645). Projeto ativo =
+  // zona/etiqueta mais fortes.
+  const ZONE_PAD = 24;
+  const ZONE_TOP = 30;
+  const zoneViews = projects
+    .map((p) => {
+      const own = [
+        ...canvasVisibleSessions.filter((s) => s.projectId === p.id).map((s) => layout.tiles.find((t) => t.id === s.id)),
+        ...browserTiles.filter((b) => b.projectId === p.id).map((b) => layout.tiles.find((t) => t.id === b.id))
+      ].filter((t): t is NonNullable<typeof t> => !!t);
+      if (own.length === 0) return null;
+      const minX = Math.min(...own.map((t) => t.x)) - ZONE_PAD;
+      const minY = Math.min(...own.map((t) => t.y)) - ZONE_PAD - ZONE_TOP;
+      const maxX = Math.max(...own.map((t) => t.x + t.width)) + ZONE_PAD;
+      const maxY = Math.max(...own.map((t) => t.y + t.height)) + ZONE_PAD;
+      const isActive = p.id === activeProjectId;
+      return { id: p.id, name: p.name, color: p.color, count: own.length, minX, minY, maxX, maxY, isActive };
+    })
+    .filter((z): z is NonNullable<typeof z> => z !== null);
 
   return (
     <main
@@ -1235,41 +1278,84 @@ export function App(): JSX.Element {
 
         <section
           ref={canvasSectionRef}
+          onPointerDown={startCanvasPan}
           onWheel={(e) => {
-            if (!e.ctrlKey) return;
+            // Zoom no scroll (mock) — sobre um TILE, só com Ctrl (wheel puro
+            // ali pertence ao scrollback do xterm); no fundo, wheel puro zooma.
+            const overTile = (e.target as Element).closest('[data-tile-id]');
+            if (overTile && !e.ctrlKey) return;
             e.preventDefault();
             setCanvasZoom((z) => clampZoom(z - e.deltaY * 0.001));
           }}
           style={{
             flex: 1,
             position: 'relative',
-            overflow: 'auto',
+            overflow: 'hidden',
             minWidth: 0,
             // Canvas fica MONTADO quando o master está ativo (desmontar
             // mataria xterm/portas) — apenas escondido.
             display: view === 'canvas' ? 'block' : 'none',
-            // Fundo com profundidade (Story 13.1, AC2): chão mais fundo do
-            // tema + grade de pontos sutil; quando o projeto ativo tem cor
-            // (12.6/FR37), entra uma lavagem translúcida da cor — os tiles
-            // continuam com fundo próprio opaco, só o "chão" entre eles
-            // tinge, pra bater de relance qual projeto está aberto.
-            ...canvasBackground(activeProjectColor),
-            transition: 'background-color 200ms'
+            cursor: panGestureRef.current ? 'grabbing' : 'default',
+            // Chão neutro do mock (zonas dão a cor por projeto — 14.3
+            // substitui a lavagem por-projeto-ativo da 12.6).
+            ...canvasBackground(null)
           }}
         >
-          {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
-              coordenadas de layout.x/y continuarem batendo com o topo-
-              esquerda visual) — tamanho explícito pra section.scroll*
-              refletir a área rolável corretamente (ver comentário acima). */}
+          {/* Mundo do canvas infinito (14.3): translate(pan) + scale(zoom),
+              origin 0 0 — coordenadas de layout.x/y continuam batendo. */}
           <div
             style={{
-              position: 'relative',
+              position: 'absolute',
+              left: 0,
+              top: 0,
               width: canvasContentWidth,
               height: canvasContentHeight,
-              transform: `scale(${canvasZoom})`,
+              transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
               transformOrigin: '0 0'
             }}
           >
+          {/* Zonas de projeto (14.3, FR49) — atrás de tudo, pointer-events
+              none; etiqueta pill com dot+nome+contagem (mock 631-645). */}
+          {zoneViews.map((z) => (
+            <div key={z.id}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: z.minX,
+                  top: z.minY,
+                  width: z.maxX - z.minX,
+                  height: z.maxY - z.minY,
+                  border: `1.5px solid ${z.color}${z.isActive ? '66' : '44'}`,
+                  borderRadius: theme.radius.xl,
+                  background: `${z.color}${z.isActive ? '1A' : '12'}`,
+                  zIndex: 0,
+                  pointerEvents: 'none'
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: z.minX + 14,
+                  top: z.minY + 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: theme.font.size.sm + 1,
+                  fontWeight: 600,
+                  color: z.color,
+                  background: `${z.color}22`,
+                  border: `1px solid ${z.color}66`,
+                  padding: '3px 10px',
+                  borderRadius: 7,
+                  zIndex: 1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: z.color }} />
+                {z.name} <span style={{ opacity: 0.65 }}>· {z.count}</span>
+              </div>
+            </div>
+          ))}
           {/* Indicação visual de vínculos (Épico 9, Story 9.3, AC1) — SVG
               atrás dos tiles (ordem no DOM), pointer-events:none pra não
               atrapalhar arrastar/redimensionar. */}
@@ -1318,12 +1404,10 @@ export function App(): JSX.Element {
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;
-            // Canvas filtra por workspace (3.6) E projeto ativo (8.2, AC2) —
-            // tiles fora do escopo ficam MONTADOS (desmontar mataria
-            // xterm/portas, gotcha da 1.3), apenas escondidos pelo wrapper.
-            const inActive =
-              session.workspace === workspaces.active &&
-              (!activeProjectId || session.projectId === activeProjectId);
+            // Canvas filtra só por workspace (3.6) — projetos aparecem TODOS
+            // com zonas (14.3, FR49); tiles fora do escopo ficam MONTADOS
+            // (desmontar mataria xterm/portas, gotcha da 1.3), só escondidos.
+            const inActive = session.workspace === workspaces.active;
             return (
               <div key={session.id} style={{ display: inActive ? 'contents' : 'none' }}>
                 <TerminalTile
@@ -1350,8 +1434,9 @@ export function App(): JSX.Element {
           {browserTiles.map((bTile) => {
             const tile = layout.tiles.find((t) => t.id === bTile.id);
             if (!tile) return null;
-            // Preview de browser não tem workspace (10.1, AC4) — só projeto.
-            const inActive = !activeProjectId || bTile.projectId === activeProjectId;
+            // Preview de browser não tem workspace (10.1, AC4) — com as
+            // zonas da 14.3, todos os projetos são visíveis: sempre ativo.
+            const inActive = true;
             return (
               <div key={bTile.id} style={{ display: inActive ? 'contents' : 'none' }}>
                 <BrowserPreviewTile
@@ -1376,7 +1461,7 @@ export function App(): JSX.Element {
               </div>
             );
           })}
-          {projectSessions.length === 0 && (
+          {canvasVisibleSessions.length === 0 && (
             <p
               style={{
                 position: 'absolute',
@@ -1399,7 +1484,9 @@ export function App(): JSX.Element {
               portas) — o minimapa não tem nenhum estado de I/O persistente,
               então desmontar é seguro. */}
           {view === 'canvas' && (
-            <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
+            <div data-no-pan>
+              <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
+            </div>
           )}
         </section>
 
