@@ -11,6 +11,7 @@ import {
   ADAPTER_CATALOG,
   AgentCatalog,
   AppSidebar,
+  AppToolbar,
   BrowserPreviewTile,
   CanvasMinimap,
   FilePreviewPanel,
@@ -88,6 +89,10 @@ export function App(): JSX.Element {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [telemetryWidth, setTelemetryWidth] = useState(230);
   const [previewWidth, setPreviewWidth] = useState(520);
+  // Colapsáveis (Story 15.5, FR58) — canvas maior; persistidos nas settings.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [telemetryCollapsed, setTelemetryCollapsed] = useState(false);
+  const [sessionsBarCollapsed, setSessionsBarCollapsed] = useState(false);
   useEffect(() => {
     void window.cockpit.settings
       .get()
@@ -98,6 +103,9 @@ export function App(): JSX.Element {
         setSidebarWidth(s.sidebarWidth);
         setTelemetryWidth(s.telemetryWidth);
         setPreviewWidth(s.previewWidth);
+        setSidebarCollapsed(s.sidebarCollapsed);
+        setTelemetryCollapsed(s.telemetryCollapsed);
+        setSessionsBarCollapsed(s.sessionsBarCollapsed);
         // Tema vivo (15.2, FR55): compõe preset+destaque+fontes das settings
         // e aplica nas CSS vars — sem reiniciar, xterm re-tematiza junto.
         applyTheme(
@@ -115,6 +123,16 @@ export function App(): JSX.Element {
   /** Persiste uma largura ao SOLTAR o arraste (15.1) — merge parcial no Main. */
   const persistPanelWidth = (patch: Partial<AppSettings>): void => {
     void window.cockpit.settings.update(patch).then(setSettings).catch(() => void 0);
+  };
+
+  /** Alterna um colapsável (15.5) e persiste — estado local responde na hora. */
+  const toggleCollapsed = (
+    key: 'sidebarCollapsed' | 'telemetryCollapsed' | 'sessionsBarCollapsed',
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    current: boolean
+  ): void => {
+    setter(!current);
+    persistPanelWidth({ [key]: !current });
   };
 
   /**
@@ -1248,7 +1266,30 @@ export function App(): JSX.Element {
         )}
       </header>
 
+      {/* Toolbar de ícones (Story 15.5, FR57) — só ações REAIS, com toggles
+          de colapso (FR58) e a pill de prontidão calculada das sessões. */}
+      <AppToolbar
+        onNewTerminal={() => {
+          if (view !== 'recovery') void newTerminal();
+        }}
+        onNewBrowser={createBrowserTile}
+        onOpenTimeline={() => setView('timeline')}
+        onOpenLearnings={() => setView('learnings')}
+        onOpenAgents={() => setView('agents')}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onZoomReset={() => setCanvasZoom(1)}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => toggleCollapsed('sidebarCollapsed', setSidebarCollapsed, sidebarCollapsed)}
+        telemetryCollapsed={telemetryCollapsed}
+        onToggleTelemetry={() => toggleCollapsed('telemetryCollapsed', setTelemetryCollapsed, telemetryCollapsed)}
+        sessionsBarCollapsed={sessionsBarCollapsed}
+        onToggleSessionsBar={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+        readyCount={sessions.filter((s) => s.status === 'running' && (s.agentStatus === 'idle' || s.agentStatus === 'done')).length}
+        runningCount={sessions.filter((s) => s.status === 'running').length}
+      />
+
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {!sidebarCollapsed && (
         <AppSidebar
           projects={projects}
           activeProjectId={activeProjectId}
@@ -1280,6 +1321,7 @@ export function App(): JSX.Element {
           onResize={setSidebarWidth}
           onResizeEnd={(w) => persistPanelWidth({ sidebarWidth: w })}
         />
+        )}
 
         {view === 'recovery' && crashSummary && (
           <RecoveryScreen summary={crashSummary} onResolve={resolveRecovery} />
@@ -1662,21 +1704,29 @@ export function App(): JSX.Element {
 
         {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
             pendentes reais + eventos da timeline (mock linhas 261-275). */}
-        <TelemetryPanel
-          pendingDecisionCount={pendingDecisionCount}
-          onOpenDecisions={() => setView('master')}
-          events={telemetryEvents}
-          sessions={sessions}
-          width={telemetryWidth}
-          onResize={setTelemetryWidth}
-          onResizeEnd={(w) => persistPanelWidth({ telemetryWidth: w })}
-        />
+        {!telemetryCollapsed && (
+          <TelemetryPanel
+            pendingDecisionCount={pendingDecisionCount}
+            onOpenDecisions={() => setView('master')}
+            events={telemetryEvents}
+            sessions={sessions}
+            width={telemetryWidth}
+            onResize={setTelemetryWidth}
+            onResizeEnd={(w) => persistPanelWidth({ telemetryWidth: w })}
+          />
+        )}
       </div>
 
       {/* Rodapé de cards de sessões (Story 14.2, FR48) — substitui a antiga
           sidebar de sessões E a status bar da 13.3 (informação preservada:
           daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
-      <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
+      <SessionCardsBar
+        sessions={sessions}
+        focusedId={focusedId}
+        onFocusSession={goToTerminal}
+        collapsed={sessionsBarCollapsed}
+        onToggleCollapsed={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+      />
       {/* Janela de Configurações (Story 15.3, FR54) — overlay estilo OmniRift. */}
       {settingsOpen && settings && (
         <SettingsWindow

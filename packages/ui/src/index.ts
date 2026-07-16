@@ -65,6 +65,8 @@ export { AgentCatalog } from './agent-catalog';
 export type { AgentCatalogProps } from './agent-catalog';
 export { SettingsWindow } from './settings-window';
 export type { SettingsWindowProps } from './settings-window';
+export { AppToolbar } from './app-toolbar';
+export type { AppToolbarProps } from './app-toolbar';
 export { PromptModal } from './prompt-modal';
 export type { PromptModalProps } from './prompt-modal';
 export { MasterDashboard } from './master-dashboard';

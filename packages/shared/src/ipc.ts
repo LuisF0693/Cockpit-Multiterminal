@@ -501,6 +501,10 @@ export const AppSettingsSchema = z.object({
   sidebarWidth: z.number().int().min(200).max(400).catch(240).default(240),
   telemetryWidth: z.number().int().min(200).max(400).catch(230).default(230),
   previewWidth: z.number().int().min(380).max(800).catch(520).default(520),
+  /** Painéis colapsáveis (Story 15.5, FR58) — canvas maior quando true. */
+  sidebarCollapsed: z.boolean().catch(false).default(false),
+  telemetryCollapsed: z.boolean().catch(false).default(false),
+  sessionsBarCollapsed: z.boolean().catch(false).default(false),
   /** Tema vivo (Story 15.2, FR55) — preset + destaque + fontes. */
   themePreset: z.string().min(1).max(40).catch('multerminal-dark').default('multerminal-dark'),
   accentColor: z

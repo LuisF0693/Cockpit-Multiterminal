@@ -127,10 +127,23 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: adapterColor(a.id), flexShrink: 0 }} />
-                <span style={{ fontSize: theme.font.size.sm + 0.5, color: theme.text.primary }}>{a.displayName}</span>
+                {/* Glifo COLORIDO por agente (15.6, FR58) — como a referência. */}
+                <span
+                  style={{
+                    color: adapterColor(a.id),
+                    fontSize: theme.font.size.sm + 1,
+                    width: 14,
+                    textAlign: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  {meta?.glyph ?? '◆'}
+                </span>
+                <span style={{ fontSize: theme.font.size.sm + 0.5, color: theme.text.primary, fontWeight: 600 }}>
+                  {a.displayName}
+                </span>
               </span>
-              <span style={{ fontSize: 9.5, color: theme.text.faint, paddingLeft: 13 }}>
+              <span style={{ fontSize: 9.5, color: theme.text.faint, paddingLeft: 20 }}>
                 {meta?.description ?? 'adapter registrado'}
               </span>
             </button>
@@ -168,8 +181,17 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
                 fontFamily: theme.font.ui
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, flexShrink: 0 }} />
-              <span style={{ fontSize: theme.font.size.md, color: isActive ? theme.text.bright : theme.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
+              <span
+                style={{
+                  fontSize: theme.font.size.md,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? theme.text.bright : theme.text.secondary,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {p.name}
               </span>
             </button>
