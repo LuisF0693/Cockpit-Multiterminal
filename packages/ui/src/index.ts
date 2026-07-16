@@ -44,6 +44,19 @@ export {
 } from './status-colors';
 export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
 export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
+export {
+  ACCENT_OPTIONS,
+  FONT_MONO_OPTIONS,
+  FONT_TEXT_OPTIONS,
+  THEME_PRESETS,
+  applyTheme,
+  composeTheme,
+  fontStackOf,
+  getActiveTheme,
+  subscribeTheme,
+  themeToCssVars
+} from './theme-runtime';
+export type { ThemeData, ThemeSelection } from './theme-runtime';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
 export { ADAPTER_CATALOG, adapterCatalogEntry } from './adapter-catalog';

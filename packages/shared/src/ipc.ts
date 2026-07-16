@@ -496,7 +496,16 @@ export const AppSettingsSchema = z.object({
   /** Larguras dos painéis (Story 15.1, FR52) — defaults do mock Multerminal. */
   sidebarWidth: z.number().int().min(200).max(400).catch(240).default(240),
   telemetryWidth: z.number().int().min(200).max(400).catch(230).default(230),
-  previewWidth: z.number().int().min(380).max(800).catch(520).default(520)
+  previewWidth: z.number().int().min(380).max(800).catch(520).default(520),
+  /** Tema vivo (Story 15.2, FR55) — preset + destaque + fontes. */
+  themePreset: z.string().min(1).max(40).catch('multerminal-dark').default('multerminal-dark'),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .catch('#22D3EE')
+    .default('#22D3EE'),
+  fontText: z.string().min(1).max(40).catch('JetBrains Mono').default('JetBrains Mono'),
+  fontMono: z.string().min(1).max(40).catch('JetBrains Mono').default('JetBrains Mono')
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 

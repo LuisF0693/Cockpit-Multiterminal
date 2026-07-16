@@ -29,7 +29,9 @@ import {
   TelemetryPanel,
   TerminalTile,
   TimelineView,
+  applyTheme,
   canvasBackground,
+  composeTheme,
   matchShortcut,
   statusColor,
   theme,
@@ -94,6 +96,16 @@ export function App(): JSX.Element {
         setSidebarWidth(s.sidebarWidth);
         setTelemetryWidth(s.telemetryWidth);
         setPreviewWidth(s.previewWidth);
+        // Tema vivo (15.2, FR55): compõe preset+destaque+fontes das settings
+        // e aplica nas CSS vars — sem reiniciar, xterm re-tematiza junto.
+        applyTheme(
+          composeTheme({
+            themePreset: s.themePreset,
+            accentColor: s.accentColor,
+            fontText: s.fontText,
+            fontMono: s.fontMono
+          })
+        );
       })
       .catch(() => void 0);
   }, []);
