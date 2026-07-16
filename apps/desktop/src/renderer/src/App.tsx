@@ -22,7 +22,7 @@ import {
   ReviewPanel,
   SessionCardsBar,
   SessionReportView,
-  SettingsView,
+  SettingsWindow,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
@@ -115,12 +115,24 @@ export function App(): JSX.Element {
     void window.cockpit.settings.update(patch).then(setSettings).catch(() => void 0);
   };
 
-  const saveSettings = (next: AppSettings): void => {
+  /**
+   * Atualiza settings (merge parcial no Main) e RE-APLICA o tema vivo (15.2)
+   * — usado pela janela de Configurações (15.3, salvo automático).
+   */
+  const updateSettings = (patch: Partial<AppSettings>): void => {
     void window.cockpit.settings
-      .update(next)
+      .update(patch)
       .then((s) => {
         setSettings(s);
         setOllamaModel(s.ollamaDefaultModel);
+        applyTheme(
+          composeTheme({
+            themePreset: s.themePreset,
+            accentColor: s.accentColor,
+            fontText: s.fontText,
+            fontMono: s.fontMono
+          })
+        );
       })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
@@ -137,8 +149,10 @@ export function App(): JSX.Element {
     | 'review'
     | 'learnings'
     | 'agents'
-    | 'settings'
   >('master');
+  // Janela de Configurações em overlay (Story 15.3, FR54) — não é view:
+  // flutua sobre qualquer tela, como na referência OmniRift.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -1242,7 +1256,7 @@ export function App(): JSX.Element {
             { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => setView('timeline') },
             { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => setView('learnings') },
             { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => setView('agents') },
-            { icon: '⚙', label: 'Configurações', active: view === 'settings', onClick: () => setView('settings') }
+            { icon: '⚙', label: 'Configurações', active: settingsOpen, onClick: () => setSettingsOpen(true) }
           ]}
           appVersion={info?.version ?? '—'}
           width={sidebarWidth}
@@ -1335,7 +1349,6 @@ export function App(): JSX.Element {
           />
         )}
 
-        {view === 'settings' && settings && <SettingsView settings={settings} onSave={saveSettings} />}
 
         <section
           ref={canvasSectionRef}
@@ -1647,6 +1660,10 @@ export function App(): JSX.Element {
           sidebar de sessões E a status bar da 13.3 (informação preservada:
           daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
       <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
+      {/* Janela de Configurações (Story 15.3, FR54) — overlay estilo OmniRift. */}
+      {settingsOpen && settings && (
+        <SettingsWindow settings={settings} onUpdate={updateSettings} onClose={() => setSettingsOpen(false)} />
+      )}
       {promptState && (
         <PromptModal
           message={promptState.message}
