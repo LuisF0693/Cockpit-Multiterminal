@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -152,6 +152,16 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+}).catch((err: unknown) => {
+  // Exceção antes de createWindow() deixava o app vivo SEM janela (processo
+  // zumbi invisível — visto no campo: better-sqlite3 sem 'bindings' no asar).
+  // Falha de boot agora é visível e encerra o processo.
+  console.error('[boot] falha fatal antes da janela:', err);
+  dialog.showErrorBox(
+    'Meu Cockpit — falha ao iniciar',
+    err instanceof Error ? (err.stack ?? err.message) : String(err)
+  );
+  app.exit(1);
 });
 
 let ptyHostManager: PtyHostManager | null = null;
