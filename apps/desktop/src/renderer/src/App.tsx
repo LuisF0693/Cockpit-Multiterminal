@@ -10,35 +10,37 @@ import {
 import {
   ADAPTER_CATALOG,
   AgentCatalog,
+  AppSidebar,
   BrowserPreviewTile,
   CanvasMinimap,
-  CanvasToolbar,
+  FilePreviewPanel,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
-  ProjectFilesSidebar,
   PromptModal,
   RecoveryScreen,
   ReviewPanel,
+  SessionCardsBar,
   SessionReportView,
   SettingsView,
-  Sidebar,
-  StatusBar,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
+  TelemetryPanel,
   TerminalTile,
   TimelineView,
   canvasBackground,
   matchShortcut,
   statusColor,
   theme,
-  type MinimapTile
+  type MinimapTile,
+  type PreviewFile
 } from '@cockpit/ui';
 import type {
   AppSettings,
   CrashSummary,
   DaemonStatus,
+  ProjectDirEntry,
   Learning,
   Project,
   SessionReport,
@@ -67,7 +69,9 @@ export function App(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
-  const [selectedAdapter, setSelectedAdapter] = useState('shell');
+  // Adapter default do "+ novo terminal"/Ctrl+N — a criação por adapter
+  // específico vive na sidebar (NOVO AGENTE, 14.2) e no catálogo (13.4).
+  const selectedAdapter = 'shell';
   // Modelo do Ollama (Story 12.6) — só relevante quando o adapter selecionado
   // é 'ollama'; ollama exige `run <modelo>` por sessão, não é fixo no adapter.
   const [ollamaModel, setOllamaModel] = useState('llama3');
@@ -628,10 +632,49 @@ export function App(): JSX.Element {
   canvasZoomRef.current = canvasZoom;
   const clampZoom = (z: number): number => Math.min(2, Math.max(0.4, z));
 
-  // Toggles da toolbar do canvas (Story 13.2, FR42) — só visual: ocultar o
-  // overlay NÃO remove vínculos (AC3), ocultar o minimapa não perde estado.
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [showLinks, setShowLinks] = useState(true);
+  // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+
+  // Árvore de arquivos da sidebar (Story 14.2) — raiz recarrega na troca de
+  // projeto (mesmo comportamento do ProjectFilesSidebar da 12.1, agora no App).
+  const [rootEntries, setRootEntries] = useState<ProjectDirEntry[] | null>(null);
+  useEffect(() => {
+    setRootEntries(null);
+    setPreviewFile(null);
+    void window.cockpit.project
+      .readDir(activeProjectId ? { projectId: activeProjectId } : {})
+      .then(setRootEntries)
+      .catch(() => setRootEntries([]));
+  }, [activeProjectId]);
+
+  /** Abre um arquivo da árvore no painel de preview (Story 14.5, FR51). */
+  const openFilePreview = (entry: ProjectDirEntry): void => {
+    void window.cockpit.project
+      .readFile({ path: entry.path, maxBytes: 262144 })
+      .then((res) =>
+        setPreviewFile(
+          res
+            ? { name: entry.name, path: entry.path, content: res.content, truncated: res.truncated }
+            : { name: entry.name, path: entry.path, content: '(arquivo binário ou ilegível)', truncated: false }
+        )
+      )
+      .catch(() => void 0);
+  };
+
+  // Eventos pro painel de telemetria (Story 14.2, FR48) — poll leve SEMPRE
+  // ativo (independente da view timeline, que mantém o poll próprio de 5s).
+  const [telemetryEvents, setTelemetryEvents] = useState<TimelineEvent[]>([]);
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.cockpit.timeline
+        .get({ limit: 30 })
+        .then(setTelemetryEvents)
+        .catch(() => void 0);
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Catálogo de agentes (Story 13.4, FR45) — disponibilidade no PATH checada
   // no Main ao ENTRAR na view (não no boot: 8 stats de fs sem ninguém olhando).
@@ -888,15 +931,20 @@ export function App(): JSX.Element {
       <StatusPulseStyles />
       <header
         style={{
+          height: 42,
+          minHeight: 42,
           display: 'flex',
-          alignItems: 'baseline',
+          alignItems: 'center',
           gap: theme.space.md,
-          padding: `${theme.space.sm + 2}px ${theme.space.lg}px`,
+          padding: `0 ${theme.space.lg}px`,
+          background: theme.surface.app,
           borderBottom: `1px solid ${theme.border.default}`,
           flexShrink: 0
         }}
       >
-        <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
+        <h1 style={{ fontSize: theme.font.size.lg, fontWeight: 700, letterSpacing: 0.3, margin: 0, color: theme.text.bright, whiteSpace: 'nowrap' }}>
+          MEU <span style={{ color: theme.accent.primary }}>COCKPIT</span>
+        </h1>
         {/* Workspaces (Story 3.6): troca rápida + criar/renomear */}
         <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <select
@@ -925,17 +973,16 @@ export function App(): JSX.Element {
             ✎
           </button>
         </span>
-        <nav style={{ display: 'flex', gap: 4 }}>
+        {/* Abas de view principais — estilo aba do mock (linhas 28-32);
+            views secundárias (Timeline/Learnings/Agentes/Configurações)
+            moram na sidebar em APP & SISTEMA (Story 14.2). */}
+        <nav style={{ display: 'flex', gap: 2 }}>
           {(
             [
-              ['master', 'Master', 'Sessão Master (Ctrl+M)'],
-              ['canvas', 'Canvas', 'Canvas de terminais'],
-              ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
-              ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
-              ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)'],
-              ['agents', 'Agentes', 'Catálogo de agentes com disponibilidade no PATH (Story 13.4)'],
-              ['settings', '⚙', 'Configurações (Story 13.5)']
+              ['master', 'master', 'Sessão Master (Ctrl+M)'],
+              ['canvas', 'canvas', 'Canvas de terminais'],
+              ['tasks', 'tarefas', 'Tarefas com lifecycle (Story 5.1)'],
+              ['board', 'board', 'Lifecycle Board (Story 5.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -944,11 +991,12 @@ export function App(): JSX.Element {
               title={title}
               style={{
                 background: view === v ? theme.surface.raised : 'transparent',
-                color: view === v ? theme.text.primary : theme.text.muted,
-                border: `1px solid ${view === v ? theme.border.strong : theme.border.default}`,
-                borderRadius: 6,
-                padding: '3px 10px',
-                fontSize: theme.font.size.sm,
+                color: view === v ? theme.text.bright : theme.text.secondary,
+                border: 'none',
+                borderRadius: 5,
+                padding: '6px 8px',
+                fontSize: theme.font.size.xs + 1,
+                fontFamily: theme.font.ui,
                 cursor: 'pointer'
               }}
             >
@@ -956,29 +1004,28 @@ export function App(): JSX.Element {
             </button>
           ))}
         </nav>
-        {info && (
-          <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.text.muted }}>
-            v{info.version} · {info.platform} · {projectSessions.length}{' '}
-            {projectSessions.length === 1 ? 'sessão' : 'sessões'}
-          </span>
-        )}
         <span style={{ flex: 1 }} />
-        {/* Badge do daemon (6.4): só aparece quando o vínculo não está saudável */}
-        {daemonState !== 'connected' && (
-          <span
-            title="Estado do daemon de terminais"
-            style={{
-              fontSize: theme.font.size.sm,
-              fontWeight: 700,
-              color: theme.text.inverse,
-              background: daemonState === 'disconnected' ? theme.accent.danger : theme.accent.warn,
-              borderRadius: theme.radius.pill,
-              padding: '3px 10px'
-            }}
-          >
-            {daemonState === 'starting' && '⏫ daemon subindo…'}
-            {daemonState === 'reconnecting' && '🔌 daemon: reconectando…'}
-            {daemonState === 'disconnected' && '⛔ daemon desconectado'}
+        {info && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: theme.font.size.xs + 1, color: theme.text.muted, whiteSpace: 'nowrap' }}>
+            <span>v{info.version}</span>
+            <span style={{ color: theme.border.strong }}>·</span>
+            <span>
+              {projectSessions.length} {projectSessions.length === 1 ? 'sessão' : 'sessões'}
+            </span>
+            <span style={{ color: theme.border.strong }}>·</span>
+            <span
+              title="Estado do daemon de terminais"
+              style={{
+                color:
+                  daemonState === 'connected'
+                    ? theme.accent.ok
+                    : daemonState === 'disconnected'
+                      ? theme.accent.danger
+                      : theme.accent.warn
+              }}
+            >
+              ● daemon
+            </span>
           </span>
         )}
         {(() => {
@@ -1004,44 +1051,33 @@ export function App(): JSX.Element {
             </button>
           );
         })()}
-        {adapters.length > 1 && (
-          <select
-            value={selectedAdapter}
-            onChange={(e) => setSelectedAdapter(e.target.value)}
-            title="Adapter do novo terminal"
+        {/* Pill de zoom do mock (linhas 41-45) — só com o canvas ativo. */}
+        {view === 'canvas' && (
+          <div
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
               background: theme.surface.raised,
-              color: theme.text.primary,
-              border: `1px solid ${theme.border.default}`,
+              border: `1px solid ${theme.border.strong}`,
               borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: theme.font.size.sm
+              padding: 2
             }}
           >
-            {adapters.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.displayName}
-              </option>
-            ))}
-          </select>
-        )}
-        {selectedAdapter === 'ollama' && (
-          <input
-            value={ollamaModel}
-            onChange={(e) => setOllamaModel(e.target.value)}
-            title="Modelo do Ollama (ex.: llama3, mistral)"
-            placeholder="modelo (ex.: llama3)"
-            style={{
-              width: 110,
-              background: theme.surface.raised,
-              color: theme.text.primary,
-              border: `1px solid ${theme.border.default}`,
-              borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: theme.font.size.sm,
-              fontFamily: theme.font.mono
-            }}
-          />
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))} title="Diminuir zoom (Ctrl+scroll)" style={zoomBtnStyle}>
+              −
+            </button>
+            <button
+              onClick={() => setCanvasZoom(1)}
+              title="Redefinir zoom para 100%"
+              style={{ ...zoomBtnStyle, width: 38, fontSize: theme.font.size.xs }}
+            >
+              {Math.round(canvasZoom * 100)}%
+            </button>
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))} title="Aumentar zoom (Ctrl+scroll)" style={zoomBtnStyle}>
+              +
+            </button>
+          </div>
         )}
         <button
           onClick={() => void newTerminal()}
@@ -1081,28 +1117,33 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <ProjectFilesSidebar
+        <AppSidebar
           projects={projects}
-          activeId={activeProjectId}
+          activeProjectId={activeProjectId}
+          gitBranch={gitBranch}
           onSelectProject={switchProject}
           onCreateProject={createProject}
           onCreateTerminalIn={newTerminalInProject}
+          adapters={adapters}
+          onCreateTerminal={(adapterId) => {
+            if (view !== 'recovery') void newTerminal(adapterId);
+          }}
+          rootEntries={rootEntries}
           onReadDir={(dirPath) =>
             window.cockpit.project.readDir({
               ...(activeProjectId ? { projectId: activeProjectId } : {}),
               ...(dirPath !== undefined ? { dirPath } : {})
             })
           }
-          onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
-        />
-
-        <Sidebar
-          sessions={projectSessions}
-          focusedId={focusedId}
-          onSelect={(id) => goToTerminal(id)}
-          onNewTerminal={() => {
-            if (view !== 'recovery') void newTerminal();
-          }}
+          onSelectFile={openFilePreview}
+          selectedFilePath={previewFile?.path ?? null}
+          systemEntries={[
+            { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => setView('timeline') },
+            { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => setView('learnings') },
+            { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => setView('agents') },
+            { icon: '⚙', label: 'Configurações', active: view === 'settings', onClick: () => setView('settings') }
+          ]}
+          appVersion={info?.version ?? '—'}
         />
 
         {view === 'recovery' && crashSummary && (
@@ -1216,26 +1257,6 @@ export function App(): JSX.Element {
             transition: 'background-color 200ms'
           }}
         >
-          {/* Toolbar do canvas (Story 13.2, FR42) — FORA do wrapper escalado
-              (não escala com o zoom) e num wrapper sticky de altura 0: fica
-              visível em qualquer scroll (2 eixos) sem empurrar o conteúdo. */}
-          {view === 'canvas' && (
-            <div style={{ position: 'sticky', top: 0, left: 0, height: 0, zIndex: 10000 }}>
-              <CanvasToolbar
-                zoom={canvasZoom}
-                onZoomIn={() => setCanvasZoom((z) => clampZoom(z + 0.1))}
-                onZoomOut={() => setCanvasZoom((z) => clampZoom(z - 0.1))}
-                onZoomReset={() => setCanvasZoom(1)}
-                onNewTerminal={() => void newTerminal()}
-                onNewBrowser={createBrowserTile}
-                minimapVisible={showMinimap}
-                onToggleMinimap={() => setShowMinimap((v) => !v)}
-                linksVisible={showLinks}
-                onToggleLinks={() => setShowLinks((v) => !v)}
-                adapterLabel={adapters.find((a) => a.id === selectedAdapter)?.displayName ?? selectedAdapter}
-              />
-            </div>
-          )}
           {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
               coordenadas de layout.x/y continuarem batendo com o topo-
               esquerda visual) — tamanho explícito pra section.scroll*
@@ -1258,9 +1279,7 @@ export function App(): JSX.Element {
                 <path d="M0,0 L6,3 L0,6 Z" fill={theme.text.muted} />
               </marker>
             </defs>
-            {/* Overlay ocultável pela toolbar (13.2, AC3) — só o DESENHO some;
-                vínculos continuam existindo e roteando normalmente. */}
-            {showLinks && projectTerminalLinks.map((l) => {
+            {projectTerminalLinks.map((l) => {
               const source = layout.tiles.find((t) => t.id === l.sourceId);
               const target = layout.tiles.find((t) => t.id === l.targetId);
               if (!source || !target) return null;
@@ -1379,21 +1398,29 @@ export function App(): JSX.Element {
               tiles (que ficam montados escondidos por causa do xterm/
               portas) — o minimapa não tem nenhum estado de I/O persistente,
               então desmontar é seguro. */}
-          {view === 'canvas' && showMinimap && (
+          {view === 'canvas' && (
             <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
           )}
         </section>
+
+        {/* Painel de preview de arquivo (Story 14.5, FR51) — entre o canvas
+            e a telemetria, como no mock (linhas 205-259). */}
+        {previewFile && <FilePreviewPanel file={previewFile} onClose={() => setPreviewFile(null)} />}
+
+        {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
+            pendentes reais + eventos da timeline (mock linhas 261-275). */}
+        <TelemetryPanel
+          pendingDecisionCount={pendingDecisionCount}
+          onOpenDecisions={() => setView('master')}
+          events={telemetryEvents}
+          sessions={sessions}
+        />
       </div>
-      {/* Status bar global (Story 13.3, FR43) — visível em TODAS as views. */}
-      <StatusBar
-        projectName={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
-        projectColor={activeProjectColor}
-        gitBranch={gitBranch}
-        daemonState={daemonState}
-        activeSessionCount={projectSessions.filter((s) => s.status === 'running').length}
-        pendingDecisionCount={pendingDecisionCount}
-        onOpenDecisions={() => setView('master')}
-      />
+
+      {/* Rodapé de cards de sessões (Story 14.2, FR48) — substitui a antiga
+          sidebar de sessões E a status bar da 13.3 (informação preservada:
+          daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
+      <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
       {promptState && (
         <PromptModal
           message={promptState.message}
@@ -1421,6 +1448,21 @@ const wsButtonStyle: React.CSSProperties = {
   height: 24,
   cursor: 'pointer',
   fontSize: theme.font.size.sm
+};
+
+/** Botões do pill de zoom do header (mock, linhas 41-45). */
+const zoomBtnStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  border: 'none',
+  background: 'transparent',
+  color: theme.text.secondary,
+  cursor: 'pointer',
+  fontSize: theme.font.size.lg,
+  lineHeight: '20px',
+  borderRadius: theme.radius.sm,
+  padding: 0,
+  fontFamily: theme.font.ui
 };
 
 /** Paleta cíclica p/ cor de novo projeto (Story 8.2) — promovida ao tema (13.1). */

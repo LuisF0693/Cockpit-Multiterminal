@@ -6,8 +6,16 @@ export { TerminalView } from './terminal-view';
 export type { TerminalViewProps } from './terminal-view';
 export { TerminalTile } from './terminal-tile';
 export type { TerminalTileProps } from './terminal-tile';
-export { Sidebar } from './sidebar';
-export type { SidebarProps } from './sidebar';
+export { AppSidebar } from './app-sidebar';
+export type { AppSidebarProps } from './app-sidebar';
+export { FileTree } from './file-tree';
+export type { FileTreeProps } from './file-tree';
+export { TelemetryPanel } from './telemetry-panel';
+export type { TelemetryPanelProps } from './telemetry-panel';
+export { SessionCardsBar } from './session-cards-bar';
+export type { SessionCardsBarProps } from './session-cards-bar';
+export { FilePreviewPanel } from './file-preview-panel';
+export type { FilePreviewPanelProps, PreviewFile } from './file-preview-panel';
 export {
   addTile,
   bringToFront,
@@ -36,10 +44,6 @@ export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-c
 export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
-export { CanvasToolbar } from './canvas-toolbar';
-export type { CanvasToolbarProps } from './canvas-toolbar';
-export { StatusBar } from './status-bar';
-export type { StatusBarProps } from './status-bar';
 export { ADAPTER_CATALOG, adapterCatalogEntry } from './adapter-catalog';
 export type { AdapterCatalogEntry } from './adapter-catalog';
 export { AgentCatalog } from './agent-catalog';
@@ -69,8 +73,6 @@ export {
 } from './task-lifecycle-ui';
 export { ReviewPanel } from './review-panel';
 export type { ReviewPanelProps } from './review-panel';
-export { ProjectFilesSidebar } from './project-files-sidebar';
-export type { ProjectFilesSidebarProps } from './project-files-sidebar';
 export { BrowserPreviewTile } from './browser-preview-tile';
 export type { BrowserPreviewTileProps } from './browser-preview-tile';
 export { LearningsView } from './learnings-view';
