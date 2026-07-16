@@ -30,7 +30,9 @@ export function SettingsView({ settings, onSave }: SettingsViewProps): JSX.Eleme
   const save = (): void => {
     const parsedInterval = Number(intervalMs);
     const parsedZoom = Number(zoom) / 100;
+    // Spread preserva campos que esta tela não edita (larguras dos painéis, 15.1).
     onSave({
+      ...settings,
       ollamaDefaultModel: ollamaModel.trim() || 'llama3',
       browserPreviewIntervalMs: Number.isFinite(parsedInterval) ? parsedInterval : 1500,
       canvasDefaultZoom: Number.isFinite(parsedZoom) ? parsedZoom : 1

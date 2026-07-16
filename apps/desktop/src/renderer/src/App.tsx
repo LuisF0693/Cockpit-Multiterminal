@@ -80,6 +80,10 @@ export function App(): JSX.Element {
   // Declarado AQUI (antes dos efeitos que dependem de `settings`) — o array
   // de dependências avalia durante o render, TDZ derrubaria o boot.
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  // Larguras dos painéis (Story 15.1, FR52) — persistidas nas settings.
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [telemetryWidth, setTelemetryWidth] = useState(230);
+  const [previewWidth, setPreviewWidth] = useState(520);
   useEffect(() => {
     void window.cockpit.settings
       .get()
@@ -87,9 +91,17 @@ export function App(): JSX.Element {
         setSettings(s);
         setOllamaModel(s.ollamaDefaultModel);
         setCanvasZoom(clampZoom(s.canvasDefaultZoom));
+        setSidebarWidth(s.sidebarWidth);
+        setTelemetryWidth(s.telemetryWidth);
+        setPreviewWidth(s.previewWidth);
       })
       .catch(() => void 0);
   }, []);
+
+  /** Persiste uma largura ao SOLTAR o arraste (15.1) — merge parcial no Main. */
+  const persistPanelWidth = (patch: Partial<AppSettings>): void => {
+    void window.cockpit.settings.update(patch).then(setSettings).catch(() => void 0);
+  };
 
   const saveSettings = (next: AppSettings): void => {
     void window.cockpit.settings
@@ -631,7 +643,8 @@ export function App(): JSX.Element {
   const canvasZoomRef = useRef(canvasZoom);
   canvasZoomRef.current = canvasZoom;
   // Faixa do mock Multerminal (14.3): 35%–160%.
-  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.35, z));
+  // Zoom out ampliado a pedido do fundador (15.1, FR53): 15%–160%.
+  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.15, z));
 
   // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
@@ -1220,6 +1233,9 @@ export function App(): JSX.Element {
             { icon: '⚙', label: 'Configurações', active: view === 'settings', onClick: () => setView('settings') }
           ]}
           appVersion={info?.version ?? '—'}
+          width={sidebarWidth}
+          onResize={setSidebarWidth}
+          onResizeEnd={(w) => persistPanelWidth({ sidebarWidth: w })}
         />
 
         {view === 'recovery' && crashSummary && (
@@ -1592,7 +1608,15 @@ export function App(): JSX.Element {
 
         {/* Painel de preview de arquivo (Story 14.5, FR51) — entre o canvas
             e a telemetria, como no mock (linhas 205-259). */}
-        {previewFile && <FilePreviewPanel file={previewFile} onClose={() => setPreviewFile(null)} />}
+        {previewFile && (
+          <FilePreviewPanel
+            file={previewFile}
+            onClose={() => setPreviewFile(null)}
+            width={previewWidth}
+            onResize={setPreviewWidth}
+            onResizeEnd={(w) => persistPanelWidth({ previewWidth: w })}
+          />
+        )}
 
         {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
             pendentes reais + eventos da timeline (mock linhas 261-275). */}
@@ -1601,6 +1625,9 @@ export function App(): JSX.Element {
           onOpenDecisions={() => setView('master')}
           events={telemetryEvents}
           sessions={sessions}
+          width={telemetryWidth}
+          onResize={setTelemetryWidth}
+          onResizeEnd={(w) => persistPanelWidth({ telemetryWidth: w })}
         />
       </div>
 

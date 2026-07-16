@@ -16,6 +16,8 @@ export { SessionCardsBar } from './session-cards-bar';
 export type { SessionCardsBarProps } from './session-cards-bar';
 export { FilePreviewPanel } from './file-preview-panel';
 export type { FilePreviewPanelProps, PreviewFile } from './file-preview-panel';
+export { PanelResizeHandle } from './panel-resize-handle';
+export type { PanelResizeHandleProps } from './panel-resize-handle';
 export {
   addTile,
   bringToFront,

@@ -492,7 +492,11 @@ export type ProjectGitBranchRequest = z.infer<typeof ProjectGitBranchRequestSche
 export const AppSettingsSchema = z.object({
   ollamaDefaultModel: z.string().min(1).max(64).catch('llama3').default('llama3'),
   browserPreviewIntervalMs: z.number().int().min(500).max(60000).catch(1500).default(1500),
-  canvasDefaultZoom: z.number().min(0.4).max(2).catch(1).default(1)
+  canvasDefaultZoom: z.number().min(0.15).max(2).catch(1).default(1),
+  /** Larguras dos painéis (Story 15.1, FR52) — defaults do mock Multerminal. */
+  sidebarWidth: z.number().int().min(200).max(400).catch(240).default(240),
+  telemetryWidth: z.number().int().min(200).max(400).catch(230).default(230),
+  previewWidth: z.number().int().min(380).max(800).catch(520).default(520)
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 

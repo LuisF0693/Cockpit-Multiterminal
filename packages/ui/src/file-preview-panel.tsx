@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { renderMarkdownLite } from './markdown-lite';
+import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
 
 /**
@@ -19,9 +20,13 @@ export interface PreviewFile {
 export interface FilePreviewPanelProps {
   file: PreviewFile;
   onClose: () => void;
+  /** Largura atual (Story 15.1, FR52) — redimensionável por arraste. */
+  width: number;
+  onResize: (width: number) => void;
+  onResizeEnd: (width: number) => void;
 }
 
-export function FilePreviewPanel({ file, onClose }: FilePreviewPanelProps): JSX.Element {
+export function FilePreviewPanel({ file, onClose, width, onResize, onResizeEnd }: FilePreviewPanelProps): JSX.Element {
   const isMd = /\.mdx?$/i.test(file.name);
   const [mode, setMode] = useState<'preview' | 'code'>('preview');
   const showRendered = isMd && mode === 'preview';
@@ -30,8 +35,9 @@ export function FilePreviewPanel({ file, onClose }: FilePreviewPanelProps): JSX.
   return (
     <div
       style={{
-        width: 520,
-        minWidth: 380,
+        position: 'relative',
+        width,
+        minWidth: width,
         display: 'flex',
         flexDirection: 'column',
         background: '#0D0D0F',
@@ -40,6 +46,7 @@ export function FilePreviewPanel({ file, onClose }: FilePreviewPanelProps): JSX.
         fontFamily: theme.font.ui
       }}
     >
+      <PanelResizeHandle side="left" width={width} min={380} max={800} onResize={onResize} onResizeEnd={onResizeEnd} />
       <div style={{ height: 36, minHeight: 36, display: 'flex', alignItems: 'center', background: theme.surface.panel, borderBottom: `1px solid ${theme.border.subtle}` }}>
         <div
           style={{

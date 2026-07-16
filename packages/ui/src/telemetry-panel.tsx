@@ -1,4 +1,5 @@
 import type { SessionRecord, TimelineEvent } from '@cockpit/shared';
+import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
 
 /**
@@ -13,6 +14,10 @@ export interface TelemetryPanelProps {
   onOpenDecisions: () => void;
   events: TimelineEvent[];
   sessions: SessionRecord[];
+  /** Largura atual (Story 15.1, FR52) — redimensionável por arraste. */
+  width: number;
+  onResize: (width: number) => void;
+  onResizeEnd: (width: number) => void;
 }
 
 /** Cor por tipo de evento — mapa simples inspirado no mock (cyan/verde/âmbar/neutro). */
@@ -24,7 +29,15 @@ function eventColor(type: string): string {
   return theme.text.secondary;
 }
 
-export function TelemetryPanel({ pendingDecisionCount, onOpenDecisions, events, sessions }: TelemetryPanelProps): JSX.Element {
+export function TelemetryPanel({
+  pendingDecisionCount,
+  onOpenDecisions,
+  events,
+  sessions,
+  width,
+  onResize,
+  onResizeEnd
+}: TelemetryPanelProps): JSX.Element {
   const nameOf = (id?: string): string => {
     if (!id) return '';
     return sessions.find((s) => s.id === id)?.name ?? id.slice(0, 6);
@@ -33,8 +46,9 @@ export function TelemetryPanel({ pendingDecisionCount, onOpenDecisions, events, 
   return (
     <aside
       style={{
-        width: 230,
-        minWidth: 230,
+        position: 'relative',
+        width,
+        minWidth: width,
         background: theme.surface.panel,
         borderLeft: `1px solid ${theme.border.subtle}`,
         padding: '12px 10px',
@@ -43,6 +57,7 @@ export function TelemetryPanel({ pendingDecisionCount, onOpenDecisions, events, 
         fontFamily: theme.font.ui
       }}
     >
+      <PanelResizeHandle side="left" width={width} min={200} max={400} onResize={onResize} onResizeEnd={onResizeEnd} />
       <div style={sectionTitleStyle}>TELEMETRIA + STATUS</div>
 
       <button

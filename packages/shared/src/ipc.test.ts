@@ -39,14 +39,31 @@ describe('AppSettingsSchema (Story 13.5, FR46)', () => {
     expect(AppSettingsSchema.parse({})).toEqual({
       ollamaDefaultModel: 'llama3',
       browserPreviewIntervalMs: 1500,
-      canvasDefaultZoom: 1
+      canvasDefaultZoom: 1,
+      sidebarWidth: 240,
+      telemetryWidth: 230,
+      previewWidth: 520
     });
   });
 
-  it('valores válidos são preservados', () => {
+  it('valores válidos são preservados (larguras da 15.1 inclusive)', () => {
     expect(
-      AppSettingsSchema.parse({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 })
-    ).toEqual({ ollamaDefaultModel: 'mistral', browserPreviewIntervalMs: 3000, canvasDefaultZoom: 0.8 });
+      AppSettingsSchema.parse({
+        ollamaDefaultModel: 'mistral',
+        browserPreviewIntervalMs: 3000,
+        canvasDefaultZoom: 0.8,
+        sidebarWidth: 300,
+        telemetryWidth: 260,
+        previewWidth: 600
+      })
+    ).toEqual({
+      ollamaDefaultModel: 'mistral',
+      browserPreviewIntervalMs: 3000,
+      canvasDefaultZoom: 0.8,
+      sidebarWidth: 300,
+      telemetryWidth: 260,
+      previewWidth: 600
+    });
   });
 
   it('valor inválido degrada pro default do CAMPO, sem derrubar os demais', () => {

@@ -2,6 +2,7 @@ import type { AdapterInfo, Project, ProjectDirEntry } from '@cockpit/shared';
 import { adapterCatalogEntry } from './adapter-catalog';
 import { adapterColor } from './adapter-colors';
 import { FileTree } from './file-tree';
+import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
 
 /**
@@ -31,6 +32,10 @@ export interface AppSidebarProps {
   /** Entradas de APP & SISTEMA — views secundárias reais (label + ícone + ativo). */
   systemEntries: Array<{ icon: string; label: string; active: boolean; onClick: () => void }>;
   appVersion: string;
+  /** Largura atual (Story 15.1, FR52) — redimensionável por arraste. */
+  width: number;
+  onResize: (width: number) => void;
+  onResizeEnd: (width: number) => void;
 }
 
 export function AppSidebar(props: AppSidebarProps): JSX.Element {
@@ -39,8 +44,9 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
   return (
     <aside
       style={{
-        width: 240,
-        minWidth: 240,
+        position: 'relative',
+        width: props.width,
+        minWidth: props.width,
         background: theme.surface.panel,
         borderRight: `1px solid ${theme.border.subtle}`,
         display: 'flex',
@@ -49,6 +55,7 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
         fontFamily: theme.font.ui
       }}
     >
+      <PanelResizeHandle side="right" width={props.width} min={200} max={400} onResize={props.onResize} onResizeEnd={props.onResizeEnd} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', fontSize: theme.font.size.sm }}>
         <SectionTitle>PROJETO</SectionTitle>
         {active ? (
