@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: 'JBMono'; src: local('JetBrains Mono'); }
+body { margin: 0; background: #0a0a0c; }
+@keyframes dashflow { to { stroke-dashoffset: -24; } }
+@keyframes flowmove { from { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } to { offset-distance: 100%; opacity: 0; } }
+@keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+</style>
+</helmet>
+<div style="position:fixed; inset:0; background:#0a0a0c; color:#d4d4d8; font-family:'JBMono',ui-monospace,'SF Mono',Menlo,monospace; display:flex; flex-direction:column; overflow:hidden; user-select:none;">
+
+  <div style="height:42px; min-height:42px; display:flex; align-items:center; gap:16px; padding:0 14px; background:#111113; border-bottom:1px solid #232326;">
+    <div style="display:flex; gap:6px;">
+      <div style="width:11px; height:11px; border-radius:50%; background:#ff5f57;"></div>
+      <div style="width:11px; height:11px; border-radius:50%; background:#febc2e;"></div>
+      <div style="width:11px; height:11px; border-radius:50%; background:#28c840;"></div>
+    </div>
+    <div style="font-size:13px; font-weight:700; letter-spacing:0.3px; color:#f4f4f5;">MEU <span style="color:#22d3ee;">COCKPIT</span></div>
+    <div style="display:flex; gap:2px; margin-left:6px;">
+      <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="5">
+        <div style="{{ tab.style }}">{{ tab.label }}</div>
+      </sc-for>
+    </div>
+    <div style="flex:1;"></div>
+    <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:#71717a;">
+      <span>v0.3.2</span>
+      <span style="color:#3f3f46;">·</span>
+      <span>{{ terminalCount }} sessões</span>
+      <span style="color:#3f3f46;">·</span>
+      <span style="color:#22c55e;">● host :51658</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:4px; background:#19191c; border:1px solid #2a2a2e; border-radius:6px; padding:2px;">
+      <button onClick="{{ zoomOut }}" style="width:22px; height:22px; border:none; background:transparent; color:#a1a1aa; cursor:pointer; font-size:14px; border-radius:4px;" style-hover="background:#2a2a2e; color:#fff;">−</button>
+      <div style="font-size:11px; color:#a1a1aa; width:38px; text-align:center;">{{ zoomLabel }}</div>
+      <button onClick="{{ zoomIn }}" style="width:22px; height:22px; border:none; background:transparent; color:#a1a1aa; cursor:pointer; font-size:14px; border-radius:4px;" style-hover="background:#2a2a2e; color:#fff;">+</button>
+    </div>
+    <button onClick="{{ addTerminal }}" style="display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:6px; border:1px solid #2a2a2e; background:#19191c; color:#e4e4e7; font-size:11px; cursor:pointer; white-space:nowrap;" style-hover="background:#232326;">+ novo terminal</button>
+  </div>
+
+  <div style="height:38px; min-height:38px; display:flex; align-items:center; gap:6px; padding:0 14px; background:#0e0e10; border-bottom:1px solid #1c1c1f;">
+    <sc-for list="{{ toolIcons }}" as="ic" hint-placeholder-count="10">
+      <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:5px; color:#71717a; font-size:12px; cursor:default;" style-hover="background:#1c1c1f; color:#d4d4d8;">{{ ic }}</div>
+    </sc-for>
+    <div style="width:1px; height:16px; background:#232326; margin:0 4px;"></div>
+    <div style="display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:5px; color:#a1a1aa; font-size:11px; cursor:default;" style-hover="background:#1c1c1f;">Mapa do código ▾</div>
+    <div style="flex:1;"></div>
+    <div style="padding:4px 10px; border-radius:12px; background:#12261f; border:1px solid #1f4d3a; color:#4ade80; font-size:10.5px; display:flex; align-items:center; gap:5px;"><span style="width:6px; height:6px; border-radius:50%; background:#4ade80;"></span>{{ readyStatus }}</div>
+    <div style="flex:1;"></div>
+    <div style="padding:5px 10px; border-radius:5px; color:#a1a1aa; font-size:11px; cursor:default;" style-hover="background:#1c1c1f;">comparar</div>
+    <div style="padding:5px 10px; border-radius:5px; color:#a1a1aa; font-size:11px; cursor:default;" style-hover="background:#1c1c1f;">limpar grafo</div>
+  </div>
+
+  <div style="flex:1; display:flex; overflow:hidden; min-height:0;">
+
+    <div style="width:240px; min-width:240px; background:#0e0e10; border-right:1px solid #202023; display:flex; flex-direction:column; overflow:hidden;">
+      <div style="flex:1; overflow-y:auto; padding:12px 10px; font-size:12px;">
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin-bottom:6px; font-weight:600;">PROJETO</div>
+        <div style="display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:5px; border:1px solid #232326; color:#a1a1aa; font-size:11.5px; margin-bottom:14px; cursor:default;" style-hover="background:#1a1a1d;">📁 Selecionar pasta…</div>
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin-bottom:6px; font-weight:600;">PARALELOS <span style="color:#4ade80; font-size:9px; background:#12261f; border:1px solid #1f4d3a; padding:1px 5px; border-radius:4px; margin-left:4px;">git-native</span></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:5px; background:#17272a; border:1px solid #1c3a3d; margin-bottom:14px;">
+          <span style="color:#67e8f9; font-size:11.5px;">Principal</span>
+          <span style="color:#71717a; font-size:10px;">{{ terminalCount }}</span>
+        </div>
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin-bottom:6px; font-weight:600; display:flex; justify-content:space-between; align-items:center;">NOVO AGENTE <span style="color:#52525b;">+</span></div>
+        <sc-for list="{{ agentTypes }}" as="ag" hint-placeholder-count="6">
+          <div style="display:flex; flex-direction:column; gap:1px; padding:6px 8px; border-radius:5px; cursor:pointer; margin-bottom:2px;" onClick="{{ ag.add }}" style-hover="background:#1a1a1d;">
+            <div style="display:flex; align-items:center; gap:6px;"><span style="font-size:11px;">{{ ag.icon }}</span><span style="font-size:11.5px; color:#e4e4e7;">{{ ag.name }}</span></div>
+            <div style="font-size:9.5px; color:#5f5f66; padding-left:17px;">{{ ag.desc }}</div>
+          </div>
+        </sc-for>
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin:14px 0 6px; font-weight:600; display:flex; justify-content:space-between; align-items:center;">PROJETOS <span onClick="{{ addProject }}" style="color:#52525b; cursor:pointer; font-size:13px;" style-hover="color:#e4e4e7;">+</span></div>
+        <sc-for list="{{ projects }}" as="proj" hint-placeholder-count="3">
+          <div style="{{ proj.rowStyle }}" onClick="{{ proj.select }}">
+            <div style="{{ proj.dotStyle }}"></div>
+            <span style="{{ proj.textStyle }}">{{ proj.name }}</span>
+          </div>
+        </sc-for>
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin:14px 0 6px; font-weight:600;">ARQUIVOS</div>
+        <sc-for list="{{ files }}" as="f" hint-placeholder-count="10">
+          <div style="display:flex; align-items:center; gap:6px; padding:3px 4px; border-radius:4px; color:#a1a1aa; cursor:pointer;" onClick="{{ f.open }}" style-hover="background:#1a1a1d; color:#e4e4e7;">
+            <span style="font-size:11px; opacity:0.7; width:12px; text-align:center;">{{ f.icon }}</span>
+            <span style="font-size:11.5px;">{{ f.name }}</span>
+          </div>
+        </sc-for>
+
+        <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin:14px 0 6px; font-weight:600;">APP &amp; SISTEMA</div>
+        <sc-for list="{{ systemMenu }}" as="sm" hint-placeholder-count="6">
+          <div style="display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:4px; color:#a1a1aa; font-size:11.5px; cursor:default;" style-hover="background:#1a1a1d; color:#e4e4e7;">
+            <span style="font-size:11px; width:13px; text-align:center;">{{ sm.icon }}</span><span>{{ sm.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding:10px; border-top:1px solid #202023; font-size:10.5px; color:#71717a;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Hoje: <span style="color:#a1a1aa;">$2.14</span></span><span>Local</span></div>
+        <div style="margin-bottom:7px; color:#52525b;">v0.3.2 · build local</div>
+        <div style="display:flex; flex-wrap:wrap; gap:4px 8px; font-size:9.5px; color:#52525b;">
+          <span style="cursor:default;">Buscar atualização</span><span>·</span>
+          <span style="cursor:default;">Licença</span><span>·</span>
+          <span style="cursor:default;">Beta</span><span>·</span>
+          <span style="cursor:default;">Feedback</span><span>·</span>
+          <span style="cursor:default;">Comunidade</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1; position:relative; overflow:hidden; background:radial-gradient(circle at 1px 1px, #1c1c1f 1.5px, transparent 0) 0 0/22px 22px, #0c0c0e;"
+      onMouseDown="{{ onCanvasMouseDown }}" onMouseMove="{{ onCanvasMouseMove }}" onMouseUp="{{ onCanvasMouseUp }}" onMouseLeave="{{ onCanvasMouseUp }}" onWheel="{{ onWheel }}">
+
+      <div style="{{ worldStyle }}">
+
+        <sc-for list="{{ zoneViews }}" as="z" hint-placeholder-count="3">
+          <div style="{{ z.style }}"></div>
+          <div style="{{ z.labelStyle }}"><div style="{{ z.dotStyle }}"></div>{{ z.name }} <span style="opacity:0.65;">· {{ z.count }}</span></div>
+        </sc-for>
+
+
+        <svg style="position:absolute; left:0; top:0; width:2600px; height:1800px; overflow:visible; pointer-events:none;">
+          <sc-for list="{{ linkViews }}" as="lk" hint-placeholder-count="2">
+            <g>
+              <path d="{{ lk.d }}" fill="none" stroke="transparent" stroke-width="16" style="pointer-events:stroke; cursor:pointer;" onClick="{{ lk.remove }}"></path>
+              <path d="{{ lk.d }}" fill="none" stroke="{{ lk.color }}" stroke-width="1.5" stroke-dasharray="5 5" style="{{ lk.dashStyle }}" pointer-events="none"></path>
+              <circle r="3.5" fill="{{ lk.color }}" style="{{ lk.dotStyle }}"></circle>
+              <rect x="{{ lk.labelX }}" y="{{ lk.labelY }}" width="{{ lk.labelW }}" height="16" rx="3" fill="#141416" stroke="{{ lk.color }}" stroke-width="1" pointer-events="none"></rect>
+              <text x="{{ lk.textX }}" y="{{ lk.textY }}" fill="{{ lk.color }}" font-size="9.5" font-family="monospace" pointer-events="none">{{ lk.label }}</text>
+              <circle cx="{{ lk.midx }}" cy="{{ lk.midy }}" r="8" fill="#1a1010" stroke="#f87171" stroke-width="1" style="pointer-events:all; cursor:pointer;" onClick="{{ lk.remove }}"></circle>
+              <text x="{{ lk.midx }}" y="{{ lk.midyText }}" fill="#f87171" font-size="11" font-weight="700" text-anchor="middle" font-family="monospace" style="pointer-events:none;">×</text>
+            </g>
+          </sc-for>
+          <sc-if value="{{ connecting }}" hint-placeholder-val="{{ false }}">
+            <path d="{{ connectPath }}" fill="none" stroke="#67e8f9" stroke-width="1.5" stroke-dasharray="5 5" pointer-events="none"></path>
+          </sc-if>
+        </svg>
+
+        <sc-for list="{{ terminalViews }}" as="t" hint-placeholder-count="3">
+          <div style="{{ t.wrapStyle }}">
+            <div style="{{ t.frameStyle }}">
+              <div style="{{ t.titleBarStyle }}" onMouseDown="{{ t.onTitleMouseDown }}">
+                <span style="font-size:10px; color:#67e8f9;">&gt;_</span>
+                <div style="{{ t.dotStyle }}"></div>
+                <span style="font-size:11.5px; color:#e4e4e7; font-weight:500;">{{ t.title }}</span>
+                <div style="flex:1;"></div>
+                <span style="{{ t.badgeStyle }}">{{ t.badge }}</span>
+                <span style="display:flex; align-items:center; gap:3px; font-size:9.5px; color:#4ade80;"><span style="width:5px; height:5px; border-radius:50%; background:#4ade80;"></span>agora</span>
+                <span style="font-size:9.5px; color:#a1a1aa; background:#1c1c1f; border:1px solid #2a2a2e; border-radius:4px; padding:1px 5px;">{{ t.model }} ▾</span>
+                <button title="Atualizar" style="width:18px; height:18px; border:none; background:transparent; color:#6b6b72; cursor:pointer; font-size:11px; border-radius:3px;" style-hover="background:#232326; color:#d4d4d8;">↻</button>
+                <button onClick="{{ t.onMaximize }}" title="Maximizar" style="width:18px; height:18px; border:none; background:transparent; color:#6b6b72; cursor:pointer; font-size:11px; border-radius:3px;" style-hover="background:#232326; color:#d4d4d8;">⤢</button>
+                <button onClick="{{ t.onClose }}" title="Fechar" style="width:18px; height:18px; border:none; background:transparent; color:#6b6b72; cursor:pointer; font-size:13px; border-radius:3px; line-height:1;" style-hover="background:#3f1d1d; color:#f87171;">×</button>
+              </div>
+              <div style="flex:1; padding:10px 12px; overflow:hidden; font-size:11.5px; line-height:1.55;">
+                <sc-for list="{{ t.lines }}" as="ln" hint-placeholder-count="4">
+                  <div style="{{ ln.style }}">{{ ln.text }}</div>
+                </sc-for>
+              </div>
+              <div style="height:24px; min-height:24px; border-top:1px solid #232326; display:flex; align-items:center; padding:0 10px; font-size:10px; color:#5f5f66; justify-content:space-between;">
+                <span>{{ t.footer }}</span>
+                <span style="{{ t.modelStyle }}">bash</span>
+              </div>
+            </div>
+
+            <div style="{{ t.dotLeft }}" onMouseDown="{{ t.onConnectDown }}" title="Arraste para linkar"></div>
+            <div style="{{ t.dotRight }}" onMouseDown="{{ t.onConnectDown }}" title="Arraste para linkar"></div>
+            <div style="{{ t.dotTop }}" onMouseDown="{{ t.onConnectDown }}" title="Arraste para linkar"></div>
+            <div style="{{ t.dotBottom }}" onMouseDown="{{ t.onConnectDown }}" title="Arraste para linkar"></div>
+
+            <sc-if value="{{ t.isFront }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ t.handles }}" as="h" hint-placeholder-count="8">
+                <div style="{{ h.style }}" onMouseDown="{{ h.onDown }}"></div>
+              </sc-for>
+            </sc-if>
+          </div>
+        </sc-for>
+
+      </div>
+
+      <div style="position:absolute; bottom:12px; right:12px; width:150px; height:96px; background:#111113ee; border:1px solid #232326; border-radius:8px; padding:6px; pointer-events:none; z-index:200;">
+        <div style="font-size:8.5px; color:#71717a; letter-spacing:0.6px; margin-bottom:4px;">MAPA</div>
+        <div style="position:relative; width:100%; height:70px; background:#0a0a0c; border-radius:4px; overflow:hidden;">
+          <sc-for list="{{ minimapDots }}" as="m" hint-placeholder-count="3">
+            <div style="{{ m.style }}"></div>
+          </sc-for>
+          <div style="{{ viewportRectStyle }}"></div>
+        </div>
+      </div>
+
+      <sc-if value="{{ linkHint }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:10px; left:10px; background:#0d1f22; border:1px solid #164e52; color:#67e8f9; font-size:11px; padding:6px 10px; border-radius:6px; pointer-events:none; z-index:200;">Clique em outro terminal para conectar · esc para cancelar</div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ previewOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="width:520px; min-width:520px; display:flex; flex-direction:column; background:#0d0d0f; border-left:1px solid #202023; overflow:hidden;">
+        <div style="height:36px; min-height:36px; display:flex; align-items:center; background:#0e0e10; border-bottom:1px solid #1c1c1f;">
+          <div style="display:flex; align-items:center; gap:7px; height:100%; padding:0 12px; background:#0d0d0f; border-right:1px solid #1c1c1f; border-top:1.5px solid #67e8f9;">
+            <span style="font-size:12px;">{{ previewIcon }}</span>
+            <span style="font-size:12px; color:#e4e4e7;">{{ previewName }}</span>
+            <button onClick="{{ closePreview }}" style="width:18px; height:18px; border:none; background:transparent; color:#6b6b72; cursor:pointer; font-size:13px; border-radius:3px; margin-left:4px;" style-hover="background:#3f1d1d; color:#f87171;">×</button>
+          </div>
+          <div style="flex:1;"></div>
+        </div>
+
+        <div style="height:34px; min-height:34px; display:flex; align-items:center; gap:8px; padding:0 14px; border-bottom:1px solid #1c1c1f;">
+          <span style="font-size:11.5px;">{{ previewIcon }}</span>
+          <span style="font-size:11.5px; color:#a1a1aa;">{{ previewName }}</span>
+          <div style="flex:1;"></div>
+          <sc-if value="{{ previewIsMd }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; background:#17171a; border:1px solid #26262a; border-radius:6px; overflow:hidden;">
+              <div onClick="{{ setModePreview }}" style="{{ tabPreviewStyle }}">Preview</div>
+              <div onClick="{{ setModeCode }}" style="{{ tabCodeStyle }}">Markdown</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="flex:1; overflow:auto;">
+          <sc-if value="{{ previewShowRendered }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 34px; max-width:760px;">
+              <sc-for list="{{ previewBlocks }}" as="b" hint-placeholder-count="6">
+                <sc-if value="{{ b.isHeading }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ b.style }}">
+                    <sc-for list="{{ b.segs }}" as="sg" hint-placeholder-count="1"><span style="{{ sg.style }}">{{ sg.v }}</span></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ b.isP }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ b.style }}">
+                    <sc-for list="{{ b.segs }}" as="sg" hint-placeholder-count="2"><span style="{{ sg.style }}">{{ sg.v }}</span></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ b.isLi }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ b.style }}">
+                    <span style="{{ b.markerStyle }}">{{ b.marker }}</span>
+                    <span><sc-for list="{{ b.segs }}" as="sg" hint-placeholder-count="2"><span style="{{ sg.style }}">{{ sg.v }}</span></sc-for></span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ b.isCode }}" hint-placeholder-val="{{ false }}">
+                  <pre style="{{ b.style }}">{{ b.code }}</pre>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewShowRaw }}" hint-placeholder-val="{{ false }}">
+            <pre style="margin:0; padding:16px 18px; font-size:12px; line-height:1.7; color:#c4c4cb; white-space:pre-wrap; font-family:'JBMono',ui-monospace,monospace;">{{ previewContent }}</pre>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="width:230px; min-width:230px; background:#0e0e10; border-left:1px solid #202023; padding:12px 10px; overflow-y:auto; font-size:11.5px;">
+      <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin-bottom:8px; font-weight:600;">TELEMETRIA + STATUS</div>
+
+      <div style="background:#151517; border:1px solid #232326; border-radius:8px; padding:8px 10px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; color:#a1a1aa; font-size:10.5px;"><span>Decisões</span><span style="color:#fbbf24;">{{ pendingDecisions }} pendentes</span></div>
+      </div>
+
+      <div style="font-size:10px; letter-spacing:0.8px; color:#6b6b72; margin:12px 0 6px; font-weight:600;">EVENTOS</div>
+      <sc-for list="{{ events }}" as="ev" hint-placeholder-count="5">
+        <div style="display:flex; gap:6px; padding:4px 0; border-bottom:1px solid #1c1c1f;">
+          <span style="color:#52525b; font-size:10px; white-space:nowrap;">{{ ev.time }}</span>
+          <span style="{{ ev.style }}">{{ ev.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="height:88px; min-height:88px; background:#111113; border-top:1px solid #232326; display:flex; align-items:center; gap:10px; padding:0 14px; overflow-x:auto;">
+    <div style="font-size:10px; color:#6b6b72; letter-spacing:0.6px; white-space:nowrap; margin-right:4px;">SESSÕES · {{ activeSessions }} ativas</div>
+    <sc-for list="{{ sessionCards }}" as="s" hint-placeholder-count="4">
+      <div style="min-width:190px; background:#17171a; border:1px solid #262629; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <div style="{{ s.dotStyle }}"></div>
+          <span style="font-size:11.5px; color:#e4e4e7; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ s.title }}</span>
+        </div>
+        <div style="font-size:10px; color:#6b6b72; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ s.path }}</div>
+        <div style="display:flex; justify-content:space-between; font-size:10px; color:#71717a;">
+          <span>{{ s.time }}</span>
+          <span style="{{ s.costStyle }}">{{ s.cost }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    pan: { x: 60, y: 40 },
+    zoom: 0.85,
+    frontId: 't2',
+    linkingFrom: null,
+    panning: null,
+    dragging: null,
+    resizing: null,
+    previewFile: null,
+    previewMode: 'preview',
+    activeProject: 'p1',
+    projects: [
+      { id: 'p1', name: 'Meu Cockpit', color: '#22d3ee' },
+      { id: 'p2', name: 'synkra-hub', color: '#4ade80' },
+      { id: 'p3', name: 'aiox-core', color: '#a78bfa' },
+    ],
+    terminals: [
+      { id: 't1', projectId: 'p1', x: 40, y: 40, w: 340, h: 230, title: 'Terminal 1', badge: 'MASTER', badgeColor: '#a78bfa', dot: '#4ade80', footer: 'F:/Projetos/Meu Cockpit/apps/desktop', model: 'Gemini 3.5', maximized: false,
+        lines: [
+          { text: 'Antigravity CLI 1.1.2', c: '#f4f4f5', bold: true },
+          { text: 'nando@gmail.com (Antigravity Starter Quota)', c: '#71717a' },
+          { text: 'Gemini 3.5 Flash (Medium)', c: '#71717a' },
+          { text: '', c: '#71717a' },
+          { text: '> sincronizar estado com Terminal 2_', c: '#67e8f9' },
+        ] },
+      { id: 't2', projectId: 'p1', x: 480, y: 30, w: 360, h: 260, title: 'Terminal 2', badge: 'LOCAL', badgeColor: '#4ade80', dot: '#fbbf24', footer: 'F:/Projetos/Meu Cockpit/apps/desktop', model: 'Claude', maximized: false,
+        lines: [
+          { text: 'Claude Code v2.1.204', c: '#f4f4f5', bold: true },
+          { text: 'Welcome back, Luís!', c: '#a1a1aa' },
+          { text: 'Tips: Run /init para criar CLAUDE.md', c: '#71717a' },
+          { text: '2 MCP servers precisam de auth · /mcp', c: '#fb923c' },
+          { text: '', c: '#71717a' },
+          { text: '> recebendo contexto de Terminal 1...', c: '#67e8f9' },
+        ] },
+      { id: 't3', projectId: 'p2', x: 300, y: 340, w: 340, h: 220, title: 'Terminal 3', badge: 'COMPANION', badgeColor: '#fb923c', dot: '#22d3ee', footer: 'F:/Projetos/Meu Cockpit/apps/desktop', model: 'Opus 4.5', maximized: false,
+        lines: [
+          { text: 'Sessão companion iniciada', c: '#f4f4f5', bold: true },
+          { text: 'Handoff recebido de Terminal 1 e Terminal 2', c: '#71717a' },
+          { text: 'Aplicando patch em 3 arquivos...', c: '#a1a1aa' },
+          { text: '✓ build ok · 0 erros', c: '#4ade80' },
+        ] },
+    ],
+    links: [
+      { id: 'l1', from: 't1', to: 't3', label: 'handoff', color: '#22d3ee' },
+      { id: 'l2', from: 't2', to: 't3', label: 'contexto', color: '#f472b6' },
+    ],
+  };
+
+  componentDidMount() {
+    this._esc = (e) => { if (e.key === 'Escape') this.setState({ linkingFrom: null }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._esc); }
+
+  onCanvasMouseDown = (e) => {
+    if (e.target === e.currentTarget || e.target.closest('svg')) {
+      this.setState({ panning: { sx: e.clientX, sy: e.clientY, ox: this.state.pan.x, oy: this.state.pan.y } });
+    }
+  };
+  onCanvasMouseMove = (e) => {
+    const { panning, dragging, resizing, connecting, zoom } = this.state;
+    if (connecting) {
+      const p = this.worldPoint(e);
+      this.setState({ connecting: { ...connecting, mx: p.x, my: p.y } });
+      return;
+    }
+    if (panning) {
+      this.setState({ pan: { x: panning.ox + (e.clientX - panning.sx), y: panning.oy + (e.clientY - panning.sy) } });
+    } else if (dragging) {
+      const dx = (e.clientX - dragging.sx) / zoom;
+      const dy = (e.clientY - dragging.sy) / zoom;
+      this.setState({ terminals: this.state.terminals.map(t => t.id === dragging.id ? { ...t, x: dragging.ox + dx, y: dragging.oy + dy } : t) });
+    } else if (resizing) {
+      const dx = (e.clientX - resizing.sx) / zoom;
+      const dy = (e.clientY - resizing.sy) / zoom;
+      let { ox, oy, ow, oh, edges } = resizing;
+      let nx = ox, ny = oy, nw = ow, nh = oh;
+      if (edges.e) nw = Math.max(220, ow + dx);
+      if (edges.s) nh = Math.max(140, oh + dy);
+      if (edges.w) { nw = Math.max(220, ow - dx); nx = ox + (ow - nw); }
+      if (edges.n) { nh = Math.max(140, oh - dy); ny = oy + (oh - nh); }
+      this.setState({ terminals: this.state.terminals.map(t => t.id === resizing.id ? { ...t, x: nx, y: ny, w: nw, h: nh } : t) });
+    }
+  };
+  startConnect = (id, e) => {
+    e.stopPropagation();
+    const t = this.state.terminals.find(t => t.id === id);
+    this.setState({ connecting: { from: id, mx: t.x + t.w / 2, my: t.y + t.h / 2 }, frontId: id });
+  };
+  worldPoint = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: (e.clientX - r.left - this.state.pan.x) / this.state.zoom, y: (e.clientY - r.top - this.state.pan.y) / this.state.zoom };
+  };
+  onCanvasMouseUp = (e) => {
+    const { connecting, terminals, links } = this.state;
+    if (connecting) {
+      const p = this.worldPoint(e);
+      const target = terminals.find(t => t.id !== connecting.from && p.x >= t.x && p.x <= t.x + t.w && p.y >= t.y && p.y <= t.y + t.h);
+      if (target && !links.some(l => (l.from === connecting.from && l.to === target.id) || (l.from === target.id && l.to === connecting.from))) {
+        const palette = ['#22d3ee', '#f472b6', '#a78bfa', '#4ade80', '#fbbf24'];
+        this.setState({ links: [...links, { id: 'l' + Date.now(), from: connecting.from, to: target.id, label: 'link', color: palette[links.length % palette.length] }] });
+      }
+    }
+    this.setState({ panning: null, dragging: null, resizing: null, connecting: null });
+  };
+  onWheel = (e) => {
+    e.preventDefault();
+    const next = Math.min(1.6, Math.max(0.35, this.state.zoom - e.deltaY * 0.001));
+    this.setState({ zoom: next });
+  };
+  zoomIn = () => this.setState({ zoom: Math.min(1.6, this.state.zoom + 0.1) });
+  zoomOut = () => this.setState({ zoom: Math.max(0.35, this.state.zoom - 0.1) });
+
+  startDrag = (id, e) => {
+    e.stopPropagation();
+    const t = this.state.terminals.find(t => t.id === id);
+    this.setState({ dragging: { id, sx: e.clientX, sy: e.clientY, ox: t.x, oy: t.y }, frontId: id });
+  };
+
+  startResize = (id, edges, e) => {
+    e.stopPropagation();
+    const t = this.state.terminals.find(t => t.id === id);
+    this.setState({ resizing: { id, edges, sx: e.clientX, sy: e.clientY, ox: t.x, oy: t.y, ow: t.w, oh: t.h }, frontId: id });
+  };
+
+  toggleMaximize = (id, e) => {
+    e.stopPropagation();
+    this.setState({
+      terminals: this.state.terminals.map(t => {
+        if (t.id !== id) return t;
+        if (t.maximized) return { ...t, ...t._prev, maximized: false, _prev: undefined };
+        return { ...t, maximized: true, _prev: { x: t.x, y: t.y, w: t.w, h: t.h }, x: 40, y: 20, w: 720, h: 540 };
+      }),
+      frontId: id,
+    });
+  };
+
+  toggleLink = (id) => {
+    const { linkingFrom, links } = this.state;
+    if (linkingFrom === id) { this.setState({ linkingFrom: null }); return; }
+    if (linkingFrom == null) { this.setState({ linkingFrom: id, frontId: id }); return; }
+    if (links.some(l => (l.from === linkingFrom && l.to === id) || (l.from === id && l.to === linkingFrom))) {
+      this.setState({ linkingFrom: null }); return;
+    }
+    const palette = ['#22d3ee', '#f472b6', '#a78bfa', '#4ade80', '#fbbf24'];
+    this.setState({
+      links: [...links, { id: 'l' + Date.now(), from: linkingFrom, to: id, label: 'link', color: palette[links.length % palette.length] }],
+      linkingFrom: null,
+    });
+  };
+  removeLink = (id) => this.setState({ links: this.state.links.filter(l => l.id !== id) });
+
+  addTerminal = () => {
+    const n = this.state.terminals.length + 1;
+    const id = 't' + Date.now();
+    const t = { id, projectId: this.state.activeProject, x: 80 + (n * 40) % 400, y: 60 + (n * 60) % 300, w: 320, h: 210, title: 'Terminal ' + n, badge: 'LOCAL', badgeColor: '#4ade80', dot: '#4ade80', footer: 'F:/Projetos/Meu Cockpit/apps/desktop', model: 'Opus 4.5', maximized: false,
+      lines: [ { text: 'Nova sessão iniciada', c: '#f4f4f5', bold: true }, { text: 'Aguardando comando...', c: '#71717a' } ] };
+    this.setState({ terminals: [...this.state.terminals, t], frontId: id });
+  };
+  addAgent = (name, model) => {
+    const n = this.state.terminals.length + 1;
+    const id = 't' + Date.now();
+    const t = { id, projectId: this.state.activeProject, x: 80 + (n * 40) % 420, y: 60 + (n * 60) % 320, w: 320, h: 210, title: name, badge: 'NOVO', badgeColor: '#22d3ee', dot: '#4ade80', footer: 'F:/Projetos/Meu Cockpit/apps/desktop', model, maximized: false,
+      lines: [ { text: name + ' iniciado', c: '#f4f4f5', bold: true }, { text: 'Aguardando comando...', c: '#71717a' } ] };
+    this.setState({ terminals: [...this.state.terminals, t], frontId: id });
+  };
+  removeTerminal = (id) => this.setState({
+    terminals: this.state.terminals.filter(t => t.id !== id),
+    links: this.state.links.filter(l => l.from !== id && l.to !== id),
+  });
+
+  selectProject = (id) => this.setState({ activeProject: id });
+  addProject = () => {
+    const palette = ['#f472b6', '#fbbf24', '#a78bfa', '#22d3ee', '#4ade80', '#fb923c'];
+    const n = this.state.projects.length + 1;
+    const id = 'p' + Date.now();
+    const proj = { id, name: 'Projeto ' + n, color: palette[this.state.projects.length % palette.length] };
+    this.setState({ projects: [...this.state.projects, proj], activeProject: id });
+  };
+  openFile = (f) => this.setState({ previewFile: f, previewMode: f.name.endsWith('.md') ? 'preview' : 'code' });
+  closePreview = () => this.setState({ previewFile: null });
+  setModePreview = () => this.setState({ previewMode: 'preview' });
+  setModeCode = () => this.setState({ previewMode: 'code' });
+  stopProp = (e) => e.stopPropagation();
+
+  parseInline = (text) => {
+    const segs = [];
+    const re = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+    let last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) segs.push({ type: 'text', v: text.slice(last, m.index) });
+      const tok = m[0];
+      if (tok.startsWith('`')) segs.push({ type: 'code', v: tok.slice(1, -1) });
+      else segs.push({ type: 'strong', v: tok.slice(2, -2) });
+      last = m.index + tok.length;
+    }
+    if (last < text.length) segs.push({ type: 'text', v: text.slice(last) });
+    return segs.length ? segs : [{ type: 'text', v: text }];
+  };
+
+  parseMarkdown = (src) => {
+    const lines = src.split('\n');
+    const blocks = [];
+    let inCode = false, buf = [];
+    for (const line of lines) {
+      if (line.trim().startsWith('```')) {
+        if (inCode) { blocks.push({ type: 'code', text: buf.join('\n') }); buf = []; inCode = false; }
+        else inCode = true;
+        continue;
+      }
+      if (inCode) { buf.push(line); continue; }
+      let m;
+      if ((m = line.match(/^(#{1,3})\s+(.*)$/))) blocks.push({ type: 'h', level: m[1].length, text: m[2] });
+      else if ((m = line.match(/^\s*\d+\.\s+(.*)$/))) blocks.push({ type: 'li', ordered: true, text: m[1] });
+      else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) blocks.push({ type: 'li', ordered: false, text: m[1] });
+      else if (line.trim() === '') blocks.push({ type: 'blank' });
+      else blocks.push({ type: 'p', text: line });
+    }
+    if (inCode && buf.length) blocks.push({ type: 'code', text: buf.join('\n') });
+    return blocks;
+  };
+
+  renderVals() {
+    const { pan, zoom, terminals, links, linkingFrom, frontId, previewFile } = this.state;
+    const activeProject = this.state.activeProject ?? 'p1';
+
+    const tabs = [
+      { label: 'shell', style: 'font-size:11px; padding:6px 8px; color:#a1a1aa; cursor:default;' },
+      { label: 'claude', style: 'font-size:11px; padding:6px 8px; color:#f4f4f5; background:#1c1c1f; border-radius:5px; cursor:default;' },
+      { label: 'codex', style: 'font-size:11px; padding:6px 8px; color:#a1a1aa; cursor:default;' },
+      { label: 'gemini', style: 'font-size:11px; padding:6px 8px; color:#a1a1aa; cursor:default;' },
+      { label: 'comando…', style: 'font-size:11px; padding:6px 8px; color:#52525b; cursor:default;' },
+    ];
+
+    const toolIcons = ['▢','◎','⑂','▽','⛓','▤','#','⟨⟩','✎','⊕','🔧','🗄','🔑','{ }','📄','⇄'];
+
+    const readyCount = terminals.length;
+    const readyStatus = readyCount + '/' + readyCount + ' prontos · 1m';
+
+    const projectDefs = this.state.projects;
+    const projects = projectDefs.map(p => ({
+      name: p.name,
+      select: () => this.selectProject(p.id),
+      rowStyle: `display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:5px; cursor:pointer; background:${p.id === activeProject ? '#1c1c1f' : 'transparent'};`,
+      dotStyle: `width:8px; height:8px; border-radius:2px; background:${p.color};`,
+      textStyle: `font-size:12px; color:${p.id === activeProject ? '#f4f4f5' : '#a1a1aa'};`,
+    }));
+
+    const agentDefs = [
+      { icon: '🧩', name: 'OmniAgent', desc: 'Agente estruturado via ACP', model: 'ACP' },
+      { icon: '🌀', name: 'OmniAgent · Codex', desc: 'via Codex (ChatGPT/API)', model: 'Codex' },
+      { icon: '🔷', name: 'Orquestrador', desc: 'Claude Code · só decompõe', model: 'Claude' },
+      { icon: '▤', name: 'Shell', desc: 'Terminal puro do sistema', model: 'bash' },
+      { icon: '✦', name: 'Claude Code', desc: 'Anthropic Claude Code CLI', model: 'Claude' },
+      { icon: '◇', name: 'Gemini CLI', desc: 'Google Gemini CLI', model: 'Gemini' },
+    ];
+    const agentTypes = agentDefs.map(a => ({ ...a, add: () => this.addAgent(a.name, a.model) }));
+
+    const fileContents = {
+      'AGENTS.md': '# AGENTS.md - Meu Cockpit\n\nEste arquivo configura o comportamento esperado de agentes no Codex CLI neste repositorio.\n\n## Constitution\n\nSiga `.aios-core/constitution.md` como fonte de verdade:\n- CLI First\n- Agent Authority\n- Story-Driven Development\n- No Invention\n- Quality First\n- Absolute Imports\n\n## Workflow Obrigatorio\n\n1. Inicie por uma story em `docs/stories/`\n2. Implemente apenas o que os acceptance criteria pedem\n3. Atualize checklist (`[ ]` -> `[x]`) e file list\n4. Execute quality gates antes de concluir\n\n## Quality Gates\n\n```bash\nnpm run lint\nnpm run typecheck\nnpm test\n```\n\n## Estrutura Principal\n\n- Core framework: `.aios-core/`\n- CLI: `bin/`\n- Pacotes: `packages/`\n- Testes: `tests/`\n- Documentacao: `docs/`',
+      'README.md': '# Meu Cockpit\n\nMulti-terminal com **linking** entre sessoes, estilo canvas infinito.\n\n## Recursos\n\n- Canvas com pan e zoom\n- Terminais arrastaveis e redimensionaveis\n- Links animados entre terminais\n- Zonas por projeto no fundo\n\n## Rodar\n\n```bash\nnpm install\nnpm run dev\n```',
+      'package.json': '{\n  "name": "meu-cockpit",\n  "version": "0.3.2",\n  "private": true,\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build",\n    "electron:dev": "electron ."\n  }\n}',
+      'electron-builder.yml': 'appId: com.meucockpit.app\nproductName: Meu Cockpit\ndirectories:\n  output: release\nfiles:\n  - out/**/*\nmac:\n  target: dmg\nwin:\n  target: nsis',
+      'tsconfig.node.json': '{\n  "compilerOptions": {\n    "module": "ESNext",\n    "target": "ES2022",\n    "strict": true\n  }\n}',
+      'tsconfig.web.json': '{\n  "compilerOptions": {\n    "jsx": "react-jsx",\n    "module": "ESNext",\n    "strict": true\n  }\n}',
+    };
+    const folderContents = { '.turbo': '▸ cache de build · 12 arquivos', 'node_modules': '▸ 842 pacotes instalados', 'out': '▸ artefatos de build', 'release': '▸ 2 instaladores gerados', 'scripts': '▸ 4 scripts utilitários', 'smoke': '▸ testes de smoke', 'src': '▸ 38 arquivos fonte' };
+    const fileDefs = [
+      ['📁', '.turbo'], ['📁', 'node_modules'], ['📁', 'out'], ['📁', 'release'], ['📁', 'scripts'],
+      ['📁', 'smoke'], ['📁', 'src'], ['📘', 'AGENTS.md'], ['📘', 'README.md'], ['📄', 'electron-builder.yml'], ['📄', 'package.json'], ['📄', 'tsconfig.node.json'], ['📄', 'tsconfig.web.json'],
+    ];
+    const files = fileDefs.map(([icon, name]) => ({
+      icon, name,
+      open: () => this.openFile({ icon, name, content: (icon === '📄' || icon === '📘') ? (fileContents[name] || '// sem preview disponível') : (folderContents[name] || '▸ pasta') }),
+    }));
+
+    const systemMenu = [
+      { icon: '⚙', label: 'Configurações' },
+      { icon: '❓', label: 'Ajuda / Manual' },
+      { icon: '◐', label: 'Aparência' },
+      { icon: '📱', label: 'Dispositivos móveis' },
+      { icon: '⚑', label: 'Feature flags' },
+      { icon: '✨', label: 'Novidades' },
+    ];
+
+    const badgeStyle = (color) => `font-size:8.5px; font-weight:700; letter-spacing:0.4px; color:${color}; background:${color}22; border:1px solid ${color}55; padding:1px 5px; border-radius:4px;`;
+    const handleBase = 'position:absolute; width:9px; height:9px; background:#0f0f11; border:1.5px solid #67e8f9; border-radius:2px; z-index:60;';
+    const makeHandles = (id) => ([
+      { key: 'nw', edges: { n: true, w: true }, style: handleBase + 'left:-5px; top:-5px; cursor:nwse-resize;' },
+      { key: 'n', edges: { n: true }, style: handleBase + 'left:calc(50% - 4.5px); top:-5px; cursor:ns-resize;' },
+      { key: 'ne', edges: { n: true, e: true }, style: handleBase + 'right:-5px; top:-5px; cursor:nesw-resize;' },
+      { key: 'e', edges: { e: true }, style: handleBase + 'right:-5px; top:calc(50% - 4.5px); cursor:ew-resize;' },
+      { key: 'se', edges: { s: true, e: true }, style: handleBase + 'right:-5px; bottom:-5px; cursor:nwse-resize;' },
+      { key: 's', edges: { s: true }, style: handleBase + 'left:calc(50% - 4.5px); bottom:-5px; cursor:ns-resize;' },
+      { key: 'sw', edges: { s: true, w: true }, style: handleBase + 'left:-5px; bottom:-5px; cursor:nesw-resize;' },
+      { key: 'w', edges: { w: true }, style: handleBase + 'left:-5px; top:calc(50% - 4.5px); cursor:ew-resize;' },
+    ].map(h => ({ ...h, onDown: (e) => this.startResize(id, h.edges, e) })));
+
+    const visibleTerminals = terminals;
+    const projColorOf = (pid) => { const p = this.state.projects.find(pp => pp.id === pid); return p ? p.color : '#22d3ee'; };
+    const terminalViews = visibleTerminals.map(t => {
+      const isFront = t.id === frontId;
+      const isLinking = linkingFrom === t.id;
+      const dotEdge = 'position:absolute; width:10px; height:10px; border-radius:50%; background:#0f0f11; border:1.5px solid #22d3ee; z-index:55; cursor:crosshair;';
+      return {
+        ...t,
+        isFront,
+        onTitleMouseDown: (e) => this.startDrag(t.id, e),
+        onLinkClick: (e) => { e.stopPropagation(); this.toggleLink(t.id); },
+        onClose: (e) => { e.stopPropagation(); this.removeTerminal(t.id); },
+        onMaximize: (e) => this.toggleMaximize(t.id, e),
+        onConnectDown: (e) => this.startConnect(t.id, e),
+        wrapStyle: `position:absolute; left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px; z-index:${isFront ? 50 : 10}; overflow:visible;`,
+        frameStyle: `position:absolute; inset:0; display:flex; flex-direction:column; background:#0f0f11; border-radius:9px; border:1px solid ${isLinking ? '#22d3ee' : '#26262a'}; box-shadow:${isFront ? '0 12px 34px -8px #000c' : '0 6px 18px -6px #0008'}; overflow:hidden;`,
+        titleBarStyle: 'height:30px; min-height:30px; display:flex; align-items:center; gap:6px; padding:0 8px; background:#151517; border-bottom:1px solid #232326; cursor:grab;',
+        dotStyle: `width:7px; height:7px; border-radius:50%; background:${t.dot}; animation: pulseDot 2.2s ease-in-out infinite;`,
+        badgeStyle: badgeStyle(t.badgeColor),
+        linkBtnStyle: `width:20px; height:20px; border:none; border-radius:4px; cursor:pointer; font-size:11px; background:${isLinking ? '#164e52' : 'transparent'}; color:${isLinking ? '#67e8f9' : '#71717a'};`,
+        modelStyle: 'color:#52525b;',
+        dotLeft: dotEdge + `left:-5px; top:calc(50% - 5px);`,
+        dotRight: dotEdge + `right:-5px; top:calc(50% - 5px);`,
+        dotTop: dotEdge + `top:-5px; left:calc(50% - 5px);`,
+        dotBottom: dotEdge + `bottom:-5px; left:calc(50% - 5px); border-color:#fbbf24;`,
+        handles: isFront ? makeHandles(t.id) : [],
+        lines: t.lines.map(ln => ({ text: ln.text, style: `color:${ln.c}; font-weight:${ln.bold ? 700 : 400}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;` })),
+      };
+    });
+
+    const activeProj = projectDefs.find(p => p.id === activeProject) || projectDefs[0];
+    const projColor = activeProj ? activeProj.color : '#22d3ee';
+
+    const PAD = 24, TOP = 30;
+    const zoneViews = projectDefs.map(p => {
+      const own = terminals.filter(t => t.projectId === p.id);
+      if (own.length === 0) return null;
+      const minX = Math.min(...own.map(t => t.x)) - PAD;
+      const minY = Math.min(...own.map(t => t.y)) - PAD - TOP;
+      const maxX = Math.max(...own.map(t => t.x + t.w)) + PAD;
+      const maxY = Math.max(...own.map(t => t.y + t.h)) + PAD;
+      return {
+        id: p.id, name: p.name, count: own.length,
+        style: `position:absolute; left:${minX}px; top:${minY}px; width:${maxX - minX}px; height:${maxY - minY}px; border:1.5px solid ${p.color}44; border-radius:16px; background:${p.color}12; z-index:1; pointer-events:none;`,
+        labelStyle: `position:absolute; left:${minX + 14}px; top:${minY + 8}px; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:${p.color}; background:${p.color}22; border:1px solid ${p.color}66; padding:3px 10px; border-radius:7px; z-index:2; pointer-events:none;`,
+        dotStyle: `width:8px; height:8px; border-radius:2px; background:${p.color};`,
+      };
+    }).filter(Boolean);
+
+    const anchor = (t, dir) => dir === 'r' ? { x: t.x + t.w, y: t.y + 15 } : { x: t.x, y: t.y + 15 };
+    const visibleIds = new Set(visibleTerminals.map(t => t.id));
+    const linkViews = links.map(l => {
+      const a = terminals.find(t => t.id === l.from);
+      const b = terminals.find(t => t.id === l.to);
+      if (!a || !b || !visibleIds.has(a.id) || !visibleIds.has(b.id)) return null;
+      const goRight = a.x < b.x;
+      const p1 = anchor(a, goRight ? 'r' : 'l');
+      const p2 = anchor(b, goRight ? 'l' : 'r');
+      const midx = (p1.x + p2.x) / 2;
+      const midy = (p1.y + p2.y) / 2;
+      const d = `M ${p1.x} ${p1.y} C ${midx} ${p1.y}, ${midx} ${p2.y}, ${p2.x} ${p2.y}`;
+      const labelW = l.label.length * 5.5 + 12;
+      const labelX = midx - labelW / 2 - 14, labelY = midy - 8;
+      return {
+        id: l.id, d, color: l.color, midx, midy, midyText: midy + 4,
+        remove: () => this.removeLink(l.id),
+        dashStyle: `animation: dashflow 0.8s linear infinite;`,
+        dotStyle: `offset-path: path('${d}'); animation: flowmove 2.4s linear infinite;`,
+        label: l.label, labelW, labelX, labelY,
+        textX: labelX + 6, textY: labelY + 11.5,
+      };
+    }).filter(Boolean);
+
+    const minimapDots = visibleTerminals.map(t => ({
+      style: `position:absolute; left:${6 + (t.x / 2600) * 100}%; top:${(t.y / 1800) * 100}%; width:${Math.max(6, (t.w / 2600) * 130)}px; height:${Math.max(4, (t.h / 1800) * 130)}px; background:${projColorOf(t.projectId)}; border-radius:3px; opacity:0.9;`,
+    }));
+    const viewportRectStyle = `position:absolute; left:${(-pan.x / 2600) * 130 + 4}px; top:${(-pan.y / 1800) * 130 + 4}px; width:${(1200 / zoom / 2600) * 130}px; height:${(700 / zoom / 1800) * 130}px; border:1px solid #67e8f9; background:#67e8f911; border-radius:2px;`;
+
+    const events = [
+      { time: '17:24', text: 'Terminal 1 → Terminal 3: handoff aplicado', style: 'color:#67e8f9; font-size:10.5px;' },
+      { time: '17:20', text: 'Sincronização concluída', style: 'color:#4ade80; font-size:10.5px;' },
+      { time: '17:14', text: 'Decisão pendente: revisar patch', style: 'color:#fbbf24; font-size:10.5px;' },
+      { time: '17:08', text: 'Terminal 2 iniciado', style: 'color:#a1a1aa; font-size:10.5px;' },
+      { time: '17:02', text: 'Terminal 1 iniciado', style: 'color:#a1a1aa; font-size:10.5px;' },
+    ];
+
+    const sessionDefs = [
+      { title: 'Sincronizar terminais', path: '/Meu Cockpit/apps/desktop', time: '2 min', cost: '$0.08 Gemini', dot: '#4ade80' },
+      { title: 'Handoff de contexto', path: '/Meu Cockpit/apps/desktop', time: '5 min', cost: '$0.14 Opus', dot: '#22d3ee' },
+      { title: 'Aplicar patch build', path: '/Meu Cockpit/apps/desktop', time: '1 min', cost: '$0.03 Opus', dot: '#fbbf24' },
+      { title: 'Revisar link companion', path: '/Meu Cockpit/apps/desktop', time: '8 min', cost: '$0.21 Opus', dot: '#71717a' },
+    ];
+    const sessionCards = sessionDefs.map(s => ({
+      ...s,
+      dotStyle: `width:7px; height:7px; border-radius:50%; background:${s.dot};`,
+      costStyle: 'color:#a1a1aa;',
+    }));
+
+    const isMd = previewFile != null && previewFile.name.endsWith('.md');
+    const mode = this.state.previewMode || 'code';
+    const showRendered = isMd && mode === 'preview';
+    const segStyle = (type) => type === 'code'
+      ? 'font-family:JBMono,ui-monospace,monospace; font-size:12px; background:#26262a; color:#a5b4fc; padding:1px 6px; border-radius:4px;'
+      : type === 'strong' ? 'font-weight:700; color:#f4f4f5;' : 'color:#c4c4cb;';
+    let previewBlocks = [];
+    if (showRendered) {
+      previewBlocks = this.parseMarkdown(previewFile.content).map(b => {
+        if (b.type === 'code') return { isCode: true, code: b.text, style: 'margin:14px 0; padding:14px 16px; background:#151517; border:1px solid #232326; border-radius:8px; overflow:auto; font-size:12px; line-height:1.6; color:#d4d4d8; font-family:JBMono,ui-monospace,monospace; white-space:pre;' };
+        if (b.type === 'h') {
+          const sz = b.level === 1 ? 24 : b.level === 2 ? 17 : 14;
+          const mt = b.level === 1 ? 8 : 20;
+          return { isHeading: true, style: `font-size:${sz}px; font-weight:700; color:#f4f4f5; margin:${mt}px 0 8px;`, segs: this.parseInline(b.text).map(s => ({ v: s.v, style: segStyle(s.type) })) };
+        }
+        if (b.type === 'li') return { isLi: true, style: 'display:flex; gap:9px; margin:5px 0; font-size:13px; line-height:1.6;', marker: b.ordered ? '•' : '•', markerStyle: `color:${projColor}; flex:none;`, segs: this.parseInline(b.text).map(s => ({ v: s.v, style: segStyle(s.type) })) };
+        if (b.type === 'p') return { isP: true, style: 'margin:8px 0; font-size:13px; line-height:1.7; color:#c4c4cb;', segs: this.parseInline(b.text).map(s => ({ v: s.v, style: segStyle(s.type) })) };
+        return { isBlank: true, style: 'height:6px;', segs: [] };
+      }).filter(b => !b.isBlank);
+    }
+    const tabActive = 'padding:3px 12px; font-size:11px; cursor:pointer; color:#0a0a0c; background:#67e8f9;';
+    const tabIdle = 'padding:3px 12px; font-size:11px; cursor:pointer; color:#a1a1aa;';
+
+    return {
+      tabs, toolIcons, readyStatus, projects, addProject: this.addProject, zoneViews, agentTypes, files, systemMenu, terminalCount: terminals.length,
+      worldStyle: `position:absolute; left:0; top:0; width:2600px; height:1800px; transform-origin: 0 0; transform: translate(${pan.x}px, ${pan.y}px) scale(${zoom}); cursor:${this.state.panning ? 'grabbing' : 'default'};`,
+      zoomLabel: Math.round(zoom * 100) + '%', zoomIn: this.zoomIn, zoomOut: this.zoomOut, addTerminal: this.addTerminal,
+      onCanvasMouseDown: this.onCanvasMouseDown, onCanvasMouseMove: this.onCanvasMouseMove, onCanvasMouseUp: this.onCanvasMouseUp, onWheel: this.onWheel,
+      terminalViews, linkViews, minimapDots, viewportRectStyle,
+      connecting: this.state.connecting != null,
+      connectPath: this.state.connecting ? (() => { const c = this.state.connecting; const s = terminals.find(t => t.id === c.from); if (!s) return ''; const sx = s.x + s.w / 2, sy = s.y + s.h / 2; return `M ${sx} ${sy} L ${c.mx} ${c.my}`; })() : '',
+      linkHint: linkingFrom != null,
+      pendingDecisions: 2, events,
+      activeSessions: sessionCards.length, sessionCards,
+      previewOpen: previewFile != null,
+      previewIcon: previewFile ? previewFile.icon : '',
+      previewName: previewFile ? previewFile.name : '',
+      previewContent: previewFile ? previewFile.content : '',
+      previewIsMd: isMd,
+      previewShowRendered: showRendered,
+      previewShowRaw: !showRendered,
+      previewBlocks,
+      tabPreviewStyle: mode === 'preview' ? tabActive : tabIdle,
+      tabCodeStyle: mode === 'code' ? tabActive : tabIdle,
+      setModePreview: this.setModePreview, setModeCode: this.setModeCode,
+      closePreview: this.closePreview, stopProp: this.stopProp,
+    };
+  }
+}
+</script>
+</body>
+</html>
