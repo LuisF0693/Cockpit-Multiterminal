@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
@@ -18,14 +18,18 @@ import {
   parseGitHead,
   parseGitdirPointer,
   parseGitignorePatterns,
+  ulid,
   type StateStore
 } from '@cockpit/core';
 import {
   AdapterCheckCommandRequestSchema,
   AgentStatusSchema,
+  ApiProviderCreateRequestSchema,
+  ApiProviderRemoveRequestSchema,
   AppSettingsSchema,
   IpcChannels,
   SettingsUpdateRequestSchema,
+  type ApiProvider,
   type AppSettings,
   LayoutUpdateRequestSchema,
   TimelineGetRequestSchema,
@@ -417,6 +421,58 @@ export function registerSessionIpc(
     const next = { ...readSettings(), ...req };
     persistence.setAppSettingsRaw(JSON.stringify(next));
     return next;
+  });
+
+  // Central de API (Story 15.4, FR56) — a chave chega em texto plano SÓ no
+  // trajeto IPC local cadastro→Main, é criptografada via safeStorage
+  // (keychain/DPAPI do SO) e persiste como ciphertext base64; NENHUM canal
+  // devolve a chave (nem cifrada) ao renderer, e não existe decrypt hoje
+  // (nenhum consumidor — decisão consciente do fundador).
+  interface StoredApiProvider extends ApiProvider {
+    keyCipher: string;
+  }
+  const readApiProviders = (): StoredApiProvider[] => {
+    try {
+      const parsed: unknown = JSON.parse(persistence.apiProvidersRaw() ?? '[]');
+      return Array.isArray(parsed) ? (parsed as StoredApiProvider[]) : [];
+    } catch {
+      return [];
+    }
+  };
+  const publicApiProviders = (list: StoredApiProvider[]): ApiProvider[] =>
+    list.map(({ id, type, name, baseUrl, defaultModel }) => ({
+      id,
+      type,
+      name,
+      baseUrl,
+      ...(defaultModel !== undefined ? { defaultModel } : {})
+    }));
+
+  ipcMain.handle(IpcChannels.apiProviderList, () => publicApiProviders(readApiProviders()));
+  ipcMain.handle(IpcChannels.apiProviderCreate, (_event, raw: unknown) => {
+    const req = ApiProviderCreateRequestSchema.parse(raw);
+    if (!safeStorage.isEncryptionAvailable()) {
+      // NUNCA texto plano (FR56): sem keychain disponível, cadastro recusado.
+      throw new Error('keychain do sistema indisponível — cadastro recusado (a chave nunca é gravada em texto plano)');
+    }
+    const keyCipher = safeStorage.encryptString(req.apiKey).toString('base64');
+    const entry: StoredApiProvider = {
+      id: ulid(),
+      type: req.type,
+      name: req.name,
+      baseUrl: req.baseUrl,
+      ...(req.defaultModel !== undefined && req.defaultModel !== '' ? { defaultModel: req.defaultModel } : {}),
+      keyCipher
+    };
+    const next = [...readApiProviders(), entry];
+    persistence.setApiProvidersRaw(JSON.stringify(next));
+    return publicApiProviders(next);
+  });
+  ipcMain.handle(IpcChannels.apiProviderRemove, (_event, raw: unknown) => {
+    const req = ApiProviderRemoveRequestSchema.parse(raw);
+    const next = readApiProviders().filter((p) => p.id !== req.id);
+    persistence.setApiProvidersRaw(JSON.stringify(next));
+    return publicApiProviders(next);
   });
 
   // Branch git do projeto (Story 13.3, FR44) — lê .git/HEAD direto (sem

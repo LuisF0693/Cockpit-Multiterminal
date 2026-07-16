@@ -307,6 +307,18 @@ export class PersistenceManager {
     this.store.setMeta('settings', json);
   }
 
+  /**
+   * Central de API (Story 15.4, FR56) — JSON em app_meta.api_providers com
+   * a chave já CRIPTOGRAFADA pelo Main (safeStorage); transporte cru aqui.
+   */
+  apiProvidersRaw(): string | null {
+    return this.store.getMeta('api_providers');
+  }
+
+  setApiProvidersRaw(json: string): void {
+    this.store.setMeta('api_providers', json);
+  }
+
   private parseWorkspacesMeta(): string[] {
     try {
       const raw = this.store.getMeta('workspaces');

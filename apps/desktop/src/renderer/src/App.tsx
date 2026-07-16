@@ -39,6 +39,8 @@ import {
   type PreviewFile
 } from '@cockpit/ui';
 import type {
+  ApiProvider,
+  ApiProviderCreateRequest,
   AppSettings,
   CrashSummary,
   DaemonStatus,
@@ -153,6 +155,21 @@ export function App(): JSX.Element {
   // Janela de Configurações em overlay (Story 15.3, FR54) — não é view:
   // flutua sobre qualquer tela, como na referência OmniRift.
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Central de API (Story 15.4, FR56) — lista SEM chaves; carrega ao abrir
+  // a janela (não no boot: ninguém olha antes disso).
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    void window.cockpit.apiProvider.list().then(setApiProviders).catch(() => void 0);
+  }, [settingsOpen]);
+
+  const createApiProvider = (req: ApiProviderCreateRequest): Promise<void> =>
+    window.cockpit.apiProvider.create(req).then(setApiProviders);
+
+  const removeApiProvider = (id: string): void => {
+    void window.cockpit.apiProvider.remove({ id }).then(setApiProviders).catch(() => void 0);
+  };
   const viewRef = useRef(view);
   viewRef.current = view;
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
@@ -1662,7 +1679,14 @@ export function App(): JSX.Element {
       <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
       {/* Janela de Configurações (Story 15.3, FR54) — overlay estilo OmniRift. */}
       {settingsOpen && settings && (
-        <SettingsWindow settings={settings} onUpdate={updateSettings} onClose={() => setSettingsOpen(false)} />
+        <SettingsWindow
+          settings={settings}
+          onUpdate={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+          apiProviders={apiProviders}
+          onCreateApiProvider={createApiProvider}
+          onRemoveApiProvider={removeApiProvider}
+        />
       )}
       {promptState && (
         <PromptModal

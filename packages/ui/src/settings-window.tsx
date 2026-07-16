@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AppSettings } from '@cockpit/shared';
+import type { ApiProvider, ApiProviderCreateRequest, AppSettings } from '@cockpit/shared';
 import {
   ACCENT_OPTIONS,
   FONT_MONO_OPTIONS,
@@ -24,11 +24,22 @@ export interface SettingsWindowProps {
   /** Merge parcial persistido no Main; o dono re-aplica o tema (15.2). */
   onUpdate: (patch: Partial<AppSettings>) => void;
   onClose: () => void;
+  /** Central de API (15.4, FR56) — providers SEM chave; erro de cadastro exibível. */
+  apiProviders: ApiProvider[];
+  onCreateApiProvider: (req: ApiProviderCreateRequest) => Promise<void>;
+  onRemoveApiProvider: (id: string) => void;
 }
 
-type Section = 'geral' | 'privacidade' | 'aparencia';
+type Section = 'geral' | 'privacidade' | 'aparencia' | 'api';
 
-export function SettingsWindow({ settings, onUpdate, onClose }: SettingsWindowProps): JSX.Element {
+export function SettingsWindow({
+  settings,
+  onUpdate,
+  onClose,
+  apiProviders,
+  onCreateApiProvider,
+  onRemoveApiProvider
+}: SettingsWindowProps): JSX.Element {
   const [section, setSection] = useState<Section>('geral');
 
   return (
@@ -98,12 +109,16 @@ export function SettingsWindow({ settings, onUpdate, onClose }: SettingsWindowPr
               MAIS
             </div>
             <NavItem icon="🎨" label="Aparência" active={section === 'aparencia'} onClick={() => setSection('aparencia')} />
+            <NavItem icon="🔑" label="Central de API" active={section === 'api'} onClick={() => setSection('api')} />
           </nav>
 
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '18px 22px' }}>
             {section === 'geral' && <GeneralSection settings={settings} onUpdate={onUpdate} goAppearance={() => setSection('aparencia')} />}
             {section === 'privacidade' && <PrivacySection />}
             {section === 'aparencia' && <AppearanceSection settings={settings} onUpdate={onUpdate} />}
+            {section === 'api' && (
+              <ApiCenterSection providers={apiProviders} onCreate={onCreateApiProvider} onRemove={onRemoveApiProvider} />
+            )}
           </div>
         </div>
       </div>
@@ -417,6 +432,168 @@ function AppearanceSection({
           ↺ padrão
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Tipos de provider oferecidos no cadastro (15.4) — tag livre, sem consumidor ainda. */
+const PROVIDER_TYPES = ['Ollama Cloud', 'OpenAI-compatível', 'Anthropic', 'OpenRouter', 'Outro'];
+
+/** CENTRAL DE API (15.4, FR56) — fiel à foto: lista + cadastro; chave nunca reexibida. */
+function ApiCenterSection({
+  providers,
+  onCreate,
+  onRemove
+}: {
+  providers: ApiProvider[];
+  onCreate: (req: ApiProviderCreateRequest) => Promise<void>;
+  onRemove: (id: string) => void;
+}): JSX.Element {
+  const [type, setType] = useState(PROVIDER_TYPES[0]!);
+  const [name, setName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('https://ollama.com/v1');
+  const [apiKey, setApiKey] = useState('');
+  const [defaultModel, setDefaultModel] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = (): void => {
+    if (!name.trim() || !baseUrl.trim() || !apiKey.trim()) return;
+    setBusy(true);
+    setError(null);
+    onCreate({
+      type,
+      name: name.trim(),
+      baseUrl: baseUrl.trim(),
+      apiKey: apiKey.trim(),
+      ...(defaultModel.trim() ? { defaultModel: defaultModel.trim() } : {})
+    })
+      .then(() => {
+        setName('');
+        setApiKey('');
+        setDefaultModel('');
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div>
+      <SectionTitle>🔑 Central de API</SectionTitle>
+
+      <FieldLabel>CHAVES CADASTRADAS</FieldLabel>
+      {providers.length === 0 ? (
+        <p style={{ margin: 0, fontSize: theme.font.size.sm + 0.5, color: theme.text.muted }}>
+          nenhuma ainda — cadastre abaixo. A chave fica no keychain do SO.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {providers.map((p) => (
+            <div
+              key={p.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px',
+                background: theme.surface.header,
+                border: `1px solid ${theme.border.default}`,
+                borderRadius: theme.radius.md
+              }}
+            >
+              <span style={{ color: theme.accent.bright }}>🔑</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: theme.font.size.sm + 1, color: theme.text.primary }}>
+                  {p.name} <span style={{ color: theme.text.faint }}>· {p.type}</span>
+                </div>
+                <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.baseUrl}
+                  {p.defaultModel ? ` · ${p.defaultModel}` : ''}
+                </div>
+              </span>
+              <button
+                onClick={() => onRemove(p.id)}
+                title="Remover (apaga o ciphertext)"
+                style={{ ...pillIdleStyle, color: theme.accent.danger, borderColor: theme.accent.danger, cursor: 'pointer' }}
+              >
+                remover
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        style={{
+          marginTop: 16,
+          padding: '12px 14px',
+          border: `1px solid ${theme.border.default}`,
+          borderRadius: theme.radius.md
+        }}
+      >
+        <FieldLabel>CADASTRAR PROVIDER</FieldLabel>
+
+        <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '8px 0 4px' }}>Tipo</div>
+        <select value={type} onChange={(e) => setType(e.target.value)} style={inputStyle}>
+          {PROVIDER_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+
+        <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '10px 0 4px' }}>Nome (apelido)</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Meu Ollama Cloud" style={inputStyle} />
+
+        <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '10px 0 4px' }}>Base URL</div>
+        <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://ollama.com/v1" style={inputStyle} />
+
+        <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '10px 0 4px' }}>API Key</div>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="sk-… / sua chave"
+          style={inputStyle}
+        />
+
+        <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted, margin: '10px 0 4px' }}>Modelo default (opcional)</div>
+        <input
+          value={defaultModel}
+          onChange={(e) => setDefaultModel(e.target.value)}
+          placeholder="ex: kimi-k2.7-code"
+          style={inputStyle}
+        />
+
+        {error && (
+          <p style={{ margin: '10px 0 0', fontSize: theme.font.size.xs + 1, color: theme.accent.danger }}>{error}</p>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <button
+            onClick={submit}
+            disabled={busy || !name.trim() || !baseUrl.trim() || !apiKey.trim()}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 6,
+              border: 'none',
+              background: theme.accent.primary,
+              color: theme.text.inverse,
+              fontSize: theme.font.size.sm,
+              fontWeight: 600,
+              fontFamily: theme.font.ui,
+              cursor: busy ? 'wait' : 'pointer'
+            }}
+          >
+            Cadastrar
+          </button>
+        </div>
+      </div>
+
+      <p style={{ margin: '12px 0 0', fontSize: theme.font.size.xs, color: theme.text.faint, lineHeight: 1.6 }}>
+        Nenhum adapter consome estas chaves ainda — o cadastro prepara os futuros adapters cloud. A chave é
+        criptografada pelo keychain do Windows (DPAPI) e nunca é exibida de volta.
+      </p>
     </div>
   );
 }

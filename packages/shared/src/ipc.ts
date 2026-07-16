@@ -52,6 +52,10 @@ export const IpcChannels = {
   /** Configurações do app (Story 13.5, FR46) — app_meta.settings, JSON único. */
   settingsGet: 'settings.get',
   settingsUpdate: 'settings.update',
+  /** Central de API (Story 15.4, FR56) — chaves criptografadas no keychain do SO. */
+  apiProviderList: 'apiProvider.list',
+  apiProviderCreate: 'apiProvider.create',
+  apiProviderRemove: 'apiProvider.remove',
   /** Vínculo terminal-a-terminal (Épico 9, FR25). */
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
@@ -512,6 +516,33 @@ export type AppSettings = z.infer<typeof AppSettingsSchema>;
 export const SettingsUpdateRequestSchema = AppSettingsSchema.partial();
 export type SettingsUpdateRequest = z.infer<typeof SettingsUpdateRequestSchema>;
 
+/**
+ * Central de API (Story 15.4, FR56) — o que o RENDERER vê de um provider
+ * cadastrado: NUNCA inclui a chave (nem criptografada). A chave só existe
+ * em texto plano no trajeto único cadastro→Main (IPC local) e é
+ * criptografada via safeStorage antes de tocar o disco.
+ */
+export const ApiProviderSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  baseUrl: z.string().min(1).max(200),
+  defaultModel: z.string().max(80).optional()
+});
+export type ApiProvider = z.infer<typeof ApiProviderSchema>;
+
+export const ApiProviderCreateRequestSchema = z.object({
+  type: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  baseUrl: z.string().min(1).max(200),
+  apiKey: z.string().min(1).max(500),
+  defaultModel: z.string().max(80).optional()
+});
+export type ApiProviderCreateRequest = z.infer<typeof ApiProviderCreateRequestSchema>;
+
+export const ApiProviderRemoveRequestSchema = z.object({ id: z.string().min(1) });
+export type ApiProviderRemoveRequest = z.infer<typeof ApiProviderRemoveRequestSchema>;
+
 export const ProjectReadFileRequestSchema = z.object({
   path: z.string().min(1),
   maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
@@ -762,6 +793,13 @@ export interface CockpitApi {
     get(): Promise<AppSettings>;
     /** Merge parcial e persiste; retorna o estado completo resultante. */
     update(req: SettingsUpdateRequest): Promise<AppSettings>;
+  };
+  apiProvider: {
+    /** Providers cadastrados (Story 15.4, FR56) — SEM chaves, nem cifradas. */
+    list(): Promise<ApiProvider[]>;
+    /** Cadastra: chave criptografada via safeStorage; recusa sem keychain. */
+    create(req: ApiProviderCreateRequest): Promise<ApiProvider[]>;
+    remove(req: ApiProviderRemoveRequest): Promise<ApiProvider[]>;
   };
   terminalLink: {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */
