@@ -10,35 +10,37 @@ import {
 import {
   ADAPTER_CATALOG,
   AgentCatalog,
+  AppSidebar,
   BrowserPreviewTile,
   CanvasMinimap,
-  CanvasToolbar,
+  FilePreviewPanel,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
-  ProjectFilesSidebar,
   PromptModal,
   RecoveryScreen,
   ReviewPanel,
+  SessionCardsBar,
   SessionReportView,
   SettingsView,
-  Sidebar,
-  StatusBar,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
+  TelemetryPanel,
   TerminalTile,
   TimelineView,
   canvasBackground,
   matchShortcut,
   statusColor,
   theme,
-  type MinimapTile
+  type MinimapTile,
+  type PreviewFile
 } from '@cockpit/ui';
 import type {
   AppSettings,
   CrashSummary,
   DaemonStatus,
+  ProjectDirEntry,
   Learning,
   Project,
   SessionReport,
@@ -67,7 +69,9 @@ export function App(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
-  const [selectedAdapter, setSelectedAdapter] = useState('shell');
+  // Adapter default do "+ novo terminal"/Ctrl+N — a criação por adapter
+  // específico vive na sidebar (NOVO AGENTE, 14.2) e no catálogo (13.4).
+  const selectedAdapter = 'shell';
   // Modelo do Ollama (Story 12.6) — só relevante quando o adapter selecionado
   // é 'ollama'; ollama exige `run <modelo>` por sessão, não é fixo no adapter.
   const [ollamaModel, setOllamaModel] = useState('llama3');
@@ -626,12 +630,52 @@ export function App(): JSX.Element {
   const [canvasZoom, setCanvasZoom] = useState(1);
   const canvasZoomRef = useRef(canvasZoom);
   canvasZoomRef.current = canvasZoom;
-  const clampZoom = (z: number): number => Math.min(2, Math.max(0.4, z));
+  // Faixa do mock Multerminal (14.3): 35%–160%.
+  const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.35, z));
 
-  // Toggles da toolbar do canvas (Story 13.2, FR42) — só visual: ocultar o
-  // overlay NÃO remove vínculos (AC3), ocultar o minimapa não perde estado.
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [showLinks, setShowLinks] = useState(true);
+  // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+
+  // Árvore de arquivos da sidebar (Story 14.2) — raiz recarrega na troca de
+  // projeto (mesmo comportamento do ProjectFilesSidebar da 12.1, agora no App).
+  const [rootEntries, setRootEntries] = useState<ProjectDirEntry[] | null>(null);
+  useEffect(() => {
+    setRootEntries(null);
+    setPreviewFile(null);
+    void window.cockpit.project
+      .readDir(activeProjectId ? { projectId: activeProjectId } : {})
+      .then(setRootEntries)
+      .catch(() => setRootEntries([]));
+  }, [activeProjectId]);
+
+  /** Abre um arquivo da árvore no painel de preview (Story 14.5, FR51). */
+  const openFilePreview = (entry: ProjectDirEntry): void => {
+    void window.cockpit.project
+      .readFile({ path: entry.path, maxBytes: 262144 })
+      .then((res) =>
+        setPreviewFile(
+          res
+            ? { name: entry.name, path: entry.path, content: res.content, truncated: res.truncated }
+            : { name: entry.name, path: entry.path, content: '(arquivo binário ou ilegível)', truncated: false }
+        )
+      )
+      .catch(() => void 0);
+  };
+
+  // Eventos pro painel de telemetria (Story 14.2, FR48) — poll leve SEMPRE
+  // ativo (independente da view timeline, que mantém o poll próprio de 5s).
+  const [telemetryEvents, setTelemetryEvents] = useState<TimelineEvent[]>([]);
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.cockpit.timeline
+        .get({ limit: 30 })
+        .then(setTelemetryEvents)
+        .catch(() => void 0);
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Catálogo de agentes (Story 13.4, FR45) — disponibilidade no PATH checada
   // no Main ao ENTRAR na view (não no boot: 8 stats de fs sem ninguém olhando).
@@ -666,56 +710,108 @@ export function App(): JSX.Element {
     return () => clearInterval(timer);
   }, [activeProjectId]);
 
-  // Minimapa do canvas (Story 12.5) — retângulo do viewport visível, em
-  // coordenadas de conteúdo (scrollLeft/Top + clientWidth/Height), atualizado
-  // via scroll e ResizeObserver (o canvas fica MONTADO mesmo com master
-  // ativo, então o ref já existe quando este efeito roda).
+  // Canvas INFINITO (Story 14.3, FR49) — navegação por PAN (arrastar o
+  // fundo) + zoom, mundo transformado por translate+scale; substitui o
+  // scroll da 12.6. Pan vive em ref durante o gesto (sem re-render por
+  // pixel) e em estado pro render.
+  const [canvasPan, setCanvasPan] = useState({ x: 60, y: 40 });
+  const canvasPanRef = useRef(canvasPan);
+  canvasPanRef.current = canvasPan;
+  const panGestureRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  const startCanvasPan = (e: React.PointerEvent): void => {
+    // Só o FUNDO faz pan — tiles/minimapa têm gestos próprios.
+    if ((e.target as Element).closest('[data-tile-id], [data-no-pan]')) return;
+    panGestureRef.current = { sx: e.clientX, sy: e.clientY, ox: canvasPanRef.current.x, oy: canvasPanRef.current.y };
+  };
+  useEffect(() => {
+    const onMove = (e: PointerEvent): void => {
+      const g = panGestureRef.current;
+      if (!g) return;
+      setCanvasPan({ x: g.ox + (e.clientX - g.sx), y: g.oy + (e.clientY - g.sy) });
+    };
+    const onUp = (): void => {
+      panGestureRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, []);
+
+  // Viewport do minimapa (12.5, adaptado ao pan da 14.3): deriva de pan/zoom
+  // + tamanho do section (ResizeObserver).
   const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width: 0, height: 0 });
   useEffect(() => {
     const el = canvasSectionRef.current;
     if (!el) return;
     const update = (): void =>
       setCanvasViewport({
-        x: el.scrollLeft / canvasZoom,
-        y: el.scrollTop / canvasZoom,
+        x: -canvasPan.x / canvasZoom,
+        y: -canvasPan.y / canvasZoom,
         width: el.clientWidth / canvasZoom,
         height: el.clientHeight / canvasZoom
       });
     update();
-    el.addEventListener('scroll', update);
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', update);
-      ro.disconnect();
-    };
-  }, [canvasZoom]);
+    return () => ro.disconnect();
+  }, [canvasZoom, canvasPan]);
 
-  /** Foca o tile (mesmo focus/bringToFront já existente) e rola até ele (Story 12.5, AC2). */
+  /** Foca o tile e CENTRALIZA o pan nele (Story 12.5 AC2, adaptado à 14.3). */
   const focusAndScrollTo = (id: string): void => {
     useCockpitStore.getState().focus(id);
     const tile = layout.tiles.find((t) => t.id === id);
     const el = canvasSectionRef.current;
     if (tile && el) {
-      el.scrollTo({
-        left: Math.max(0, (tile.x + tile.width / 2) * canvasZoom - el.clientWidth / 2),
-        top: Math.max(0, (tile.y + tile.height / 2) * canvasZoom - el.clientHeight / 2),
-        behavior: 'smooth'
+      setCanvasPan({
+        x: el.clientWidth / 2 - (tile.x + tile.width / 2) * canvasZoom,
+        y: el.clientHeight / 2 - (tile.y + tile.height / 2) * canvasZoom
       });
     }
   };
 
-  /** Converte coordenadas de ponteiro (viewport) pro espaço LÓGICO de conteúdo do canvas (scroll+zoom-aware). */
+  /** Converte coordenadas de ponteiro (viewport) pro espaço LÓGICO do mundo (pan+zoom-aware, 14.3). */
   const pointerToCanvasCoords = (e: PointerEvent): { x: number; y: number } | null => {
     const el = canvasSectionRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     const zoom = canvasZoomRef.current;
-    return { x: (e.clientX - rect.left + el.scrollLeft) / zoom, y: (e.clientY - rect.top + el.scrollTop) / zoom };
+    const pan = canvasPanRef.current;
+    return { x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom };
   };
 
   const startTerminalLinkDrag = (sourceId: string, originX: number, originY: number): void => {
     setLinkDrag({ sourceId, x: originX, y: originY });
+  };
+
+  /**
+   * Maximizar/restaurar tile (Story 14.4) — guarda o retângulo anterior num
+   * ref (não persiste: restaurar após relaunch volta ao layout salvo normal)
+   * e ocupa o viewport ATUAL do canvas (pan+zoom-aware).
+   */
+  const maximizedPrevRef = useRef(new Map<string, { x: number; y: number; width: number; height: number }>());
+  const toggleMaximizeTile = (id: string): void => {
+    const st = useCockpitStore.getState();
+    const tile = st.layout.tiles.find((t) => t.id === id);
+    const el = canvasSectionRef.current;
+    if (!tile || !el) return;
+    const prev = maximizedPrevRef.current.get(id);
+    if (prev) {
+      maximizedPrevRef.current.delete(id);
+      st.moveTileTo(id, prev.x, prev.y);
+      st.resizeTileTo(id, prev.width, prev.height);
+    } else {
+      maximizedPrevRef.current.set(id, { x: tile.x, y: tile.y, width: tile.width, height: tile.height });
+      const zoom = canvasZoomRef.current;
+      const pan = canvasPanRef.current;
+      st.moveTileTo(id, -pan.x / zoom + 40, -pan.y / zoom + 20);
+      st.resizeTileTo(id, el.clientWidth / zoom - 80, el.clientHeight / zoom - 60);
+    }
+    st.snapTile(id);
+    st.focus(id);
   };
 
   // Listeners globais do arraste de vínculo (Story 12.2) — registrados uma
@@ -738,11 +834,17 @@ export function App(): JSX.Element {
         createTerminalLink(drag.sourceId, targetId, 'manual');
       }
     };
+    // Esc cancela o arraste de vínculo (mock, linha 349).
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && linkDragRef.current) setLinkDrag(null);
+    };
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
@@ -835,28 +937,25 @@ export function App(): JSX.Element {
   const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
 
-  // Tiles do minimapa (Story 12.5) — MESMO filtro de visibilidade do canvas
-  // (workspace ativo + projeto ativo pra sessões; só projeto pra browser
-  // tiles, 10.1 AC4) — o minimapa nunca mostra tile escondido do canvas.
-  const activeProjectColor = projectColorOf(activeProjectId || null);
-
   // Fila unificada (Story 5.3, AC3): agentes waiting-input + tarefas em
-  // awaiting_decision — consumida pelo badge do header E pela status bar (13.3).
+  // awaiting_decision — badge do header + card da telemetria (14.2).
   const pendingDecisionCount =
     projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
     projectTasks.filter((t) => t.state === 'awaiting_decision').length;
 
-  // Extent real do conteúdo do canvas — dá um tamanho EXPLÍCITO ao wrapper
-  // escalado (zoom) pra section.scrollWidth/Height continuar refletindo a
-  // área rolável corretamente mesmo com `transform: scale()` (um wrapper só
-  // com filhos position:absolute e sem tamanho próprio colapsaria pra 0×0,
-  // quebrando o scroll do canvas inteiro).
-  const canvasContentWidth = Math.max(2400, ...layout.tiles.map((t) => t.x + t.width + 200));
-  const canvasContentHeight = Math.max(1400, ...layout.tiles.map((t) => t.y + t.height + 200));
+  // Mundo do canvas infinito (14.3) — tamanho explícito cobre o extent real
+  // dos tiles (mínimo 2600×1800 como o mock); a navegação é por pan, o
+  // tamanho só garante que zonas/SVG cubram tudo.
+  const canvasContentWidth = Math.max(2600, ...layout.tiles.map((t) => t.x + t.width + 200));
+  const canvasContentHeight = Math.max(1800, ...layout.tiles.map((t) => t.y + t.height + 200));
+
+  // Visibilidade no canvas (14.3, FR49): TODOS os projetos aparecem (zonas
+  // dão o agrupamento); workspace (3.6) continua filtrando. O projeto ativo
+  // é destaque/escopo de criação, não filtro.
+  const canvasVisibleSessions = sessions.filter((s) => s.workspace === workspaces.active);
 
   const minimapTiles: MinimapTile[] = [
-    ...sessions
-      .filter((s) => s.workspace === workspaces.active && (!activeProjectId || s.projectId === activeProjectId))
+    ...canvasVisibleSessions
       .map((s): MinimapTile | null => {
         const t = layout.tiles.find((lt) => lt.id === s.id);
         if (!t) return null;
@@ -864,7 +963,6 @@ export function App(): JSX.Element {
       })
       .filter((t): t is MinimapTile => t !== null),
     ...browserTiles
-      .filter((b) => !activeProjectId || b.projectId === activeProjectId)
       .map((b): MinimapTile | null => {
         const t = layout.tiles.find((lt) => lt.id === b.id);
         if (!t) return null;
@@ -872,6 +970,27 @@ export function App(): JSX.Element {
       })
       .filter((t): t is MinimapTile => t !== null)
   ];
+
+  // Zonas de projeto (14.3, FR49) — bounding box dos tiles de cada projeto
+  // + padding, com etiqueta pill (mock linhas 631-645). Projeto ativo =
+  // zona/etiqueta mais fortes.
+  const ZONE_PAD = 24;
+  const ZONE_TOP = 30;
+  const zoneViews = projects
+    .map((p) => {
+      const own = [
+        ...canvasVisibleSessions.filter((s) => s.projectId === p.id).map((s) => layout.tiles.find((t) => t.id === s.id)),
+        ...browserTiles.filter((b) => b.projectId === p.id).map((b) => layout.tiles.find((t) => t.id === b.id))
+      ].filter((t): t is NonNullable<typeof t> => !!t);
+      if (own.length === 0) return null;
+      const minX = Math.min(...own.map((t) => t.x)) - ZONE_PAD;
+      const minY = Math.min(...own.map((t) => t.y)) - ZONE_PAD - ZONE_TOP;
+      const maxX = Math.max(...own.map((t) => t.x + t.width)) + ZONE_PAD;
+      const maxY = Math.max(...own.map((t) => t.y + t.height)) + ZONE_PAD;
+      const isActive = p.id === activeProjectId;
+      return { id: p.id, name: p.name, color: p.color, count: own.length, minX, minY, maxX, maxY, isActive };
+    })
+    .filter((z): z is NonNullable<typeof z> => z !== null);
 
   return (
     <main
@@ -888,15 +1007,20 @@ export function App(): JSX.Element {
       <StatusPulseStyles />
       <header
         style={{
+          height: 42,
+          minHeight: 42,
           display: 'flex',
-          alignItems: 'baseline',
+          alignItems: 'center',
           gap: theme.space.md,
-          padding: `${theme.space.sm + 2}px ${theme.space.lg}px`,
+          padding: `0 ${theme.space.lg}px`,
+          background: theme.surface.app,
           borderBottom: `1px solid ${theme.border.default}`,
           flexShrink: 0
         }}
       >
-        <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>🛰️ Meu Cockpit</h1>
+        <h1 style={{ fontSize: theme.font.size.lg, fontWeight: 700, letterSpacing: 0.3, margin: 0, color: theme.text.bright, whiteSpace: 'nowrap' }}>
+          MEU <span style={{ color: theme.accent.primary }}>COCKPIT</span>
+        </h1>
         {/* Workspaces (Story 3.6): troca rápida + criar/renomear */}
         <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <select
@@ -925,17 +1049,16 @@ export function App(): JSX.Element {
             ✎
           </button>
         </span>
-        <nav style={{ display: 'flex', gap: 4 }}>
+        {/* Abas de view principais — estilo aba do mock (linhas 28-32);
+            views secundárias (Timeline/Learnings/Agentes/Configurações)
+            moram na sidebar em APP & SISTEMA (Story 14.2). */}
+        <nav style={{ display: 'flex', gap: 2 }}>
           {(
             [
-              ['master', 'Master', 'Sessão Master (Ctrl+M)'],
-              ['canvas', 'Canvas', 'Canvas de terminais'],
-              ['timeline', 'Timeline', 'Trilha de eventos (Ctrl+T)'],
-              ['tasks', 'Tarefas', 'Tarefas com lifecycle (Story 5.1)'],
-              ['board', 'Board', 'Lifecycle Board (Story 5.4)'],
-              ['learnings', 'Learnings', 'Banco global de aprendizados, independente do projeto ativo (Story 11.3)'],
-              ['agents', 'Agentes', 'Catálogo de agentes com disponibilidade no PATH (Story 13.4)'],
-              ['settings', '⚙', 'Configurações (Story 13.5)']
+              ['master', 'master', 'Sessão Master (Ctrl+M)'],
+              ['canvas', 'canvas', 'Canvas de terminais'],
+              ['tasks', 'tarefas', 'Tarefas com lifecycle (Story 5.1)'],
+              ['board', 'board', 'Lifecycle Board (Story 5.4)']
             ] as const
           ).map(([v, label, title]) => (
             <button
@@ -944,11 +1067,12 @@ export function App(): JSX.Element {
               title={title}
               style={{
                 background: view === v ? theme.surface.raised : 'transparent',
-                color: view === v ? theme.text.primary : theme.text.muted,
-                border: `1px solid ${view === v ? theme.border.strong : theme.border.default}`,
-                borderRadius: 6,
-                padding: '3px 10px',
-                fontSize: theme.font.size.sm,
+                color: view === v ? theme.text.bright : theme.text.secondary,
+                border: 'none',
+                borderRadius: 5,
+                padding: '6px 8px',
+                fontSize: theme.font.size.xs + 1,
+                fontFamily: theme.font.ui,
                 cursor: 'pointer'
               }}
             >
@@ -956,29 +1080,28 @@ export function App(): JSX.Element {
             </button>
           ))}
         </nav>
-        {info && (
-          <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.text.muted }}>
-            v{info.version} · {info.platform} · {projectSessions.length}{' '}
-            {projectSessions.length === 1 ? 'sessão' : 'sessões'}
-          </span>
-        )}
         <span style={{ flex: 1 }} />
-        {/* Badge do daemon (6.4): só aparece quando o vínculo não está saudável */}
-        {daemonState !== 'connected' && (
-          <span
-            title="Estado do daemon de terminais"
-            style={{
-              fontSize: theme.font.size.sm,
-              fontWeight: 700,
-              color: theme.text.inverse,
-              background: daemonState === 'disconnected' ? theme.accent.danger : theme.accent.warn,
-              borderRadius: theme.radius.pill,
-              padding: '3px 10px'
-            }}
-          >
-            {daemonState === 'starting' && '⏫ daemon subindo…'}
-            {daemonState === 'reconnecting' && '🔌 daemon: reconectando…'}
-            {daemonState === 'disconnected' && '⛔ daemon desconectado'}
+        {info && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: theme.font.size.xs + 1, color: theme.text.muted, whiteSpace: 'nowrap' }}>
+            <span>v{info.version}</span>
+            <span style={{ color: theme.border.strong }}>·</span>
+            <span>
+              {projectSessions.length} {projectSessions.length === 1 ? 'sessão' : 'sessões'}
+            </span>
+            <span style={{ color: theme.border.strong }}>·</span>
+            <span
+              title="Estado do daemon de terminais"
+              style={{
+                color:
+                  daemonState === 'connected'
+                    ? theme.accent.ok
+                    : daemonState === 'disconnected'
+                      ? theme.accent.danger
+                      : theme.accent.warn
+              }}
+            >
+              ● daemon
+            </span>
           </span>
         )}
         {(() => {
@@ -1004,44 +1127,33 @@ export function App(): JSX.Element {
             </button>
           );
         })()}
-        {adapters.length > 1 && (
-          <select
-            value={selectedAdapter}
-            onChange={(e) => setSelectedAdapter(e.target.value)}
-            title="Adapter do novo terminal"
+        {/* Pill de zoom do mock (linhas 41-45) — só com o canvas ativo. */}
+        {view === 'canvas' && (
+          <div
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
               background: theme.surface.raised,
-              color: theme.text.primary,
-              border: `1px solid ${theme.border.default}`,
+              border: `1px solid ${theme.border.strong}`,
               borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: theme.font.size.sm
+              padding: 2
             }}
           >
-            {adapters.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.displayName}
-              </option>
-            ))}
-          </select>
-        )}
-        {selectedAdapter === 'ollama' && (
-          <input
-            value={ollamaModel}
-            onChange={(e) => setOllamaModel(e.target.value)}
-            title="Modelo do Ollama (ex.: llama3, mistral)"
-            placeholder="modelo (ex.: llama3)"
-            style={{
-              width: 110,
-              background: theme.surface.raised,
-              color: theme.text.primary,
-              border: `1px solid ${theme.border.default}`,
-              borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: theme.font.size.sm,
-              fontFamily: theme.font.mono
-            }}
-          />
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))} title="Diminuir zoom (Ctrl+scroll)" style={zoomBtnStyle}>
+              −
+            </button>
+            <button
+              onClick={() => setCanvasZoom(1)}
+              title="Redefinir zoom para 100%"
+              style={{ ...zoomBtnStyle, width: 38, fontSize: theme.font.size.xs }}
+            >
+              {Math.round(canvasZoom * 100)}%
+            </button>
+            <button onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))} title="Aumentar zoom (Ctrl+scroll)" style={zoomBtnStyle}>
+              +
+            </button>
+          </div>
         )}
         <button
           onClick={() => void newTerminal()}
@@ -1081,28 +1193,33 @@ export function App(): JSX.Element {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <ProjectFilesSidebar
+        <AppSidebar
           projects={projects}
-          activeId={activeProjectId}
+          activeProjectId={activeProjectId}
+          gitBranch={gitBranch}
           onSelectProject={switchProject}
           onCreateProject={createProject}
           onCreateTerminalIn={newTerminalInProject}
+          adapters={adapters}
+          onCreateTerminal={(adapterId) => {
+            if (view !== 'recovery') void newTerminal(adapterId);
+          }}
+          rootEntries={rootEntries}
           onReadDir={(dirPath) =>
             window.cockpit.project.readDir({
               ...(activeProjectId ? { projectId: activeProjectId } : {}),
               ...(dirPath !== undefined ? { dirPath } : {})
             })
           }
-          onReadFile={(path) => window.cockpit.project.readFile({ path, maxBytes: 262144 })}
-        />
-
-        <Sidebar
-          sessions={projectSessions}
-          focusedId={focusedId}
-          onSelect={(id) => goToTerminal(id)}
-          onNewTerminal={() => {
-            if (view !== 'recovery') void newTerminal();
-          }}
+          onSelectFile={openFilePreview}
+          selectedFilePath={previewFile?.path ?? null}
+          systemEntries={[
+            { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => setView('timeline') },
+            { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => setView('learnings') },
+            { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => setView('agents') },
+            { icon: '⚙', label: 'Configurações', active: view === 'settings', onClick: () => setView('settings') }
+          ]}
+          appVersion={info?.version ?? '—'}
         />
 
         {view === 'recovery' && crashSummary && (
@@ -1194,91 +1311,157 @@ export function App(): JSX.Element {
 
         <section
           ref={canvasSectionRef}
+          onPointerDown={startCanvasPan}
           onWheel={(e) => {
-            if (!e.ctrlKey) return;
+            // Zoom no scroll (mock) — sobre um TILE, só com Ctrl (wheel puro
+            // ali pertence ao scrollback do xterm); no fundo, wheel puro zooma.
+            const overTile = (e.target as Element).closest('[data-tile-id]');
+            if (overTile && !e.ctrlKey) return;
             e.preventDefault();
             setCanvasZoom((z) => clampZoom(z - e.deltaY * 0.001));
           }}
           style={{
             flex: 1,
             position: 'relative',
-            overflow: 'auto',
+            overflow: 'hidden',
             minWidth: 0,
             // Canvas fica MONTADO quando o master está ativo (desmontar
             // mataria xterm/portas) — apenas escondido.
             display: view === 'canvas' ? 'block' : 'none',
-            // Fundo com profundidade (Story 13.1, AC2): chão mais fundo do
-            // tema + grade de pontos sutil; quando o projeto ativo tem cor
-            // (12.6/FR37), entra uma lavagem translúcida da cor — os tiles
-            // continuam com fundo próprio opaco, só o "chão" entre eles
-            // tinge, pra bater de relance qual projeto está aberto.
-            ...canvasBackground(activeProjectColor),
-            transition: 'background-color 200ms'
+            cursor: panGestureRef.current ? 'grabbing' : 'default',
+            // Chão neutro do mock (zonas dão a cor por projeto — 14.3
+            // substitui a lavagem por-projeto-ativo da 12.6).
+            ...canvasBackground(null)
           }}
         >
-          {/* Toolbar do canvas (Story 13.2, FR42) — FORA do wrapper escalado
-              (não escala com o zoom) e num wrapper sticky de altura 0: fica
-              visível em qualquer scroll (2 eixos) sem empurrar o conteúdo. */}
-          {view === 'canvas' && (
-            <div style={{ position: 'sticky', top: 0, left: 0, height: 0, zIndex: 10000 }}>
-              <CanvasToolbar
-                zoom={canvasZoom}
-                onZoomIn={() => setCanvasZoom((z) => clampZoom(z + 0.1))}
-                onZoomOut={() => setCanvasZoom((z) => clampZoom(z - 0.1))}
-                onZoomReset={() => setCanvasZoom(1)}
-                onNewTerminal={() => void newTerminal()}
-                onNewBrowser={createBrowserTile}
-                minimapVisible={showMinimap}
-                onToggleMinimap={() => setShowMinimap((v) => !v)}
-                linksVisible={showLinks}
-                onToggleLinks={() => setShowLinks((v) => !v)}
-                adapterLabel={adapters.find((a) => a.id === selectedAdapter)?.displayName ?? selectedAdapter}
-              />
-            </div>
-          )}
-          {/* Wrapper escalado pelo zoom (transformOrigin no canto 0,0 pra
-              coordenadas de layout.x/y continuarem batendo com o topo-
-              esquerda visual) — tamanho explícito pra section.scroll*
-              refletir a área rolável corretamente (ver comentário acima). */}
+          {/* Mundo do canvas infinito (14.3): translate(pan) + scale(zoom),
+              origin 0 0 — coordenadas de layout.x/y continuam batendo. */}
           <div
             style={{
-              position: 'relative',
+              position: 'absolute',
+              left: 0,
+              top: 0,
               width: canvasContentWidth,
               height: canvasContentHeight,
-              transform: `scale(${canvasZoom})`,
+              transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
               transformOrigin: '0 0'
             }}
           >
+          {/* Zonas de projeto (14.3, FR49) — atrás de tudo, pointer-events
+              none; etiqueta pill com dot+nome+contagem (mock 631-645). */}
+          {zoneViews.map((z) => (
+            <div key={z.id}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: z.minX,
+                  top: z.minY,
+                  width: z.maxX - z.minX,
+                  height: z.maxY - z.minY,
+                  border: `1.5px solid ${z.color}${z.isActive ? '66' : '44'}`,
+                  borderRadius: theme.radius.xl,
+                  background: `${z.color}${z.isActive ? '1A' : '12'}`,
+                  zIndex: 0,
+                  pointerEvents: 'none'
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: z.minX + 14,
+                  top: z.minY + 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: theme.font.size.sm + 1,
+                  fontWeight: 600,
+                  color: z.color,
+                  background: `${z.color}22`,
+                  border: `1px solid ${z.color}66`,
+                  padding: '3px 10px',
+                  borderRadius: 7,
+                  zIndex: 1,
+                  pointerEvents: 'none'
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: z.color }} />
+                {z.name} <span style={{ opacity: 0.65 }}>· {z.count}</span>
+              </div>
+            </div>
+          ))}
           {/* Indicação visual de vínculos (Épico 9, Story 9.3, AC1) — SVG
               atrás dos tiles (ordem no DOM), pointer-events:none pra não
               atrapalhar arrastar/redimensionar. */}
-          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            <defs>
-              <marker id="terminal-link-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 Z" fill={theme.text.muted} />
-              </marker>
-            </defs>
-            {/* Overlay ocultável pela toolbar (13.2, AC3) — só o DESENHO some;
-                vínculos continuam existindo e roteando normalmente. */}
-            {showLinks && projectTerminalLinks.map((l) => {
+          {/* Vínculos como bezier tracejado ANIMADO com etiqueta e remoção
+              (Story 14.4, FR50; mock linhas 132-147 e 647-669). Com as
+              zonas da 14.3, TODOS os vínculos aparecem (não só do projeto
+              ativo). Âncoras nas laterais a y+15 (altura da barra). */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}>
+            {terminalLinks.map((l, i) => {
               const source = layout.tiles.find((t) => t.id === l.sourceId);
               const target = layout.tiles.find((t) => t.id === l.targetId);
               if (!source || !target) return null;
+              const goRight = source.x < target.x;
+              const p1 = goRight
+                ? { x: source.x + source.width, y: source.y + 15 }
+                : { x: source.x, y: source.y + 15 };
+              const p2 = goRight ? { x: target.x, y: target.y + 15 } : { x: target.x + target.width, y: target.y + 15 };
+              const midx = (p1.x + p2.x) / 2;
+              const midy = (p1.y + p2.y) / 2;
+              const d = `M ${p1.x} ${p1.y} C ${midx} ${p1.y}, ${midx} ${p2.y}, ${p2.x} ${p2.y}`;
+              const color = LINK_PALETTE[i % LINK_PALETTE.length]!;
+              const label = l.mode;
+              const labelW = label.length * 5.5 + 12;
+              const labelX = midx - labelW / 2 - 14;
+              const labelY = midy - 8;
               return (
-                <line
-                  key={l.id}
-                  x1={source.x + source.width / 2}
-                  y1={source.y + source.height / 2}
-                  x2={target.x + target.width / 2}
-                  y2={target.y + target.height / 2}
-                  stroke={l.mode === 'auto' ? theme.accent.ok : theme.text.muted}
-                  strokeWidth={2}
-                  strokeDasharray={l.mode === 'manual' ? '4 3' : undefined}
-                  markerEnd="url(#terminal-link-arrow)"
-                />
+                <g key={l.id}>
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
+                    style={{ animation: 'cockpit-dashflow 0.8s linear infinite' }}
+                  />
+                  <circle
+                    r={3.5}
+                    fill={color}
+                    style={{ offsetPath: `path('${d}')`, animation: 'cockpit-flowmove 2.4s linear infinite' }}
+                  />
+                  <rect x={labelX} y={labelY} width={labelW} height={16} rx={3} fill={theme.surface.header} stroke={color} strokeWidth={1} />
+                  <text x={labelX + 6} y={labelY + 11.5} fill={color} fontSize={9.5} fontFamily={theme.font.mono}>
+                    {label}
+                  </text>
+                  <circle
+                    data-no-pan
+                    cx={midx}
+                    cy={midy}
+                    r={8}
+                    fill="#1A1010"
+                    stroke={theme.accent.danger}
+                    strokeWidth={1}
+                    style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                    onClick={() => removeTerminalLink(l.id)}
+                  >
+                    <title>remover vínculo</title>
+                  </circle>
+                  <text
+                    x={midx}
+                    y={midy + 4}
+                    fill={theme.accent.danger}
+                    fontSize={11}
+                    fontWeight={700}
+                    textAnchor="middle"
+                    fontFamily={theme.font.mono}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    ×
+                  </text>
+                </g>
               );
             })}
-            {/* Linha de preview do arraste de vínculo em curso (Story 12.2, AC2). */}
+            {/* Linha de preview do arraste de vínculo em curso (12.2/14.4). */}
             {linkDrag &&
               (() => {
                 const source = layout.tiles.find((t) => t.id === linkDrag.sourceId);
@@ -1289,9 +1472,9 @@ export function App(): JSX.Element {
                     y1={source.y + source.height / 2}
                     x2={linkDrag.x}
                     y2={linkDrag.y}
-                    stroke={theme.accent.primary}
-                    strokeWidth={2}
-                    strokeDasharray="4 3"
+                    stroke={theme.accent.bright}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
                   />
                 );
               })()}
@@ -1299,12 +1482,10 @@ export function App(): JSX.Element {
           {sessions.map((session) => {
             const tile = layout.tiles.find((t) => t.id === session.id);
             if (!tile) return null;
-            // Canvas filtra por workspace (3.6) E projeto ativo (8.2, AC2) —
-            // tiles fora do escopo ficam MONTADOS (desmontar mataria
-            // xterm/portas, gotcha da 1.3), apenas escondidos pelo wrapper.
-            const inActive =
-              session.workspace === workspaces.active &&
-              (!activeProjectId || session.projectId === activeProjectId);
+            // Canvas filtra só por workspace (3.6) — projetos aparecem TODOS
+            // com zonas (14.3, FR49); tiles fora do escopo ficam MONTADOS
+            // (desmontar mataria xterm/portas, gotcha da 1.3), só escondidos.
+            const inActive = session.workspace === workspaces.active;
             return (
               <div key={session.id} style={{ display: inActive ? 'contents' : 'none' }}>
                 <TerminalTile
@@ -1322,6 +1503,8 @@ export function App(): JSX.Element {
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
                 onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
+                onMaximize={() => toggleMaximizeTile(session.id)}
+                linking={linkDrag?.sourceId === session.id}
                 projectColor={projectColorOf(session.projectId)}
                 zoom={canvasZoom}
               />
@@ -1331,8 +1514,9 @@ export function App(): JSX.Element {
           {browserTiles.map((bTile) => {
             const tile = layout.tiles.find((t) => t.id === bTile.id);
             if (!tile) return null;
-            // Preview de browser não tem workspace (10.1, AC4) — só projeto.
-            const inActive = !activeProjectId || bTile.projectId === activeProjectId;
+            // Preview de browser não tem workspace (10.1, AC4) — com as
+            // zonas da 14.3, todos os projetos são visíveis: sempre ativo.
+            const inActive = true;
             return (
               <div key={bTile.id} style={{ display: inActive ? 'contents' : 'none' }}>
                 <BrowserPreviewTile
@@ -1357,7 +1541,7 @@ export function App(): JSX.Element {
               </div>
             );
           })}
-          {projectSessions.length === 0 && (
+          {canvasVisibleSessions.length === 0 && (
             <p
               style={{
                 position: 'absolute',
@@ -1379,21 +1563,51 @@ export function App(): JSX.Element {
               tiles (que ficam montados escondidos por causa do xterm/
               portas) — o minimapa não tem nenhum estado de I/O persistente,
               então desmontar é seguro. */}
-          {view === 'canvas' && showMinimap && (
-            <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
+          {/* Hint do arraste de vínculo (14.4; mock linhas 200-202). */}
+          {linkDrag && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                background: '#0D1F22',
+                border: '1px solid #164E52',
+                color: theme.accent.bright,
+                fontSize: theme.font.size.xs + 1,
+                padding: '6px 10px',
+                borderRadius: 6,
+                pointerEvents: 'none',
+                zIndex: 200
+              }}
+            >
+              Solte sobre outro terminal para conectar · esc cancela
+            </div>
+          )}
+          {view === 'canvas' && (
+            <div data-no-pan>
+              <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
+            </div>
           )}
         </section>
+
+        {/* Painel de preview de arquivo (Story 14.5, FR51) — entre o canvas
+            e a telemetria, como no mock (linhas 205-259). */}
+        {previewFile && <FilePreviewPanel file={previewFile} onClose={() => setPreviewFile(null)} />}
+
+        {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
+            pendentes reais + eventos da timeline (mock linhas 261-275). */}
+        <TelemetryPanel
+          pendingDecisionCount={pendingDecisionCount}
+          onOpenDecisions={() => setView('master')}
+          events={telemetryEvents}
+          sessions={sessions}
+        />
       </div>
-      {/* Status bar global (Story 13.3, FR43) — visível em TODAS as views. */}
-      <StatusBar
-        projectName={projects.find((p) => p.id === activeProjectId)?.name ?? '—'}
-        projectColor={activeProjectColor}
-        gitBranch={gitBranch}
-        daemonState={daemonState}
-        activeSessionCount={projectSessions.filter((s) => s.status === 'running').length}
-        pendingDecisionCount={pendingDecisionCount}
-        onOpenDecisions={() => setView('master')}
-      />
+
+      {/* Rodapé de cards de sessões (Story 14.2, FR48) — substitui a antiga
+          sidebar de sessões E a status bar da 13.3 (informação preservada:
+          daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
+      <SessionCardsBar sessions={sessions} focusedId={focusedId} onFocusSession={goToTerminal} />
       {promptState && (
         <PromptModal
           message={promptState.message}
@@ -1423,5 +1637,23 @@ const wsButtonStyle: React.CSSProperties = {
   fontSize: theme.font.size.sm
 };
 
+/** Botões do pill de zoom do header (mock, linhas 41-45). */
+const zoomBtnStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  border: 'none',
+  background: 'transparent',
+  color: theme.text.secondary,
+  cursor: 'pointer',
+  fontSize: theme.font.size.lg,
+  lineHeight: '20px',
+  borderRadius: theme.radius.sm,
+  padding: 0,
+  fontFamily: theme.font.ui
+};
+
 /** Paleta cíclica p/ cor de novo projeto (Story 8.2) — promovida ao tema (13.1). */
 const PROJECT_COLORS = PROJECT_PALETTE;
+
+/** Paleta cíclica dos vínculos no canvas (Story 14.4, mock linha 399). */
+const LINK_PALETTE = ['#22D3EE', '#F472B6', '#A78BFA', '#4ADE80', '#FBBF24'] as const;
