@@ -33,8 +33,19 @@ export {
   statusLabel
 } from './status-colors';
 export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
+export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
 export { CanvasMinimap } from './canvas-minimap';
 export type { CanvasMinimapProps, MinimapTile } from './canvas-minimap';
+export { CanvasToolbar } from './canvas-toolbar';
+export type { CanvasToolbarProps } from './canvas-toolbar';
+export { StatusBar } from './status-bar';
+export type { StatusBarProps } from './status-bar';
+export { ADAPTER_CATALOG, adapterCatalogEntry } from './adapter-catalog';
+export type { AdapterCatalogEntry } from './adapter-catalog';
+export { AgentCatalog } from './agent-catalog';
+export type { AgentCatalogProps } from './agent-catalog';
+export { SettingsView } from './settings-view';
+export type { SettingsViewProps } from './settings-view';
 export { PromptModal } from './prompt-modal';
 export type { PromptModalProps } from './prompt-modal';
 export { MasterDashboard } from './master-dashboard';

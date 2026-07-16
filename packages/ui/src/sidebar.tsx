@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { SessionRecord } from '@cockpit/shared';
 import { statusColor, statusLabel } from './status-colors';
+import { theme } from './theme';
 
 /**
  * Sidebar de navegação em árvore (escopo mínimo da 1.3: só sessões).
@@ -43,7 +44,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
   return (
     <aside style={{ ...asideStyle, width: 220 }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '8px 10px', gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', flex: 1, letterSpacing: 1 }}>
+        <span style={{ fontSize: theme.font.size.xs, fontWeight: 700, color: theme.text.muted, flex: 1, letterSpacing: 1 }}>
           SESSÕES
         </span>
         <button onClick={onNewTerminal} title="Novo terminal (Ctrl+N)" style={iconButtonStyle}>
@@ -55,7 +56,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
       </div>
       <nav style={{ flex: 1, overflowY: 'auto' }}>
         {sessions.length === 0 && (
-          <p style={{ fontSize: 12, color: '#6B7280', padding: '4px 12px' }}>
+          <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, padding: '4px 12px' }}>
             Nenhuma sessão — Ctrl+N para criar.
           </p>
         )}
@@ -66,7 +67,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: '#6B7280',
+                  color: theme.text.faint,
                   letterSpacing: 1,
                   margin: '8px 0 2px',
                   padding: '0 12px',
@@ -86,11 +87,11 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
               gap: 8,
               width: '100%',
               padding: '6px 12px',
-              background: s.id === focusedId ? '#111827' : 'transparent',
+              background: s.id === focusedId ? theme.surface.raised : 'transparent',
               border: 'none',
-              borderLeft: s.id === focusedId ? '2px solid #22D3EE' : '2px solid transparent',
-              color: '#E5E7EB',
-              fontSize: 12,
+              borderLeft: s.id === focusedId ? `2px solid ${theme.accent.primary}` : '2px solid transparent',
+              color: theme.text.primary,
+              fontSize: theme.font.size.sm,
               textAlign: 'left',
               cursor: 'pointer'
             }}
@@ -99,7 +100,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
               title={statusLabel(s.agentStatus)}
               style={{
                 fontSize: 10,
-                color: s.status === 'exited' ? '#F87171' : statusColor(s.agentStatus)
+                color: s.status === 'exited' ? theme.accent.danger : statusColor(s.agentStatus)
               }}
             >
               ●
@@ -113,7 +114,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: '#0B0F14',
+                  color: theme.text.inverse,
                   background: statusColor('waiting-input'),
                   borderRadius: 8,
                   padding: '0 6px'
@@ -122,7 +123,7 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
                 !
               </span>
             )}
-                {i < 9 && <kbd style={{ fontSize: 10, color: '#6B7280' }}>⌃{i + 1}</kbd>}
+                {i < 9 && <kbd style={{ fontSize: 10, color: theme.text.faint }}>⌃{i + 1}</kbd>}
               </button>
             ))}
           </div>
@@ -135,20 +136,20 @@ export function Sidebar({ sessions, focusedId, onSelect, onNewTerminal }: Sideba
 const asideStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  background: '#0D131B',
-  borderRight: '1px solid #1F2937',
+  background: theme.surface.panel,
+  borderRight: `1px solid ${theme.border.default}`,
   flexShrink: 0,
   transition: 'width 120ms ease'
 };
 
 const iconButtonStyle: React.CSSProperties = {
   background: 'transparent',
-  color: '#9CA3AF',
-  border: '1px solid #1F2937',
-  borderRadius: 4,
+  color: theme.text.muted,
+  border: `1px solid ${theme.border.default}`,
+  borderRadius: theme.radius.sm,
   width: 22,
   height: 22,
   cursor: 'pointer',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   lineHeight: '18px'
 };

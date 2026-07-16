@@ -28,6 +28,8 @@ export const IpcChannels = {
   /** Relatório de sessão (Story 3.5) — projeção da trilha de eventos. */
   sessionReport: 'session.report',
   adapterList: 'adapter.list',
+  /** Disponibilidade de um comando no PATH (Story 13.4, FR45) — lookup no Main, sem executar nada. */
+  adapterCheckCommand: 'adapter.checkCommand',
   timelineGet: 'timeline.get',
   /** Workspaces (Story 3.6). */
   workspaceList: 'workspace.list',
@@ -45,6 +47,11 @@ export const IpcChannels = {
   /** Explorador de arquivos (Story 8.4) — leitura no Main (node:fs). */
   projectReadDir: 'project.readDir',
   projectReadFile: 'project.readFile',
+  /** Branch git do projeto (Story 13.3, FR44) — lida de .git/HEAD no Main. */
+  projectGitBranch: 'project.gitBranch',
+  /** Configurações do app (Story 13.5, FR46) — app_meta.settings, JSON único. */
+  settingsGet: 'settings.get',
+  settingsUpdate: 'settings.update',
   /** Vínculo terminal-a-terminal (Épico 9, FR25). */
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
@@ -118,6 +125,19 @@ export const AdapterInfoSchema = z.object({
   displayName: z.string().min(1)
 });
 export type AdapterInfo = z.infer<typeof AdapterInfoSchema>;
+
+/**
+ * Checagem de comando no PATH (Story 13.4, FR45) — nome de ARQUIVO simples
+ * (com extensão), nunca um caminho: separadores são rejeitados no schema.
+ */
+export const AdapterCheckCommandRequestSchema = z.object({
+  command: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/, 'nome de comando simples, sem separadores de caminho')
+});
+export type AdapterCheckCommandRequest = z.infer<typeof AdapterCheckCommandRequestSchema>;
 
 /**
  * Sessão de terminal (Story 1.3) — fonte de verdade no SessionRegistry (core,
@@ -457,6 +477,28 @@ export const ProjectReadDirRequestSchema = z.object({
 });
 export type ProjectReadDirRequest = z.infer<typeof ProjectReadDirRequestSchema>;
 
+/** Branch git do projeto (Story 13.3, FR44) — projectId ausente = ativo. */
+export const ProjectGitBranchRequestSchema = z.object({
+  projectId: z.string().min(1).optional()
+});
+export type ProjectGitBranchRequest = z.infer<typeof ProjectGitBranchRequestSchema>;
+
+/**
+ * Configurações do app (Story 13.5, FR46) — os DEFAULTS preservam exatamente
+ * o comportamento anterior à story (llama3 da 12.6, poll de 1.5s da 10.1,
+ * zoom 100% da 12.6); valor ausente OU inválido degrada pro default (catch),
+ * nunca erro — quem nunca abrir a tela de Configurações não muda nada.
+ */
+export const AppSettingsSchema = z.object({
+  ollamaDefaultModel: z.string().min(1).max(64).catch('llama3').default('llama3'),
+  browserPreviewIntervalMs: z.number().int().min(500).max(60000).catch(1500).default(1500),
+  canvasDefaultZoom: z.number().min(0.4).max(2).catch(1).default(1)
+});
+export type AppSettings = z.infer<typeof AppSettingsSchema>;
+
+export const SettingsUpdateRequestSchema = AppSettingsSchema.partial();
+export type SettingsUpdateRequest = z.infer<typeof SettingsUpdateRequestSchema>;
+
 export const ProjectReadFileRequestSchema = z.object({
   path: z.string().min(1),
   maxBytes: z.number().int().positive().max(1_048_576).default(262_144)
@@ -660,6 +702,8 @@ export interface CockpitApi {
   adapter: {
     /** Adapters registrados no PTY Host (Story 2.1+). */
     list(): Promise<AdapterInfo[]>;
+    /** Caminho resolvido do comando no PATH, ou null se não instalado (Story 13.4, FR45). */
+    checkCommand(req: AdapterCheckCommandRequest): Promise<string | null>;
   };
   timeline: {
     /** Eventos da trilha, mais recentes primeiro (Story 3.3). */
@@ -697,6 +741,14 @@ export interface CockpitApi {
     readDir(req: ProjectReadDirRequest): Promise<ProjectDirEntry[]>;
     /** Preview de leitura de um arquivo de texto (Story 8.4, AC2) — null se binário/erro. */
     readFile(req: ProjectReadFileRequest): Promise<ProjectReadFileResponse | null>;
+    /** Branch git atual do projeto (Story 13.3, FR44) — null se não for repositório. */
+    gitBranch(req: ProjectGitBranchRequest): Promise<string | null>;
+  };
+  settings: {
+    /** Configurações efetivas (defaults aplicados) — Story 13.5, FR46. */
+    get(): Promise<AppSettings>;
+    /** Merge parcial e persiste; retorna o estado completo resultante. */
+    update(req: SettingsUpdateRequest): Promise<AppSettings>;
   };
   terminalLink: {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */

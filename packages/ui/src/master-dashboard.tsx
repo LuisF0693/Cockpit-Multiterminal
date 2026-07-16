@@ -15,17 +15,21 @@ export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
 import { formatDuration } from './format-duration';
 import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
+import { theme } from './theme';
 
 const queueButtonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '3px 10px',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };
+
+/** Superfície tingida pelo âmbar de waiting-input — deriva do STATUS_COLORS, não é um hex novo. */
+const WAITING_TINT = `${statusColor('waiting-input')}14`;
 
 /**
  * MasterDashboard (Story 3.1) — o Conductor: visão agregada de todos os
@@ -62,6 +66,13 @@ export interface MasterDashboardProps {
   learnings: Learning[];
   /** Qualificação (Story 11.2, FR32) — decisão humana explícita. */
   onUpdateLearningStatus: (id: string, status: LearningStatus) => void;
+  /**
+   * Pede texto ao usuário via modal (PromptModal do App) — `window.prompt`
+   * NÃO é implementado pelo Electron (retorna `null` sempre, sem UI); sem
+   * esta prop, a justificativa de rejeição é silenciosamente impossível
+   * (bug herdado da 12.6, corrigido pós-13.1).
+   */
+  onPromptText?: (message: string, defaultValue?: string) => Promise<string | null>;
 }
 
 export function MasterDashboard({
@@ -79,7 +90,8 @@ export function MasterDashboard({
   onSendLink,
   onCreateLearning,
   learnings,
-  onUpdateLearningStatus
+  onUpdateLearningStatus,
+  onPromptText
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -126,7 +138,7 @@ export function MasterDashboard({
   return (
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Sessão Master</h2>
-      <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>
+      <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 20px' }}>
         {sessions.length} {sessions.length === 1 ? 'agente' : 'agentes'} sob governança — Ctrl+M alterna com o canvas
       </p>
 
@@ -146,12 +158,12 @@ export function MasterDashboard({
           list="learning-categories"
           style={{
             flex: 1,
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '5px 10px',
-            fontSize: 12
+            fontSize: theme.font.size.sm
           }}
         />
         <input
@@ -161,12 +173,12 @@ export function MasterDashboard({
           placeholder="categoria"
           style={{
             width: 110,
-            background: '#111827',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '5px 8px',
-            fontSize: 12
+            fontSize: theme.font.size.sm
           }}
         />
         <datalist id="learning-categories">
@@ -177,7 +189,7 @@ export function MasterDashboard({
         <button onClick={submitLearning} disabled={!learningText.trim()} style={queueButtonStyle}>
           registrar
         </button>
-        <span style={{ fontSize: 11, color: '#4B5563' }} title="learnings no banco global">
+        <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }} title="learnings no banco global">
           {learnings.length} no banco
         </span>
       </div>
@@ -193,18 +205,18 @@ export function MasterDashboard({
             style={{
               marginBottom: 20,
               padding: 14,
-              background: '#0D131B',
-              border: '1px solid #1F2937',
-              borderRadius: 8
+              background: theme.surface.panel,
+              border: `1px solid ${theme.border.default}`,
+              borderRadius: theme.radius.md
             }}
           >
-            <h3 style={{ margin: '0 0 10px', fontSize: 13, color: '#9CA3AF' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: theme.font.size.md, color: theme.text.muted }}>
               🎓 Learnings para qualificar ({pending.length})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {pending.map((l) => (
                 <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span style={{ color: '#6B7280', fontSize: 10, textTransform: 'uppercase' }}>{l.category}</span>
+                  <span style={{ color: theme.text.faint, fontSize: 10, textTransform: 'uppercase' }}>{l.category}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {l.text}
                   </span>
@@ -253,20 +265,20 @@ export function MasterDashboard({
             style={{
               marginBottom: 20,
               padding: 14,
-              background: '#1F1A0E',
+              background: WAITING_TINT,
               border: `1px solid ${statusColor('waiting-input')}`,
-              borderRadius: 8
+              borderRadius: theme.radius.md
             }}
           >
-            <h3 style={{ margin: '0 0 10px', fontSize: 13, color: statusColor('waiting-input') }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: theme.font.size.md, color: statusColor('waiting-input') }}>
               ⏳ Decisões pendentes ({total})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {waitingList.map((s) => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
                   <strong style={{ minWidth: 140 }}>{s.name}</strong>
-                  <span style={{ color: '#9CA3AF' }}>tarefa: {taskTitle(s.taskId)}</span>
-                  <span style={{ color: statusColor('waiting-input'), fontFamily: 'monospace' }}>
+                  <span style={{ color: theme.text.muted }}>tarefa: {taskTitle(s.taskId)}</span>
+                  <span style={{ color: statusColor('waiting-input'), fontFamily: theme.font.mono }}>
                     aguarda há {formatDuration(Date.now() - s.lastStatusChangeAt)}
                   </span>
                   <span style={{ flex: 1 }} />
@@ -278,7 +290,7 @@ export function MasterDashboard({
               {decidingTasks.map((t) => (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                   <strong style={{ minWidth: 140 }}>{t.title}</strong>
-                  <span style={{ color: '#9CA3AF' }}>aguardando decisão</span>
+                  <span style={{ color: theme.text.muted }}>aguardando decisão</span>
                   <span style={{ flex: 1 }} />
                   {classifyTaskRoles(sessions, t.id).isThreeBrain && (
                     <button
@@ -294,8 +306,13 @@ export function MasterDashboard({
                   </button>
                   <button
                     onClick={() => {
-                      const justification = window.prompt('Motivo da rejeição (opcional):') ?? undefined;
-                      onDecide(t.id, 'reject', justification ? { justification } : {});
+                      if (!onPromptText) {
+                        onDecide(t.id, 'reject', {});
+                        return;
+                      }
+                      void onPromptText('Motivo da rejeição (opcional):').then((justification) => {
+                        onDecide(t.id, 'reject', justification ? { justification } : {});
+                      });
                     }}
                     style={queueButtonStyle}
                     title="rejeitar → em execução, com feedback"
@@ -307,12 +324,12 @@ export function MasterDashboard({
                     onChange={(e) => setRedirectTargets((d) => ({ ...d, [t.id]: e.target.value }))}
                     title="Novo agente para redirecionar"
                     style={{
-                      background: '#111827',
-                      color: '#E5E7EB',
-                      border: '1px solid #1F2937',
+                      background: theme.surface.raised,
+                      color: theme.text.primary,
+                      border: `1px solid ${theme.border.default}`,
                       borderRadius: 6,
                       padding: '3px 6px',
-                      fontSize: 11
+                      fontSize: theme.font.size.xs
                     }}
                   >
                     <option value="">redirecionar para…</option>
@@ -343,7 +360,7 @@ export function MasterDashboard({
       })()}
 
       {sessions.length === 0 && (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted }}>
           Nenhum agente ativo — Ctrl+N para criar o primeiro.
         </p>
       )}
@@ -360,9 +377,9 @@ export function MasterDashboard({
                 alignItems: 'center',
                 gap: 12,
                 padding: '10px 14px',
-                background: waiting ? '#1F1A0E' : '#0D131B',
-                border: `1px solid ${waiting ? statusColor('waiting-input') : '#1F2937'}`,
-                borderRadius: 8
+                background: waiting ? WAITING_TINT : theme.surface.panel,
+                border: `1px solid ${waiting ? statusColor('waiting-input') : theme.border.default}`,
+                borderRadius: theme.radius.md
               }}
             >
               <span style={{ color: statusColor(s.agentStatus), fontSize: 12 }}>●</span>
@@ -380,7 +397,7 @@ export function MasterDashboard({
               </span>
               <span
                 title="tempo no status atual"
-                style={{ fontSize: 12, color: '#9CA3AF', fontFamily: 'monospace' }}
+                style={{ fontSize: theme.font.size.sm, color: theme.text.muted, fontFamily: theme.font.mono }}
               >
                 {formatDuration(Date.now() - s.lastStatusChangeAt)}
               </span>
@@ -390,12 +407,12 @@ export function MasterDashboard({
                   onChange={(e) => onLinkTask(s.id, e.target.value || null, s.taskRole)}
                   title="Tarefa vinculada (Story 5.2)"
                   style={{
-                    background: '#111827',
-                    color: s.taskId ? '#E5E7EB' : '#6B7280',
-                    border: '1px solid #1F2937',
+                    background: theme.surface.raised,
+                    color: s.taskId ? theme.text.primary : theme.text.muted,
+                    border: `1px solid ${theme.border.default}`,
                     borderRadius: 6,
                     padding: '4px 6px',
-                    fontSize: 11,
+                    fontSize: theme.font.size.xs,
                     minWidth: 0,
                     flex: 1
                   }}
@@ -414,12 +431,12 @@ export function MasterDashboard({
                   disabled={!s.taskId}
                   title="Papel na tarefa (escritor/revisor — Story 7.1)"
                   style={{
-                    background: '#111827',
-                    color: s.taskRole ? '#E5E7EB' : '#6B7280',
-                    border: '1px solid #1F2937',
+                    background: theme.surface.raised,
+                    color: s.taskRole ? theme.text.primary : theme.text.muted,
+                    border: `1px solid ${theme.border.default}`,
                     borderRadius: 6,
                     padding: '4px 4px',
-                    fontSize: 11,
+                    fontSize: theme.font.size.xs,
                     width: 34
                   }}
                 >
@@ -443,16 +460,16 @@ export function MasterDashboard({
                   disabled={s.status === 'exited'}
                   style={{
                     flex: 1,
-                    background: '#0B0F14',
-                    color: '#E5E7EB',
-                    border: '1px solid #1F2937',
+                    background: theme.surface.raised,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.border.default}`,
                     borderRadius: 6,
                     padding: '5px 10px',
-                    fontSize: 12
+                    fontSize: theme.font.size.sm
                   }}
                 />
                 {(sentAt[s.id] ?? 0) > 0 && (
-                  <span style={{ color: '#34D399', fontSize: 12 }} title="instrução enviada">
+                  <span style={{ color: theme.accent.ok, fontSize: theme.font.size.sm }} title="instrução enviada">
                     ✓
                   </span>
                 )}
@@ -468,12 +485,12 @@ export function MasterDashboard({
                 <button
                   onClick={() => onGoToTerminal(s.id)}
                   style={{
-                    background: '#111827',
-                    color: '#E5E7EB',
-                    border: '1px solid #1F2937',
+                    background: theme.surface.raised,
+                    color: theme.text.primary,
+                    border: `1px solid ${theme.border.default}`,
                     borderRadius: 6,
                     padding: '5px 12px',
-                    fontSize: 12,
+                    fontSize: theme.font.size.sm,
                     cursor: 'pointer',
                     whiteSpace: 'nowrap'
                   }}
@@ -488,7 +505,7 @@ export function MasterDashboard({
 
       {/* Vínculos terminal-a-terminal (Épico 9, Story 9.3) — independentes
           de tarefa; um agente na origem pode comandar o alvo. */}
-      <h3 style={{ fontSize: 13, fontWeight: 700, margin: '24px 0 10px', color: '#9CA3AF' }}>
+      <h3 style={{ fontSize: theme.font.size.md, fontWeight: 700, margin: '24px 0 10px', color: theme.text.muted }}>
         🔗 Vínculos entre terminais ({terminalLinks.length})
       </h3>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
@@ -505,7 +522,7 @@ export function MasterDashboard({
             </option>
           ))}
         </select>
-        <span style={{ color: '#6B7280', fontSize: 12 }}>→</span>
+        <span style={{ color: theme.text.faint, fontSize: theme.font.size.sm }}>→</span>
         <select
           value={linkTarget}
           onChange={(e) => setLinkTarget(e.target.value)}
@@ -544,7 +561,7 @@ export function MasterDashboard({
         </button>
       </div>
       {terminalLinks.length === 0 ? (
-        <p style={{ fontSize: 12, color: '#4B5563' }}>nenhum vínculo entre terminais ainda.</p>
+        <p style={{ fontSize: theme.font.size.sm, color: theme.text.faint }}>nenhum vínculo entre terminais ainda.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {terminalLinks.map((l) => (
@@ -552,7 +569,7 @@ export function MasterDashboard({
               <span>
                 {sessionName(l.sourceId)} → {sessionName(l.targetId)}
               </span>
-              <span style={{ color: '#6B7280' }}>({l.mode})</span>
+              <span style={{ color: theme.text.faint }}>({l.mode})</span>
               <span style={{ flex: 1 }} />
               {l.mode === 'manual' && (
                 <button onClick={() => onSendLink(l)} style={queueButtonStyle} title="enviar instrução agora">
@@ -571,10 +588,10 @@ export function MasterDashboard({
 }
 
 const selectStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '4px 8px',
-  fontSize: 12
+  fontSize: theme.font.size.sm
 };

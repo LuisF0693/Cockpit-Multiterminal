@@ -1,5 +1,6 @@
 import { classifyTaskRoles, type SessionRecord, type Task } from '@cockpit/shared';
 import { statusColor, statusLabel } from './status-colors';
+import { theme } from './theme';
 
 /**
  * ReviewPanel (Story 7.3) — escritor + revisores lado a lado, com trecho
@@ -27,7 +28,7 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
         <button onClick={onBack} style={buttonStyle}>
           ← voltar
         </button>
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280', marginTop: 16 }}>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted, marginTop: 16 }}>
           Tarefa não encontrada.
         </p>
       </section>
@@ -49,7 +50,7 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
       </div>
 
       {!roles.isThreeBrain ? (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280', marginTop: 16 }}>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted, marginTop: 16 }}>
           Esta tarefa não está em modo three-brain (precisa de 1 escritor + 2+ revisores vinculados — Story 7.1).
         </p>
       ) : (
@@ -86,9 +87,9 @@ function AgentColumn({
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
-        background: '#0D131B',
-        border: '1px solid #1F2937',
-        borderRadius: 8,
+        background: theme.surface.panel,
+        border: `1px solid ${theme.border.default}`,
+        borderRadius: theme.radius.md,
         padding: 12,
         minHeight: 0
       }}
@@ -98,20 +99,20 @@ function AgentColumn({
         <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {session.name}
         </strong>
-        <span style={{ color: '#9CA3AF' }}>{session.adapterId}</span>
+        <span style={{ color: theme.text.muted }}>{session.adapterId}</span>
         <span style={{ color: statusColor(session.agentStatus) }}>●</span>
         <span style={{ color: statusColor(session.agentStatus) }}>{statusLabel(session.agentStatus)}</span>
       </div>
       <pre
         style={{
           margin: 0,
-          background: '#0B0F14',
-          border: '1px solid #1F2937',
+          background: theme.surface.canvas,
+          border: `1px solid ${theme.border.default}`,
           borderRadius: 6,
           padding: 10,
-          fontSize: 11,
-          fontFamily: 'JetBrains Mono, monospace',
-          color: '#9CA3AF',
+          fontSize: theme.font.size.xs,
+          fontFamily: theme.font.mono,
+          color: theme.text.muted,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           maxHeight: 320,
@@ -125,12 +126,12 @@ function AgentColumn({
 }
 
 const buttonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '4px 10px',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };

@@ -11,6 +11,7 @@
  * princípio de separar decisão de efeito já usado em `sdc-routing.ts`);
  * `renderMarkdownLite` só converte o resultado em JSX.
  */
+import { theme } from './theme';
 
 export type InlineToken = { kind: 'text'; value: string } | { kind: 'code' | 'bold' | 'italic'; value: string };
 
@@ -105,7 +106,7 @@ function renderTokens(tokens: InlineToken[], keyPrefix: string): (string | JSX.E
     if (t.kind === 'text') return t.value;
     if (t.kind === 'code') {
       return (
-        <code key={`${keyPrefix}-${idx}`} style={{ background: '#111827', padding: '1px 4px', borderRadius: 3 }}>
+        <code key={`${keyPrefix}-${idx}`} style={{ background: theme.surface.raised, padding: '1px 4px', borderRadius: 3 }}>
           {t.value}
         </code>
       );
@@ -121,20 +122,20 @@ const HEADING_SIZE: Record<number, number> = { 1: 20, 2: 17, 3: 15, 4: 13, 5: 13
 export function renderMarkdownLite(text: string): JSX.Element {
   const blocks = parseMarkdownLite(text);
   return (
-    <div style={{ fontSize: 13, lineHeight: 1.5, color: '#E5E7EB' }}>
+    <div style={{ fontSize: theme.font.size.md, lineHeight: 1.5, color: theme.text.primary }}>
       {blocks.map((block, i) => {
         if (block.kind === 'code') {
           return (
             <pre
               key={i}
               style={{
-                background: '#0B0F14',
-                border: '1px solid #1F2937',
+                background: theme.surface.canvas,
+                border: `1px solid ${theme.border.default}`,
                 borderRadius: 6,
                 padding: 10,
                 overflow: 'auto',
-                fontSize: 12,
-                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: theme.font.size.sm,
+                fontFamily: theme.font.mono,
                 margin: '6px 0'
               }}
             >

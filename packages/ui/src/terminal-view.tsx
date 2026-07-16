@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { matchShortcut } from './shortcuts';
+import { theme } from './theme';
 import '@xterm/xterm/css/xterm.css';
 
 /**
@@ -28,12 +29,9 @@ export interface TerminalViewProps {
   onResize?: (size: { cols: number; rows: number }) => void;
 }
 
-const THEME = {
-  background: '#0B0F14',
-  foreground: '#E5E7EB',
-  cursor: '#22D3EE',
-  selectionBackground: '#334155'
-};
+// Tema do xterm coordenado pelo tema global (Story 13.1) — o fundo do
+// terminal casa com surface.tile pra área do xterm não "vazar" outra cor.
+const THEME = { ...theme.terminal };
 
 export function TerminalView({ port, focused = true, onResize }: TerminalViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,7 +49,7 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
     let disposed = false;
 
     const term = new Terminal({
-      fontFamily: '"Cascadia Mono", "JetBrains Mono", Consolas, monospace',
+      fontFamily: theme.font.mono,
       fontSize: 14,
       theme: THEME,
       scrollback: 5000,

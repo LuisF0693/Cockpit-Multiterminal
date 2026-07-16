@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Learning, Project } from '@cockpit/shared';
+import { theme } from './theme';
 
 /**
  * LearningsView (Épico 11, Story 11.3) — consulta global de learnings.
@@ -17,12 +18,12 @@ const STATUS_LABEL: Record<Learning['status'], string> = {
   discarded: 'descartado'
 };
 
-/** Cores próprias do domínio de learning — distintas das de status de agente. */
+/** Cores do domínio de learning — derivadas do tema (13.1), distintas das de status de agente. */
 const STATUS_DOT: Record<Learning['status'], string> = {
-  draft: '#9CA3AF',
-  reviewed: '#60A5FA',
-  reusable: '#34D399',
-  discarded: '#F87171'
+  draft: theme.text.muted,
+  reviewed: theme.accent.info,
+  reusable: theme.accent.ok,
+  discarded: theme.accent.danger
 };
 
 export interface LearningsViewProps {
@@ -52,7 +53,7 @@ export function LearningsView({ learnings, projects }: LearningsViewProps): JSX.
   return (
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Learnings</h2>
-      <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>
+      <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 20px' }}>
         {learnings.length} {learnings.length === 1 ? 'learning' : 'learnings'} no banco global — independente do
         projeto ativo
       </p>
@@ -65,12 +66,12 @@ export function LearningsView({ learnings, projects }: LearningsViewProps): JSX.
           style={{
             flex: 1,
             minWidth: 180,
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '6px 10px',
-            fontSize: 13
+            fontSize: theme.font.size.md
           }}
         />
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={selectStyle}>
@@ -92,7 +93,7 @@ export function LearningsView({ learnings, projects }: LearningsViewProps): JSX.
       </div>
 
       {filtered.length === 0 ? (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted }}>
           {learnings.length === 0 ? 'Nenhum learning registrado ainda.' : 'Nenhum learning corresponde ao filtro.'}
         </p>
       ) : (
@@ -102,29 +103,29 @@ export function LearningsView({ learnings, projects }: LearningsViewProps): JSX.
               key={l.id}
               style={{
                 padding: '10px 14px',
-                background: '#0D131B',
-                border: '1px solid #1F2937',
-                borderRadius: 8,
-                fontSize: 13
+                background: theme.surface.panel,
+                border: `1px solid ${theme.border.default}`,
+                borderRadius: theme.radius.md,
+                fontSize: theme.font.size.md
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ color: STATUS_DOT[l.status], fontSize: 11 }}>●</span>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>{STATUS_LABEL[l.status]}</span>
+                <span style={{ fontSize: theme.font.size.xs, color: theme.text.muted }}>{STATUS_LABEL[l.status]}</span>
                 <span
                   style={{
                     fontSize: 10,
-                    color: '#6B7280',
+                    color: theme.text.faint,
                     textTransform: 'uppercase',
-                    border: '1px solid #1F2937',
-                    borderRadius: 4,
+                    border: `1px solid ${theme.border.default}`,
+                    borderRadius: theme.radius.sm,
                     padding: '1px 6px'
                   }}
                 >
                   {l.category}
                 </span>
                 <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: '#4B5563' }}>{projectName(l.projectId)}</span>
+                <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }}>{projectName(l.projectId)}</span>
               </div>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{l.text}</p>
             </article>
@@ -136,10 +137,10 @@ export function LearningsView({ learnings, projects }: LearningsViewProps): JSX.
 }
 
 const selectStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '6px 10px',
-  fontSize: 13
+  fontSize: theme.font.size.md
 };

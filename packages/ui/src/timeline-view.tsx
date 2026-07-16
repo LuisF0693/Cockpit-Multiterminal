@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { SessionRecord, TimelineEvent } from '@cockpit/shared';
+import { theme } from './theme';
 
 /**
  * TimelineView (Story 3.3) — trilha auditável: timestamp, origem, tipo,
@@ -58,7 +59,7 @@ export function TimelineView({ events, sessions, onRefresh }: TimelineViewProps)
       </div>
 
       {filtered.length === 0 && (
-        <p style={{ fontFamily: 'monospace', fontSize: 13, color: '#6B7280' }}>Sem eventos para o filtro.</p>
+        <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted }}>Sem eventos para o filtro.</p>
       )}
 
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -71,20 +72,20 @@ export function TimelineView({ events, sessions, onRefresh }: TimelineViewProps)
               gap: 10,
               alignItems: 'baseline',
               padding: '7px 12px',
-              background: '#0D131B',
-              border: '1px solid #1F2937',
+              background: theme.surface.panel,
+              border: `1px solid ${theme.border.default}`,
               borderRadius: 6,
-              fontSize: 12
+              fontSize: theme.font.size.sm
             }}
           >
-            <span style={{ color: '#6B7280', fontFamily: 'monospace' }}>
+            <span style={{ color: theme.text.faint, fontFamily: theme.font.mono }}>
               {new Date(e.ts).toLocaleTimeString('pt-BR')} · {new Date(e.ts).toLocaleDateString('pt-BR')}
             </span>
             <span title={e.origin}>{ORIGIN_ICON[e.origin]}</span>
-            <span style={{ color: '#E5E7EB', fontFamily: 'monospace' }}>{e.type}</span>
-            <span style={{ color: '#9CA3AF' }}>{nameOf(e.terminalId)}</span>
+            <span style={{ color: theme.text.primary, fontFamily: theme.font.mono }}>{e.type}</span>
+            <span style={{ color: theme.text.muted }}>{nameOf(e.terminalId)}</span>
             <span
-              style={{ color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ color: theme.text.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               title={JSON.stringify(e.payload)}
             >
               {summarize(e.payload)}
@@ -104,10 +105,10 @@ function summarize(payload: Record<string, unknown>): string {
 }
 
 const selectStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '4px 8px',
-  fontSize: 12
+  fontSize: theme.font.size.sm
 };

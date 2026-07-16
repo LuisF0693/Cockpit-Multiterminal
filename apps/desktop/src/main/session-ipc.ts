@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
-import { readdir, readFile as fsReadFile } from 'node:fs/promises';
+import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
@@ -15,12 +15,18 @@ import {
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
+  parseGitHead,
+  parseGitdirPointer,
   parseGitignorePatterns,
   type StateStore
 } from '@cockpit/core';
 import {
+  AdapterCheckCommandRequestSchema,
   AgentStatusSchema,
+  AppSettingsSchema,
   IpcChannels,
+  SettingsUpdateRequestSchema,
+  type AppSettings,
   LayoutUpdateRequestSchema,
   TimelineGetRequestSchema,
   RecoveryResolveRequestSchema,
@@ -42,6 +48,7 @@ import {
   ProjectUpdateRequestSchema,
   ProjectRemoveRequestSchema,
   ProjectSetActiveRequestSchema,
+  ProjectGitBranchRequestSchema,
   ProjectReadDirRequestSchema,
   ProjectReadFileRequestSchema,
   TerminalLinkCreateRequestSchema,
@@ -392,6 +399,49 @@ export function registerSessionIpc(
     );
   });
 
+  // Configurações do app (Story 13.5, FR46) — JSON único em app_meta;
+  // parsing tolerante: JSON quebrado ou valores inválidos degradam pros
+  // defaults (o schema tem catch/default por campo), nunca erro.
+  const readSettings = (): AppSettings => {
+    let parsed: unknown = {};
+    try {
+      parsed = JSON.parse(persistence.appSettingsRaw() ?? '{}');
+    } catch {
+      parsed = {};
+    }
+    return AppSettingsSchema.parse(typeof parsed === 'object' && parsed !== null ? parsed : {});
+  };
+  ipcMain.handle(IpcChannels.settingsGet, () => readSettings());
+  ipcMain.handle(IpcChannels.settingsUpdate, (_event, raw: unknown) => {
+    const req = SettingsUpdateRequestSchema.parse(raw);
+    const next = { ...readSettings(), ...req };
+    persistence.setAppSettingsRaw(JSON.stringify(next));
+    return next;
+  });
+
+  // Branch git do projeto (Story 13.3, FR44) — lê .git/HEAD direto (sem
+  // spawnar git: mais barato, sem dependência de PATH). `.git` como ARQUIVO
+  // (worktree/submódulo) é seguido via gitdir. Qualquer falha = null (projeto
+  // sem repositório mostra estado neutro, nunca erro).
+  ipcMain.handle(IpcChannels.projectGitBranch, async (_event, raw: unknown) => {
+    const req = ProjectGitBranchRequestSchema.parse(raw);
+    const { projects, activeId } = persistence.projects();
+    const project = projects.find((p) => p.id === (req.projectId ?? activeId));
+    if (!project) return null;
+    try {
+      const root = resolve(project.rootPath);
+      let gitDir = join(root, '.git');
+      if ((await fsStat(gitDir)).isFile()) {
+        const pointer = parseGitdirPointer(await fsReadFile(gitDir, 'utf-8'));
+        if (!pointer) return null;
+        gitDir = resolve(root, pointer);
+      }
+      return parseGitHead(await fsReadFile(join(gitDir, 'HEAD'), 'utf-8'));
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle(IpcChannels.projectReadFile, async (_event, raw: unknown) => {
     const req = ProjectReadFileRequestSchema.parse(raw);
     const { projects } = persistence.projects();
@@ -516,6 +566,23 @@ export function registerSessionIpc(
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
+
+  // Disponibilidade de comando no PATH (Story 13.4, FR45) — scan manual de
+  // fs.access (nada é executado; `where` spawnaria um processo por checagem).
+  // O schema já rejeita separadores de caminho — só nome de arquivo simples.
+  ipcMain.handle(IpcChannels.adapterCheckCommand, async (_event, raw: unknown) => {
+    const req = AdapterCheckCommandRequestSchema.parse(raw);
+    const dirs = (process.env.PATH ?? '').split(';').filter(Boolean);
+    for (const dir of dirs) {
+      const candidate = join(dir, req.command);
+      try {
+        if ((await fsStat(candidate)).isFile()) return candidate;
+      } catch {
+        // não existe neste diretório — segue
+      }
+    }
+    return null;
+  });
 
   ipcMain.handle(IpcChannels.timelineGet, (_event, raw: unknown) => {
     const req = TimelineGetRequestSchema.parse(raw ?? {});

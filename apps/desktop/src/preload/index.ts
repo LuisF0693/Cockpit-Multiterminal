@@ -3,6 +3,9 @@ import { z } from 'zod';
 import {
   AdapterInfoSchema,
   AppInfoSchema,
+  AppSettingsSchema,
+  type AdapterCheckCommandRequest,
+  type SettingsUpdateRequest,
   CrashSummarySchema,
   DaemonStatusSchema,
   IpcChannels,
@@ -55,6 +58,7 @@ import {
   type ProjectUpdateRequest,
   type ProjectRemoveRequest,
   type ProjectSetActiveRequest,
+  type ProjectGitBranchRequest,
   type ProjectReadDirRequest,
   type ProjectReadFileRequest,
   type TerminalLinkCreateRequest,
@@ -133,6 +137,10 @@ const api: CockpitApi = {
     list: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterList);
       return AdapterInfoSchema.array().parse(raw);
+    },
+    checkCommand: async (req: AdapterCheckCommandRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.adapterCheckCommand, req);
+      return z.string().nullable().parse(raw);
     }
   },
   timeline: {
@@ -200,6 +208,20 @@ const api: CockpitApi = {
     readFile: async (req: ProjectReadFileRequest) => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectReadFile, req);
       return raw === null ? null : ProjectReadFileResponseSchema.parse(raw);
+    },
+    gitBranch: async (req: ProjectGitBranchRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.projectGitBranch, req);
+      return z.string().nullable().parse(raw);
+    }
+  },
+  settings: {
+    get: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.settingsGet);
+      return AppSettingsSchema.parse(raw);
+    },
+    update: async (req: SettingsUpdateRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.settingsUpdate, req);
+      return AppSettingsSchema.parse(raw);
     }
   },
   terminalLink: {

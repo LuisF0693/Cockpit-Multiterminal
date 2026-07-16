@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
 import { statusColor, statusLabel } from './status-colors';
 import { TASK_STATE_LABEL, TASK_STATE_ORDER, canTransitionTask } from './task-lifecycle-ui';
+import { theme } from './theme';
 
 const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
 
@@ -60,7 +61,7 @@ export function LifecycleBoard({
       style={{ flex: 1, minWidth: 0, padding: 24, overflow: 'auto', display: 'flex', flexDirection: 'column' }}
     >
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Lifecycle Board</h2>
-      <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 16px' }}>
+      <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 16px' }}>
         arraste um card entre colunas para mudar o estado — só aceita transições válidas
       </p>
 
@@ -75,12 +76,12 @@ export function LifecycleBoard({
           style={{
             flex: 1,
             maxWidth: 320,
-            background: '#0B0F14',
-            color: '#E5E7EB',
-            border: '1px solid #1F2937',
+            background: theme.surface.raised,
+            color: theme.text.primary,
+            border: `1px solid ${theme.border.default}`,
             borderRadius: 6,
             padding: '6px 10px',
-            fontSize: 13
+            fontSize: theme.font.size.md
           }}
         />
         <button onClick={submit} style={buttonStyle}>
@@ -114,18 +115,22 @@ export function LifecycleBoard({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 8,
-                background: isDragOver ? (dropValid ? '#0F1F17' : '#241111') : '#0D131B',
-                border: `1px solid ${isDragOver ? (dropValid ? '#34D399' : '#F87171') : '#1F2937'}`,
-                borderRadius: 8,
+                background: isDragOver
+                  ? dropValid
+                    ? `${theme.accent.ok}14`
+                    : `${theme.accent.danger}14`
+                  : theme.surface.panel,
+                border: `1px solid ${isDragOver ? (dropValid ? theme.accent.ok : theme.accent.danger) : theme.border.default}`,
+                borderRadius: theme.radius.md,
                 padding: 10,
                 minHeight: 200
               }}
             >
               <h3
                 style={{
-                  fontSize: 11,
+                  fontSize: theme.font.size.xs,
                   fontWeight: 700,
-                  color: '#9CA3AF',
+                  color: theme.text.muted,
                   letterSpacing: 0.5,
                   textTransform: 'uppercase',
                   margin: '0 0 4px'
@@ -134,7 +139,7 @@ export function LifecycleBoard({
                 {TASK_STATE_LABEL[state]} ({columnTasks.length})
               </h3>
               {columnTasks.length === 0 && (
-                <p style={{ fontSize: 11, color: '#4B5563', margin: 0 }}>vazio</p>
+                <p style={{ fontSize: theme.font.size.xs, color: theme.text.faint, margin: 0 }}>vazio</p>
               )}
               {columnTasks.map((t) => {
                 const linked = linkedByTask.get(t.id) ?? [];
@@ -151,11 +156,11 @@ export function LifecycleBoard({
                       setDragOverColumn(null);
                     }}
                     style={{
-                      background: '#111827',
-                      border: '1px solid #1F2937',
+                      background: theme.surface.raised,
+                      border: `1px solid ${theme.border.default}`,
                       borderRadius: 6,
                       padding: '8px 10px',
-                      fontSize: 12,
+                      fontSize: theme.font.size.sm,
                       cursor: 'grab'
                     }}
                   >
@@ -188,13 +193,13 @@ export function LifecycleBoard({
                       )}
                     </span>
                     {linked.length === 0 ? (
-                      <span style={{ fontSize: 11, color: '#4B5563' }}>sem agente vinculado</span>
+                      <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }}>sem agente vinculado</span>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         {linked.map((s) => (
                           <span
                             key={s.id}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#9CA3AF' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: theme.font.size.xs, color: theme.text.muted }}
                           >
                             <span style={{ color: statusColor(s.agentStatus) }}>●</span>
                             {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
@@ -215,12 +220,12 @@ export function LifecycleBoard({
 }
 
 const buttonStyle: React.CSSProperties = {
-  background: '#111827',
-  color: '#E5E7EB',
-  border: '1px solid #1F2937',
+  background: theme.surface.raised,
+  color: theme.text.primary,
+  border: `1px solid ${theme.border.default}`,
   borderRadius: 6,
   padding: '5px 12px',
-  fontSize: 12,
+  fontSize: theme.font.size.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };
