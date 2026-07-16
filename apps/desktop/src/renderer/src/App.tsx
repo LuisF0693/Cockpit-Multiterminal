@@ -787,6 +787,33 @@ export function App(): JSX.Element {
     setLinkDrag({ sourceId, x: originX, y: originY });
   };
 
+  /**
+   * Maximizar/restaurar tile (Story 14.4) — guarda o retângulo anterior num
+   * ref (não persiste: restaurar após relaunch volta ao layout salvo normal)
+   * e ocupa o viewport ATUAL do canvas (pan+zoom-aware).
+   */
+  const maximizedPrevRef = useRef(new Map<string, { x: number; y: number; width: number; height: number }>());
+  const toggleMaximizeTile = (id: string): void => {
+    const st = useCockpitStore.getState();
+    const tile = st.layout.tiles.find((t) => t.id === id);
+    const el = canvasSectionRef.current;
+    if (!tile || !el) return;
+    const prev = maximizedPrevRef.current.get(id);
+    if (prev) {
+      maximizedPrevRef.current.delete(id);
+      st.moveTileTo(id, prev.x, prev.y);
+      st.resizeTileTo(id, prev.width, prev.height);
+    } else {
+      maximizedPrevRef.current.set(id, { x: tile.x, y: tile.y, width: tile.width, height: tile.height });
+      const zoom = canvasZoomRef.current;
+      const pan = canvasPanRef.current;
+      st.moveTileTo(id, -pan.x / zoom + 40, -pan.y / zoom + 20);
+      st.resizeTileTo(id, el.clientWidth / zoom - 80, el.clientHeight / zoom - 60);
+    }
+    st.snapTile(id);
+    st.focus(id);
+  };
+
   // Listeners globais do arraste de vínculo (Story 12.2) — registrados uma
   // vez só, lêem o estado mais recente via ref (mesmo gotcha de closure
   // obsoleta já resolvido no TerminalTile pra move/resize).
@@ -807,11 +834,17 @@ export function App(): JSX.Element {
         createTerminalLink(drag.sourceId, targetId, 'manual');
       }
     };
+    // Esc cancela o arraste de vínculo (mock, linha 349).
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && linkDragRef.current) setLinkDrag(null);
+    };
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
@@ -1359,31 +1392,76 @@ export function App(): JSX.Element {
           {/* Indicação visual de vínculos (Épico 9, Story 9.3, AC1) — SVG
               atrás dos tiles (ordem no DOM), pointer-events:none pra não
               atrapalhar arrastar/redimensionar. */}
-          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            <defs>
-              <marker id="terminal-link-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 Z" fill={theme.text.muted} />
-              </marker>
-            </defs>
-            {projectTerminalLinks.map((l) => {
+          {/* Vínculos como bezier tracejado ANIMADO com etiqueta e remoção
+              (Story 14.4, FR50; mock linhas 132-147 e 647-669). Com as
+              zonas da 14.3, TODOS os vínculos aparecem (não só do projeto
+              ativo). Âncoras nas laterais a y+15 (altura da barra). */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}>
+            {terminalLinks.map((l, i) => {
               const source = layout.tiles.find((t) => t.id === l.sourceId);
               const target = layout.tiles.find((t) => t.id === l.targetId);
               if (!source || !target) return null;
+              const goRight = source.x < target.x;
+              const p1 = goRight
+                ? { x: source.x + source.width, y: source.y + 15 }
+                : { x: source.x, y: source.y + 15 };
+              const p2 = goRight ? { x: target.x, y: target.y + 15 } : { x: target.x + target.width, y: target.y + 15 };
+              const midx = (p1.x + p2.x) / 2;
+              const midy = (p1.y + p2.y) / 2;
+              const d = `M ${p1.x} ${p1.y} C ${midx} ${p1.y}, ${midx} ${p2.y}, ${p2.x} ${p2.y}`;
+              const color = LINK_PALETTE[i % LINK_PALETTE.length]!;
+              const label = l.mode;
+              const labelW = label.length * 5.5 + 12;
+              const labelX = midx - labelW / 2 - 14;
+              const labelY = midy - 8;
               return (
-                <line
-                  key={l.id}
-                  x1={source.x + source.width / 2}
-                  y1={source.y + source.height / 2}
-                  x2={target.x + target.width / 2}
-                  y2={target.y + target.height / 2}
-                  stroke={l.mode === 'auto' ? theme.accent.ok : theme.text.muted}
-                  strokeWidth={2}
-                  strokeDasharray={l.mode === 'manual' ? '4 3' : undefined}
-                  markerEnd="url(#terminal-link-arrow)"
-                />
+                <g key={l.id}>
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
+                    style={{ animation: 'cockpit-dashflow 0.8s linear infinite' }}
+                  />
+                  <circle
+                    r={3.5}
+                    fill={color}
+                    style={{ offsetPath: `path('${d}')`, animation: 'cockpit-flowmove 2.4s linear infinite' }}
+                  />
+                  <rect x={labelX} y={labelY} width={labelW} height={16} rx={3} fill={theme.surface.header} stroke={color} strokeWidth={1} />
+                  <text x={labelX + 6} y={labelY + 11.5} fill={color} fontSize={9.5} fontFamily={theme.font.mono}>
+                    {label}
+                  </text>
+                  <circle
+                    data-no-pan
+                    cx={midx}
+                    cy={midy}
+                    r={8}
+                    fill="#1A1010"
+                    stroke={theme.accent.danger}
+                    strokeWidth={1}
+                    style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                    onClick={() => removeTerminalLink(l.id)}
+                  >
+                    <title>remover vínculo</title>
+                  </circle>
+                  <text
+                    x={midx}
+                    y={midy + 4}
+                    fill={theme.accent.danger}
+                    fontSize={11}
+                    fontWeight={700}
+                    textAnchor="middle"
+                    fontFamily={theme.font.mono}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    ×
+                  </text>
+                </g>
               );
             })}
-            {/* Linha de preview do arraste de vínculo em curso (Story 12.2, AC2). */}
+            {/* Linha de preview do arraste de vínculo em curso (12.2/14.4). */}
             {linkDrag &&
               (() => {
                 const source = layout.tiles.find((t) => t.id === linkDrag.sourceId);
@@ -1394,9 +1472,9 @@ export function App(): JSX.Element {
                     y1={source.y + source.height / 2}
                     x2={linkDrag.x}
                     y2={linkDrag.y}
-                    stroke={theme.accent.primary}
-                    strokeWidth={2}
-                    strokeDasharray="4 3"
+                    stroke={theme.accent.bright}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
                   />
                 );
               })()}
@@ -1425,6 +1503,8 @@ export function App(): JSX.Element {
                   void window.cockpit.session.resize({ id: session.id, cols, rows })
                 }
                 onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
+                onMaximize={() => toggleMaximizeTile(session.id)}
+                linking={linkDrag?.sourceId === session.id}
                 projectColor={projectColorOf(session.projectId)}
                 zoom={canvasZoom}
               />
@@ -1483,6 +1563,26 @@ export function App(): JSX.Element {
               tiles (que ficam montados escondidos por causa do xterm/
               portas) — o minimapa não tem nenhum estado de I/O persistente,
               então desmontar é seguro. */}
+          {/* Hint do arraste de vínculo (14.4; mock linhas 200-202). */}
+          {linkDrag && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                background: '#0D1F22',
+                border: '1px solid #164E52',
+                color: theme.accent.bright,
+                fontSize: theme.font.size.xs + 1,
+                padding: '6px 10px',
+                borderRadius: 6,
+                pointerEvents: 'none',
+                zIndex: 200
+              }}
+            >
+              Solte sobre outro terminal para conectar · esc cancela
+            </div>
+          )}
           {view === 'canvas' && (
             <div data-no-pan>
               <CanvasMinimap tiles={minimapTiles} viewport={canvasViewport} onFocusTile={focusAndScrollTo} />
@@ -1554,3 +1654,6 @@ const zoomBtnStyle: React.CSSProperties = {
 
 /** Paleta cíclica p/ cor de novo projeto (Story 8.2) — promovida ao tema (13.1). */
 const PROJECT_COLORS = PROJECT_PALETTE;
+
+/** Paleta cíclica dos vínculos no canvas (Story 14.4, mock linha 399). */
+const LINK_PALETTE = ['#22D3EE', '#F472B6', '#A78BFA', '#4ADE80', '#FBBF24'] as const;

@@ -31,7 +31,11 @@ export function statusLabel(status: AgentStatus): string {
   return STATUS_LABELS[status];
 }
 
-/** Keyframes do pulso de waiting-input — renderizar UMA vez (App). */
+/**
+ * Keyframes globais — renderizar UMA vez (App): pulso de waiting-input
+ * (2.5) + animações do mock Multerminal (14.4): fluxo do tracejado e da
+ * bolinha nos vínculos, pulso do dot de status no tile.
+ */
 export function StatusPulseStyles(): JSX.Element {
   return (
     <style>{`
@@ -39,6 +43,14 @@ export function StatusPulseStyles(): JSX.Element {
         0%, 100% { box-shadow: 0 0 0 1px ${STATUS_COLORS['waiting-input']}66, 0 0 12px 2px ${STATUS_COLORS['waiting-input']}44; }
         50% { box-shadow: 0 0 0 2px ${STATUS_COLORS['waiting-input']}CC, 0 0 20px 6px ${STATUS_COLORS['waiting-input']}77; }
       }
+      @keyframes cockpit-dashflow { to { stroke-dashoffset: -24; } }
+      @keyframes cockpit-flowmove {
+        from { offset-distance: 0%; opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        to { offset-distance: 100%; opacity: 0; }
+      }
+      @keyframes cockpit-pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     `}</style>
   );
 }
