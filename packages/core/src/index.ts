@@ -31,6 +31,8 @@ export { TerminalLinkManager } from './terminal-link-manager';
 export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';
 export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
+export { planExternalAdoption } from './external-adoption';
+export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
 export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
 export { LearningManager, canTransitionLearning } from './learning-manager';

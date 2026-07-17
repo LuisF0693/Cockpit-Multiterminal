@@ -66,6 +66,7 @@ import {
   type ProjectReadFileRequest,
   type TerminalLinkCreateRequest,
   type TerminalLinkRemoveRequest,
+  type TerminalLinkSetModeRequest,
   type TerminalLinkEvent,
   type TerminalLinkRoutedEvent,
   type BrowserTileCreateRequest,
@@ -248,6 +249,10 @@ const api: CockpitApi = {
     },
     remove: async (req: TerminalLinkRemoveRequest) => {
       await ipcRenderer.invoke(IpcChannels.terminalLinkRemove, req);
+    },
+    setMode: async (req: TerminalLinkSetModeRequest) => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalLinkSetMode, req);
+      return TerminalLinkSchema.nullable().parse(raw);
     },
     list: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.terminalLinkList);

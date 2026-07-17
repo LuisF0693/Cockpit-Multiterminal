@@ -6,7 +6,8 @@ export type TerminalLink = PersistedTerminalLink;
 
 export type TerminalLinkEvent =
   | { type: 'created'; link: TerminalLink }
-  | { type: 'removed'; link: TerminalLink };
+  | { type: 'removed'; link: TerminalLink }
+  | { type: 'updated'; link: TerminalLink };
 
 export type TerminalLinkListener = (event: TerminalLinkEvent) => void;
 
@@ -55,6 +56,17 @@ export class TerminalLinkManager {
     this.links.delete(id);
     this.queue.push(() => this.store.removeTerminalLink(id));
     this.emit({ type: 'removed', link });
+  }
+
+  /** Troca manual↔auto (Story 16.2) — id inexistente é no-op silencioso. */
+  setMode(id: string, mode: TerminalLinkMode): TerminalLink | null {
+    const link = this.links.get(id);
+    if (!link || link.mode === mode) return link ?? null;
+    const updated: TerminalLink = { ...link, mode };
+    this.links.set(id, updated);
+    this.queue.push(() => this.store.updateTerminalLinkMode(id, mode));
+    this.emit({ type: 'updated', link: updated });
+    return updated;
   }
 
   /** Remove todo vínculo que referencia um terminal fechado/excluído (AC3 da 9.1). */

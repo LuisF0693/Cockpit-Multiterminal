@@ -71,6 +71,34 @@ describe('TerminalLinkManager (Épico 9, Story 9.1, FR25)', () => {
     expect(manager.list()[0]).toMatchObject({ sourceId: 'x', targetId: 'y' });
   });
 
+  it('setMode() alterna manual↔auto, persiste e emite updated (Story 16.2)', () => {
+    const { store, queue, manager } = makeHarness();
+    const link = manager.create({ sourceId: 'a', targetId: 'b', mode: 'manual', projectId: null });
+    queue.flush();
+
+    const events: string[] = [];
+    manager.onEvent((e) => events.push(e.type));
+    const updated = manager.setMode(link.id, 'auto');
+    queue.flush();
+
+    expect(updated).toMatchObject({ id: link.id, mode: 'auto' });
+    expect(events).toEqual(['updated']);
+    expect(store.terminalLinks.get(link.id)?.mode).toBe('auto');
+    expect(manager.list()[0]?.mode).toBe('auto');
+  });
+
+  it('setMode() é no-op silencioso em modo igual ou id inexistente (Story 16.2)', () => {
+    const { manager } = makeHarness();
+    const link = manager.create({ sourceId: 'a', targetId: 'b', mode: 'auto', projectId: null });
+
+    const events: string[] = [];
+    manager.onEvent((e) => events.push(e.type));
+
+    expect(manager.setMode(link.id, 'auto')).toMatchObject({ id: link.id, mode: 'auto' });
+    expect(manager.setMode('nao-existe', 'manual')).toBeNull();
+    expect(events).toEqual([]);
+  });
+
   it('load() restaura vínculos persistidos no boot', () => {
     const { store } = makeHarness();
     store.createTerminalLink({ id: 'l1', sourceId: 'a', targetId: 'b', mode: 'auto', projectId: 'p1', createdAt: 1 });
