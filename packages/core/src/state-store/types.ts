@@ -133,6 +133,8 @@ export interface StateStore {
   /** Vínculos terminal-a-terminal (Épico 9, FR25). */
   createTerminalLink(link: PersistedTerminalLink): void;
   removeTerminalLink(id: string): void;
+  /** Troca de modo manual↔auto (Story 16.2) — id inexistente é no-op. */
+  updateTerminalLinkMode(id: string, mode: TerminalLinkMode): void;
   listTerminalLinks(): PersistedTerminalLink[];
   /** Tiles de preview de browser (Épico 10, FR28). */
   createBrowserTile(tile: PersistedBrowserTile): void;

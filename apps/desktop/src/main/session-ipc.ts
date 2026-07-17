@@ -12,6 +12,7 @@ import {
   planSdcCorrectionRouting,
   planSdcRedirect,
   planTerminalLinkRouting,
+  planExternalAdoption,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
@@ -57,6 +58,7 @@ import {
   ProjectReadFileRequestSchema,
   TerminalLinkCreateRequestSchema,
   TerminalLinkRemoveRequestSchema,
+  TerminalLinkSetModeRequestSchema,
   type ProjectDirEntry,
   type SessionEvent,
   type TaskEvent,
@@ -342,8 +344,19 @@ export function registerSessionIpc(
       ...(req.rootPath !== undefined ? { rootPath: req.rootPath } : {})
     });
   });
-  ipcMain.handle(IpcChannels.projectRemove, (_event, raw: unknown) => {
+  ipcMain.handle(IpcChannels.projectRemove, async (_event, raw: unknown) => {
     const req = ProjectRemoveRequestSchema.parse(raw);
+    // Story 16.1: valida ANTES de fechar terminais — remover o último projeto
+    // é rejeitado sem efeito colateral nenhum (mesma regra do persistence).
+    if (persistence.projects().projects.length <= 1) {
+      throw new Error('não é possível remover o último projeto restante');
+    }
+    // Fecha os terminais do projeto antes de remover (decisão do fundador,
+    // 16.1): exclusão definitiva, sem sessões órfãs; vínculos caem via o
+    // listener de 'closed' já existente (9.1 AC3).
+    for (const s of registry.list()) {
+      if (s.projectId === req.id) await registry.close(s.id);
+    }
     return persistence.removeProject(req.id);
   });
   ipcMain.handle(IpcChannels.projectSetActive, (_event, raw: unknown) => {
@@ -540,6 +553,11 @@ export function registerSessionIpc(
     const req = TerminalLinkRemoveRequestSchema.parse(raw);
     terminalLinkManager.remove(req.id);
   });
+  // Troca de modo direto no canvas (Story 16.2) — o push ('updated') espelha na UI.
+  ipcMain.handle(IpcChannels.terminalLinkSetMode, (_event, raw: unknown) => {
+    const req = TerminalLinkSetModeRequestSchema.parse(raw);
+    return terminalLinkManager.setMode(req.id, req.mode);
+  });
   ipcMain.handle(IpcChannels.terminalLinkList, () => terminalLinkManager.list());
 
   // Tarefas (Story 5.1)
@@ -703,8 +721,55 @@ export function registerSessionIpc(
     const startedAt = Date.now();
     const adopted = await adoptFromDaemon();
     const { restored, archived } = await persistence.restore(registry);
+    resumeDone = true; // libera a adoção AO VIVO (16.3) — só depois do boot completo
     return { restored, archived, adopted, elapsedMs: Date.now() - startedAt };
   };
+
+  // Adoção AO VIVO de sessões externas (Story 16.3, Épico 16): sessões
+  // criadas por clientes externos do daemon (ex.: agente orquestrador via
+  // pipe) viram tile na hora, sem relançar o app. Poll leve (4s); knownIds
+  // inclui parkedPorts pra fechar o race com creates do próprio app (o id
+  // entra em parkedPorts ANTES de registry.create resolver).
+  let resumeDone = false;
+  let adoptingExternal = false;
+  const adoptExternalSessions = async (): Promise<void> => {
+    if (!resumeDone || adoptingExternal || !ptyHost.listSessions || !ptyHost.adoptPty) return;
+    adoptingExternal = true;
+    try {
+      const live = await ptyHost.listSessions();
+      const known = new Set([...registry.list().map((s) => s.id), ...parkedPorts.keys()]);
+      const { projects } = persistence.projects();
+      const workspace = persistence.workspaces().active;
+      for (const plan of planExternalAdoption(live, known, projects)) {
+        try {
+          const { rendererPort } = await ptyHost.adoptPty(plan.id);
+          parkedPorts.set(plan.id, rendererPort);
+          // 'created' emitido aqui: persistência upserta e o renderer cria o tile.
+          registry.adopt({
+            id: plan.id,
+            name: plan.name,
+            cwd: plan.cwd,
+            adapterId: plan.adapterId,
+            workspace,
+            projectId: plan.projectId,
+            pid: plan.pid,
+            createdAt: plan.createdAt
+          });
+          persistence.recordAdoption(plan.id, { name: plan.name, adapterId: plan.adapterId, pid: plan.pid });
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (deliverPort(plan.id, win.webContents)) break;
+          }
+        } catch (err) {
+          console.error(`[daemon] adoção externa falhou p/ ${plan.id}:`, err);
+        }
+      }
+    } catch {
+      // daemon fora do ar — próximo tick tenta de novo
+    } finally {
+      adoptingExternal = false;
+    }
+  };
+  setInterval(() => void adoptExternalSessions(), 4000).unref();
 
   // Recuperação pós-crash (Story 4.3)
   ipcMain.handle(IpcChannels.recoverySummary, () => {

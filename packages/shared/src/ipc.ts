@@ -60,6 +60,8 @@ export const IpcChannels = {
   terminalLinkCreate: 'terminalLink.create',
   terminalLinkRemove: 'terminalLink.remove',
   terminalLinkList: 'terminalLink.list',
+  /** Troca de modo manual↔auto direto no canvas (Story 16.2). */
+  terminalLinkSetMode: 'terminalLink.setMode',
   /** Push Main → renderer com eventos de domínio de vínculo. */
   terminalLinkEvent: 'terminalLink.event',
   /** Push Main → renderer: roteamento automático de vínculo (Story 9.2). */
@@ -588,9 +590,16 @@ export type TerminalLinkCreateRequest = z.infer<typeof TerminalLinkCreateRequest
 export const TerminalLinkRemoveRequestSchema = z.object({ id: z.string().min(1) });
 export type TerminalLinkRemoveRequest = z.infer<typeof TerminalLinkRemoveRequestSchema>;
 
+/** Troca de modo do vínculo (Story 16.2) — clicável na etiqueta do canvas. */
+export const TerminalLinkSetModeRequestSchema = z.object({
+  id: z.string().min(1),
+  mode: TerminalLinkModeSchema
+});
+export type TerminalLinkSetModeRequest = z.infer<typeof TerminalLinkSetModeRequestSchema>;
+
 /** Push Main → renderer (Épico 9) — mesmo padrão do TaskEvent. */
 export const TerminalLinkEventSchema = z.object({
-  type: z.enum(['created', 'removed']),
+  type: z.enum(['created', 'removed', 'updated']),
   link: TerminalLinkSchema
 });
 export type TerminalLinkEvent = z.infer<typeof TerminalLinkEventSchema>;
@@ -809,6 +818,8 @@ export interface CockpitApi {
     /** Vincula um terminal a outro (Story 9.1, FR25) — só terminais do mesmo projeto. */
     create(req: TerminalLinkCreateRequest): Promise<TerminalLink>;
     remove(req: TerminalLinkRemoveRequest): Promise<void>;
+    /** Troca manual↔auto direto no canvas (Story 16.2) — null se o vínculo não existe. */
+    setMode(req: TerminalLinkSetModeRequest): Promise<TerminalLink | null>;
     list(): Promise<TerminalLink[]>;
     /** Assina eventos de domínio de vínculo; retorna unsubscribe. */
     onEvent(cb: (event: TerminalLinkEvent) => void): () => void;

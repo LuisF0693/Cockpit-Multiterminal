@@ -460,6 +460,10 @@ export class SqliteStateStore implements StateStore {
     this.db.prepare('DELETE FROM terminal_links WHERE id = ?').run(id);
   }
 
+  updateTerminalLinkMode(id: string, mode: TerminalLinkMode): void {
+    this.db.prepare('UPDATE terminal_links SET mode = ? WHERE id = ?').run(mode, id);
+  }
+
   listTerminalLinks(): PersistedTerminalLink[] {
     const rows = this.db.prepare('SELECT * FROM terminal_links ORDER BY created_at').all() as TerminalLinkRow[];
     return rows.map((r) => ({

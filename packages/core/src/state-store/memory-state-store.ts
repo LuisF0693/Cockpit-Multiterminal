@@ -8,7 +8,8 @@ import type {
   PersistedTerminal,
   PersistedTerminalLink,
   StateStore,
-  TaskState
+  TaskState,
+  TerminalLinkMode
 } from './types';
 
 /**
@@ -141,6 +142,11 @@ export class MemoryStateStore implements StateStore {
 
   removeTerminalLink(id: string): void {
     this.terminalLinks.delete(id);
+  }
+
+  updateTerminalLinkMode(id: string, mode: TerminalLinkMode): void {
+    const link = this.terminalLinks.get(id);
+    if (link) this.terminalLinks.set(id, { ...link, mode });
   }
 
   listTerminalLinks(): PersistedTerminalLink[] {

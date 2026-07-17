@@ -21,6 +21,8 @@ export interface AppSidebarProps {
   gitBranch: string | null;
   onSelectProject: (id: string) => void;
   onCreateProject: () => void;
+  /** Exclui o projeto (Story 16.1) — o dono (App) confirma e fecha os terminais dele. */
+  onRemoveProject: (id: string) => void;
   /** Cria terminal no projeto SEM trocar o ativo (duplo-clique, 8.3 AC3). */
   onCreateTerminalIn: (projectId: string) => void;
   adapters: AdapterInfo[];
@@ -163,38 +165,59 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
         {props.projects.map((p) => {
           const isActive = p.id === props.activeProjectId;
           return (
-            <button
-              key={p.id}
-              onClick={() => props.onSelectProject(p.id)}
-              onDoubleClick={() => props.onCreateTerminalIn(p.id)}
-              title={`${p.rootPath}\n(duplo-clique: novo terminal aqui, sem trocar de projeto)`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '5px 6px',
-                borderRadius: 5,
-                border: 'none',
-                cursor: 'pointer',
-                width: '100%',
-                background: isActive ? theme.surface.raised : 'transparent',
-                fontFamily: theme.font.ui
-              }}
-            >
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
-              <span
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <button
+                onClick={() => props.onSelectProject(p.id)}
+                onDoubleClick={() => props.onCreateTerminalIn(p.id)}
+                title={`${p.rootPath}\n(duplo-clique: novo terminal aqui, sem trocar de projeto)`}
                 style={{
-                  fontSize: theme.font.size.md,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? theme.text.bright : theme.text.secondary,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '5px 6px',
+                  borderRadius: 5,
+                  border: 'none',
+                  cursor: 'pointer',
+                  flex: 1,
+                  minWidth: 0,
+                  background: isActive ? theme.surface.raised : 'transparent',
+                  fontFamily: theme.font.ui
                 }}
               >
-                {p.name}
-              </span>
-            </button>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
+                <span
+                  style={{
+                    fontSize: theme.font.size.md,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? theme.text.bright : theme.text.secondary,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {p.name}
+                </span>
+              </button>
+              {/* Excluir projeto (16.1) — só aparece quando há mais de um (o Main rejeita o último). */}
+              {props.projects.length > 1 && (
+                <button
+                  onClick={() => props.onRemoveProject(p.id)}
+                  title={`Excluir projeto "${p.name}"…`}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: theme.text.faint,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    padding: '2px 4px',
+                    flexShrink: 0,
+                    borderRadius: theme.radius.sm
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           );
         })}
 

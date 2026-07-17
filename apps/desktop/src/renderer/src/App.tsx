@@ -366,11 +366,14 @@ export function App(): JSX.Element {
       .then(setTerminalLinks)
       .catch(() => void 0);
 
-    // Espelho por push (Épico 9) — created adiciona, removed tira da lista.
+    // Espelho por push (Épico 9) — created adiciona, removed tira da lista,
+    // updated substitui in-place (16.2: troca de modo preserva posição/cor).
     const unsubTerminalLinks = window.cockpit.terminalLink.onEvent((event) => {
-      setTerminalLinks((prev) =>
-        event.type === 'created' ? [...prev, event.link] : prev.filter((l) => l.id !== event.link.id)
-      );
+      setTerminalLinks((prev) => {
+        if (event.type === 'created') return [...prev, event.link];
+        if (event.type === 'updated') return prev.map((l) => (l.id === event.link.id ? event.link : l));
+        return prev.filter((l) => l.id !== event.link.id);
+      });
     });
 
     void window.cockpit.learning
@@ -593,6 +596,25 @@ export function App(): JSX.Element {
     });
   };
 
+  /**
+   * Exclui projeto (Story 16.1) — confirma mostrando quantos terminais serão
+   * fechados; o Main fecha as sessões do projeto antes de remover.
+   */
+  const removeProject = (id: string): void => {
+    const project = projects.find((p) => p.id === id);
+    if (!project) return;
+    const count = useCockpitStore.getState().sessions.filter((s) => s.projectId === id).length;
+    const detail = count > 0 ? `\n\n${count} ${count === 1 ? 'terminal dele será fechado' : 'terminais dele serão fechados'}.` : '';
+    if (!window.confirm(`Excluir o projeto "${project.name}"?${detail}`)) return;
+    void window.cockpit.project
+      .remove({ id })
+      .then((list) => {
+        setProjects(list.projects);
+        setActiveProjectId(list.activeId);
+      })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
   /** Projetos (Story 8.2): operações sempre re-sincronizam a lista do Main. */
   const switchProject = (id: string): void => {
     void window.cockpit.project
@@ -690,6 +712,13 @@ export function App(): JSX.Element {
 
   const removeTerminalLink = (id: string): void => {
     void window.cockpit.terminalLink.remove({ id }).catch(() => void 0);
+  };
+
+  /** Toggle manual↔auto na etiqueta do vínculo (Story 16.2) — o push ('updated') espelha. */
+  const toggleTerminalLinkMode = (link: TerminalLink): void => {
+    void window.cockpit.terminalLink
+      .setMode({ id: link.id, mode: link.mode === 'manual' ? 'auto' : 'manual' })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
   /** Cor do projeto dono de um tile (Story 12.3, AC1/AC2) — null = sem projeto, visual neutro. */
@@ -1296,6 +1325,7 @@ export function App(): JSX.Element {
           gitBranch={gitBranch}
           onSelectProject={switchProject}
           onCreateProject={createProject}
+          onRemoveProject={removeProject}
           onCreateTerminalIn={newTerminalInProject}
           adapters={adapters}
           onCreateTerminal={(adapterId) => {
@@ -1529,10 +1559,18 @@ export function App(): JSX.Element {
                     fill={color}
                     style={{ offsetPath: `path('${d}')`, animation: 'cockpit-flowmove 2.4s linear infinite' }}
                   />
-                  <rect x={labelX} y={labelY} width={labelW} height={16} rx={3} fill={theme.surface.header} stroke={color} strokeWidth={1} />
-                  <text x={labelX + 6} y={labelY + 11.5} fill={color} fontSize={9.5} fontFamily={theme.font.mono}>
-                    {label}
-                  </text>
+                  {/* Etiqueta clicável (16.2): alterna manual↔auto direto no canvas. */}
+                  <g
+                    data-no-pan
+                    style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                    onClick={() => toggleTerminalLinkMode(l)}
+                  >
+                    <rect x={labelX} y={labelY} width={labelW} height={16} rx={3} fill={theme.surface.header} stroke={color} strokeWidth={1} />
+                    <text x={labelX + 6} y={labelY + 11.5} fill={color} fontSize={9.5} fontFamily={theme.font.mono}>
+                      {label}
+                    </text>
+                    <title>{`modo ${label} — clique para alternar para ${l.mode === 'manual' ? 'auto' : 'manual'}`}</title>
+                  </g>
                   <circle
                     data-no-pan
                     cx={midx}
