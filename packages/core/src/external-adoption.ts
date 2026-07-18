@@ -14,6 +14,8 @@ export interface ExternalSessionInfo {
   pid: number;
   cwd: string;
   createdAt: number;
+  /** Nome dado pelo cliente externo no create (Story 17.1) — ex.: "@dev". */
+  label?: string;
 }
 
 export interface ExternalAdoptionPlan {
@@ -59,7 +61,9 @@ export function planExternalAdoption(
     .filter((s) => !knownIds.has(s.id))
     .map((s) => ({
       id: s.id,
-      name: `${s.adapterId} (externo)`,
+      // Com label (despacho de agente, 17.1) o tile carrega a identidade do
+      // agente; sem label, cai no nome genérico por adapter (16.3).
+      name: s.label !== undefined && s.label.trim() !== '' ? s.label.trim() : `${s.adapterId} (externo)`,
       adapterId: s.adapterId,
       pid: s.pid,
       cwd: s.cwd,

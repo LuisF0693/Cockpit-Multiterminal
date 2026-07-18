@@ -52,6 +52,8 @@ export default defineConfig({
           daemon: resolve(ptyHost, 'daemon-entry.ts'),
           // Smoke cross-processo do daemon (Story 6.3, AC4)
           'daemon-smoke': resolve(__dirname, 'src/main/daemon-smoke.ts'),
+          // CLI de despacho de workers por agentes (Story 17.1)
+          'agent-dispatch': resolve(__dirname, 'src/main/agent-dispatch.ts'),
           // Smoke de persistência (Story 1.4, AC4) — roda sob ABI do Electron
           'persist-smoke': resolve(__dirname, 'src/main/persist-smoke.ts'),
           // Smoke de diagnóstico do canal binário (host → MessagePort)
