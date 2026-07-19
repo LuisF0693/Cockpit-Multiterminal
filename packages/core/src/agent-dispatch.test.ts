@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyDispatchTask, planAgentDispatch } from './agent-dispatch';
+import { classifyDispatchTask, findDispatcherSession, planAgentDispatch } from './agent-dispatch';
 
 const ALL_ADAPTERS = ['shell', 'cmd', 'claude-code', 'codex', 'grok', 'gemini-cli', 'antigravity', 'ollama'];
 
@@ -98,5 +98,44 @@ describe('planAgentDispatch (Story 17.1, AC1/AC2)', () => {
     expect(plan.label).toBe('@qa');
     expect(plan.initialInstruction).toBe('Você é o agente "@qa". Tarefa: revisar a story 17.1 com atenção');
     expect(plan.initialInstruction).not.toMatch(/\n/);
+  });
+
+  it('preferences por categoria sobrescrevem a ordem default; categorias ausentes mantêm o default (17.2)', () => {
+    const custom = planAgentDispatch({
+      agent: '@qa',
+      task: 'revisar a arquitetura',
+      availableAdapters: ALL_ADAPTERS,
+      preferences: { 'review-planning': ['gemini-cli', 'codex'] }
+    });
+    expect(custom.candidates.slice(0, 2)).toEqual(['gemini-cli', 'codex']);
+
+    const untouched = planAgentDispatch({
+      agent: '@dev',
+      task: 'implementar tela',
+      availableAdapters: ALL_ADAPTERS,
+      preferences: { 'review-planning': ['gemini-cli'] }
+    });
+    expect(untouched.candidates[0]).toBe('claude-code');
+  });
+});
+
+describe('findDispatcherSession (Story 17.2, AC1)', () => {
+  const sessions = [
+    { id: 'chefe-orion', pid: 500 },
+    { id: 'worker-antigo', pid: 900 }
+  ];
+
+  it('devolve a sessão do ancestral MAIS próximo na cadeia de PIDs', () => {
+    // cadeia: CLI (1000) ← bash (700) ← claude do chefe (500) ← pwsh raiz (10)
+    expect(findDispatcherSession([1000, 700, 500, 10], sessions)).toBe('chefe-orion');
+  });
+
+  it('com duas sessões na cadeia, vence a que aparece primeiro (aninhamento)', () => {
+    expect(findDispatcherSession([1000, 900, 500], sessions)).toBe('worker-antigo');
+  });
+
+  it('cadeia sem nenhuma sessão viva devolve null (despacho de fora do Cockpit)', () => {
+    expect(findDispatcherSession([1000, 700, 10], sessions)).toBeNull();
+    expect(findDispatcherSession([], sessions)).toBeNull();
   });
 });

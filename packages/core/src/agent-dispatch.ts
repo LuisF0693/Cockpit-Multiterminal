@@ -18,6 +18,11 @@ export interface AgentDispatchRequest {
   explicitAdapter?: string | undefined;
   /** Adapters registrados no daemon (list-adapters), na ordem do registro. */
   availableAdapters: readonly string[];
+  /**
+   * Override da ordem de preferência por categoria (Story 17.2) — vem da
+   * matriz de capacidades editável; categorias ausentes usam o default.
+   */
+  preferences?: Partial<Record<DispatchCategory, readonly string[]>> | undefined;
 }
 
 export interface AgentDispatchPlan {
@@ -81,9 +86,35 @@ export function planAgentDispatch(req: AgentDispatchRequest): AgentDispatchPlan 
 
   const category = classifyDispatchTask(task);
   const dispatchable = req.availableAdapters.filter((id) => !NON_DISPATCHABLE.has(id));
-  const preferred = PREFERENCES[category].filter((id) => dispatchable.includes(id));
+  const order = req.preferences?.[category] ?? PREFERENCES[category];
+  const preferred = order.filter((id) => dispatchable.includes(id));
   // Fallback (AC2): qualquer IA disponível fora da preferência entra no fim,
   // na ordem em que o daemon as listou — ainda determinístico.
   const rest = dispatchable.filter((id) => !preferred.includes(id));
   return { category, candidates: [...preferred, ...rest], label, initialInstruction };
+}
+
+/** Referência mínima de sessão viva no daemon para o matching de origem. */
+export interface LiveSessionRef {
+  id: string;
+  pid: number;
+}
+
+/**
+ * Detecta o terminal do CHEFE que despachou (Story 17.2, AC1): dado a cadeia
+ * de PIDs do processo da CLI (do próprio processo até a raiz) e as sessões
+ * vivas no daemon, devolve o id da PRIMEIRA sessão cujo pid aparece na
+ * cadeia — o ancestral mais próximo vence quando houver aninhamento. Pura:
+ * quem monta a cadeia (I/O de processos) é a CLI.
+ */
+export function findDispatcherSession(
+  pidChain: readonly number[],
+  sessions: readonly LiveSessionRef[]
+): string | null {
+  const byPid = new Map(sessions.map((s) => [s.pid, s.id]));
+  for (const pid of pidChain) {
+    const id = byPid.get(pid);
+    if (id !== undefined) return id;
+  }
+  return null;
 }

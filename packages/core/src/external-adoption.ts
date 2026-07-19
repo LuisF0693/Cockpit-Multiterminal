@@ -16,6 +16,8 @@ export interface ExternalSessionInfo {
   createdAt: number;
   /** Nome dado pelo cliente externo no create (Story 17.1) — ex.: "@dev". */
   label?: string;
+  /** Sessão do CHEFE que despachou (Story 17.2) — origem do vínculo auto. */
+  dispatchedBy?: string;
 }
 
 export interface ExternalAdoptionPlan {
@@ -27,6 +29,8 @@ export interface ExternalAdoptionPlan {
   createdAt: number;
   /** Projeto cujo rootPath contém o cwd (match mais específico) — null se nenhum. */
   projectId: string | null;
+  /** Sessão do chefe que despachou (17.2) — o Main cria o vínculo worker→chefe. */
+  dispatchedBy: string | null;
 }
 
 /** Normaliza pra comparação de caminhos no Windows: separador único, sem barra final, case-insensitive. */
@@ -68,6 +72,7 @@ export function planExternalAdoption(
       pid: s.pid,
       cwd: s.cwd,
       createdAt: s.createdAt,
-      projectId: projectIdFor(s.cwd, projects)
+      projectId: projectIdFor(s.cwd, projects),
+      dispatchedBy: s.dispatchedBy !== undefined && s.dispatchedBy.trim() !== '' ? s.dispatchedBy : null
     }));
 }

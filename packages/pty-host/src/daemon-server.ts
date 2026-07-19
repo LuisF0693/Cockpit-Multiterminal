@@ -35,6 +35,8 @@ interface DaemonSession {
   createdAt: number;
   /** Nome dado pelo cliente no create (17.1) — preservado na adoção. */
   label: string | undefined;
+  /** Sessão do chefe que despachou (17.2) — preservado na adoção. */
+  dispatchedBy: string | undefined;
 }
 
 export class DaemonServer {
@@ -159,7 +161,8 @@ export class DaemonServer {
               pid: session.pid,
               lastStatus: 'working',
               createdAt: Date.now(),
-              label: msg.label
+              label: msg.label,
+              dispatchedBy: msg.dispatchedBy
             };
             this.sessions.set(msg.tag, hosted);
             this.wireSession(msg.tag, hosted, msg.restore === true);
@@ -226,7 +229,8 @@ export class DaemonServer {
             status: s.lastStatus,
             cwd: s.cwd,
             createdAt: s.createdAt,
-            ...(s.label !== undefined ? { label: s.label } : {})
+            ...(s.label !== undefined ? { label: s.label } : {}),
+            ...(s.dispatchedBy !== undefined ? { dispatchedBy: s.dispatchedBy } : {})
           }))
         });
         break;

@@ -1,0 +1,28 @@
+{
+  "$comment": "Matriz de capacidades dos adapters (Story 17.2) — EDITE À VONTADE: este arquivo sobrescreve os defaults do core (packages/core/src/adapter-profile.ts). 'adapters' substitui o perfil inteiro do adapter citado; 'preferences' sobrescreve a ordem de fallback por categoria (development, review-planning, research, marketing-content). O --recommend da CLI agent-dispatch usa isto pra justificar cada candidato.",
+  "adapters": {
+    "claude-code": {
+      "strengths": ["implementação multi-arquivo", "agentic coding longo", "aderência a convenções do repo"],
+      "cost": "alto",
+      "notes": "melhor executor geral de desenvolvimento; usa MCP e skills do repo"
+    },
+    "codex": {
+      "strengths": ["revisão de código", "planejamento", "crítica técnica objetiva"],
+      "cost": "médio",
+      "notes": "bom contraponto pra QA/review — evita revisar com o mesmo modelo que escreveu"
+    },
+    "gemini-cli": {
+      "strengths": ["pesquisa", "contexto muito grande", "síntese de documentação"],
+      "cost": "baixo",
+      "notes": "janela de contexto enorme; bom pra varrer bases/documentos extensos"
+    },
+    "grok": {
+      "strengths": ["marketing", "conteúdo", "tom informal e velocidade"],
+      "cost": "baixo"
+    },
+    "antigravity": {
+      "strengths": ["tarefas de IDE agentic", "prototipagem"],
+      "cost": "médio"
+    }
+  }
+}

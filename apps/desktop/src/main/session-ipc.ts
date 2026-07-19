@@ -756,6 +756,27 @@ export function registerSessionIpc(
             createdAt: plan.createdAt
           });
           persistence.recordAdoption(plan.id, { name: plan.name, adapterId: plan.adapterId, pid: plan.pid });
+          // Vínculo automático worker→chefe (Story 17.2, AC1/AC3): o término
+          // do worker dispara a instrução no chefe (FR26). Mesma regra do
+          // vínculo manual: só entre terminais do MESMO projeto — violação
+          // não bloqueia a adoção, só loga.
+          if (plan.dispatchedBy !== null) {
+            const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
+            if (chefe === undefined) {
+              console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);
+            } else if (chefe.projectId !== plan.projectId) {
+              console.warn(
+                `[daemon] vínculo do despacho ignorado: chefe (${chefe.projectId}) e worker (${plan.projectId}) em projetos diferentes`
+              );
+            } else {
+              terminalLinkManager.create({
+                sourceId: plan.id,
+                targetId: chefe.id,
+                mode: 'auto',
+                projectId: plan.projectId
+              });
+            }
+          }
           for (const win of BrowserWindow.getAllWindows()) {
             if (deliverPort(plan.id, win.webContents)) break;
           }

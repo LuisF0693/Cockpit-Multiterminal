@@ -28,6 +28,8 @@ export type DaemonInbound =
       label?: string;
       /** Instrução entregue pelo adapter quando o CLI fica pronto (17.1/FR7). */
       initialInstruction?: string;
+      /** Sessão do CHEFE que despachou (17.2) — o app cria o vínculo na adoção. */
+      dispatchedBy?: string;
     }
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }
@@ -51,6 +53,8 @@ export interface DaemonSessionInfo {
   createdAt: number;
   /** Nome dado pelo cliente externo no create (Story 17.1) — ausente em sessões antigas. */
   label?: string;
+  /** Sessão do chefe que despachou (Story 17.2) — ausente fora do despacho vinculado. */
+  dispatchedBy?: string;
 }
 
 export type DaemonOutbound =
