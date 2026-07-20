@@ -88,7 +88,8 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
     const files = writeSessionHookFiles(`s${++sessionSeq}`);
-    const pty = this.spawnFn(this.command, ['--settings', files.settingsPath], config);
+    // args extras (17.3): ex.: ['--model','haiku'] — escolha do chefe por sessão
+    const pty = this.spawnFn(this.command, ['--settings', files.settingsPath, ...(config.args ?? [])], config);
     return new ClaudeSession(pty, files, this.graceMs, this.hookTimeoutMs, config.initialInstruction);
   }
 }

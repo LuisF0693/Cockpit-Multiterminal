@@ -50,8 +50,18 @@ function argValue(argv: string[], name: string): string | undefined {
 function usage(): void {
   console.error(
     'uso: agent-dispatch --agent "<nome>" --task "<tarefa>" [--cwd <dir>] [--adapter <id>] ' +
-      '[--recommend] [--no-link] [--link-from <sessionId>] [--profile <json>] [--pipe <named-pipe>]'
+      '[--model <nome>] [--recommend] [--no-link] [--link-from <sessionId>] [--profile <json>] [--pipe <named-pipe>]'
   );
+}
+
+/**
+ * `--model` (Story 17.3): o worker JÁ NASCE com o modelo escolhido pelo
+ * chefe. A grafia é a da CLI alvo (claude: haiku/sonnet/opus; codex/gemini/
+ * grok: nome completo do modelo). Ollama usa `run <modelo>`; as demais CLIs
+ * aceitam `--model <nome>`.
+ */
+function modelArgs(adapterId: string, model: string): string[] {
+  return adapterId === 'ollama' ? ['run', model] : ['--model', model];
 }
 
 /**
@@ -109,8 +119,17 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
   }
   const cwd = argValue(argv, '--cwd') ?? process.cwd();
   const explicitAdapter = argValue(argv, '--adapter');
+  const model = argValue(argv, '--model');
   const pipe = argValue(argv, '--pipe') ?? DEFAULT_DAEMON_PIPE;
   const { matrix, source: matrixSource } = loadAdapterMatrix(argv);
+
+  // Modelo é escolha por CLI — sem adapter explícito a política poderia cair
+  // numa CLI que não conhece esse nome de modelo. Quem escolhe modelo,
+  // escolhe a CLI (protocolo do chefe, AC7 da 17.1).
+  if (model !== undefined && explicitAdapter === undefined && !argv.includes('--recommend')) {
+    console.error('[agent-dispatch] --model exige --adapter explícito (a grafia do modelo é específica de cada CLI)');
+    return 1;
+  }
 
   const client = new DaemonClient();
   try {
@@ -181,10 +200,12 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
           adapterId,
           label: plan.label,
           initialInstruction: plan.initialInstruction,
+          ...(model !== undefined ? { args: modelArgs(adapterId, model) } : {}),
           ...(dispatchedBy !== undefined ? { dispatchedBy } : {})
         });
         console.log(
           `[agent-dispatch] worker despachado: agente=${plan.label} adapter=${adapterId} ` +
+            (model !== undefined ? `modelo=${model} ` : '') +
             `sessão=${id} pid=${pid} cwd=${cwd}` +
             (plan.category !== null ? ` categoria=${plan.category}` : ' (adapter explícito)') +
             (dispatchedBy !== undefined ? ` vínculo→chefe=${dispatchedBy}` : ' sem-vínculo')

@@ -84,7 +84,8 @@ export class GrokAdapter implements AgentAdapter {
   }
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
-    const pty = this.spawnFn(this.command, [], config);
+    // args extras (17.3): ex.: ['--model','grok-4'] — escolha do chefe por sessão
+    const pty = this.spawnFn(this.command, config.args ?? [], config);
     return new GrokSession(pty, this.graceMs, config.initialInstruction);
   }
 }

@@ -17,6 +17,11 @@ export interface AdapterProfile {
   cost: string;
   /** Observações livres — atualizáveis conforme a experiência real. */
   notes?: string;
+  /**
+   * Modelos sugeridos pro `--model` da CLI (Story 17.3) — do mais barato ao
+   * mais forte, na grafia que a CLI aceita (ex.: claude: "haiku"/"sonnet").
+   */
+  models?: string[];
 }
 
 export interface AdapterMatrix {
@@ -30,7 +35,8 @@ export const DEFAULT_ADAPTER_MATRIX: AdapterMatrix = {
     'claude-code': {
       strengths: ['implementação multi-arquivo', 'agentic coding longo', 'aderência a convenções do repo'],
       cost: 'alto',
-      notes: 'melhor executor geral de desenvolvimento; usa MCP e skills do repo'
+      notes: 'melhor executor geral de desenvolvimento; usa MCP e skills do repo',
+      models: ['haiku', 'sonnet', 'opus']
     },
     codex: {
       strengths: ['revisão de código', 'planejamento', 'crítica técnica objetiva'],
@@ -82,6 +88,7 @@ export function explainCandidates(candidates: readonly string[], matrix: Adapter
     const p = matrix.adapters[adapter];
     if (p === undefined) return { adapter, reason: 'sem perfil na matriz — avalie manualmente' };
     const notes = p.notes !== undefined ? ` — ${p.notes}` : '';
-    return { adapter, reason: `forças: ${p.strengths.join(', ')}; custo ${p.cost}${notes}` };
+    const models = p.models !== undefined && p.models.length > 0 ? `; modelos: ${p.models.join(', ')}` : '';
+    return { adapter, reason: `forças: ${p.strengths.join(', ')}; custo ${p.cost}${models}${notes}` };
   });
 }

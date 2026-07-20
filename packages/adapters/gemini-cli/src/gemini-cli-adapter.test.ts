@@ -73,6 +73,17 @@ describe('GeminiCliAdapter (Story 12.4, FR39)', () => {
     expect(commands).toEqual(['gemini.cmd']);
   });
 
+  it('repassa config.args no spawn (Story 17.3 — modelo por sessão)', async () => {
+    const seen: string[][] = [];
+    const spawnFn: GeminiSpawnFn = (_cmd, args) => {
+      seen.push(args);
+      return makeFakePty();
+    };
+    const adapter = new GeminiCliAdapter(spawnFn, () => 'C:/npm/gemini.cmd');
+    await adapter.spawn({ ...CONFIG, args: ['--model', 'gemini-3.5-pro'] });
+    expect(seen).toEqual([['--model', 'gemini-3.5-pro']]);
+  });
+
   it('heurística de input: Enter → working (com dedupe)', async () => {
     const { adapter } = makeHarness();
     const session = await adapter.spawn(CONFIG);

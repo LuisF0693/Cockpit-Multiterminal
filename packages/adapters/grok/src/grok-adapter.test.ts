@@ -49,6 +49,19 @@ function makeHarness(which: string | null = 'C:/npm/grok.ps1'): {
 
 const CONFIG = { cwd: 'C:/work', cols: 80, rows: 24 };
 
+describe('GrokAdapter — args extras (Story 17.3)', () => {
+  it('repassa config.args no spawn (modelo por sessão)', async () => {
+    const seen: string[][] = [];
+    const spawnFn: GrokSpawnFn = (_cmd, args) => {
+      seen.push(args);
+      return makeFakePty();
+    };
+    const adapter = new GrokAdapter(spawnFn, () => 'C:/npm/grok.ps1', 'grok.cmd', 10);
+    await adapter.spawn({ ...CONFIG, args: ['--model', 'grok-4'] });
+    expect(seen).toEqual([['--model', 'grok-4']]);
+  });
+});
+
 describe('GrokAdapter (Story 2.4)', () => {
   it('identidade output-parsing + availability com razão clara', async () => {
     const { adapter } = makeHarness();

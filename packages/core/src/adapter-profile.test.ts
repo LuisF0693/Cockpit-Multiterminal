@@ -62,4 +62,9 @@ describe('explainCandidates (Story 17.2, AC5)', () => {
     const explained = explainCandidates(['grok', 'claude-code'], DEFAULT_ADAPTER_MATRIX);
     expect(explained.map((e) => e.adapter)).toEqual(['grok', 'claude-code']);
   });
+
+  it('modelos do perfil aparecem na justificativa (Story 17.3)', () => {
+    const [first] = explainCandidates(['claude-code'], DEFAULT_ADAPTER_MATRIX);
+    expect(first?.reason).toContain('modelos: haiku, sonnet, opus');
+  });
 });

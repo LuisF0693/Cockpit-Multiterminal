@@ -99,7 +99,8 @@ export class CodexAdapter implements AgentAdapter {
     const dir = mkdtempSync(join(tmpdir(), `cockpit-codex-s${++sessionSeq}-`));
     const statusPath = join(dir, 'session.status');
     writeFileSync(statusPath, '');
-    const pty = this.spawnFn(this.command, ['-c', buildNotifyOverride(statusPath)], config);
+    // args extras (17.3): ex.: ['--model','gpt-5.5-codex'] — escolha do chefe por sessão
+    const pty = this.spawnFn(this.command, ['-c', buildNotifyOverride(statusPath), ...(config.args ?? [])], config);
     return new CodexSession(pty, dir, statusPath, this.graceMs, this.pollMs, config.initialInstruction);
   }
 }

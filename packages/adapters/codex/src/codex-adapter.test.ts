@@ -90,6 +90,14 @@ describe('CodexAdapter', () => {
     expect(args[1]).toMatch(/^notify=\['cmd','\/c','echo idle>> .+session\.status'\]$/);
   });
 
+  it('repassa config.args após o notify (Story 17.3 — modelo por sessão)', async () => {
+    const { adapter, lastArgs } = makeHarness();
+    const session = await adapter.spawn({ ...CONFIG, args: ['--model', 'gpt-5.5-codex'] });
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    expect(lastArgs().slice(2)).toEqual(['--model', 'gpt-5.5-codex']);
+  });
+
   it('notify appendado (com sufixo JSON do Codex) vira idle; dedupe', async () => {
     const { adapter, lastArgs } = makeHarness();
     const session = await adapter.spawn(CONFIG);
