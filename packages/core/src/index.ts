@@ -41,3 +41,4 @@ export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
 export { LearningManager, canTransitionLearning } from './learning-manager';
 export type { Learning, LearningEvent, LearningListener } from './learning-manager';
+export { isSameProject } from './project-link-guard';
