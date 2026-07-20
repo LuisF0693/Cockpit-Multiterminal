@@ -3,6 +3,7 @@ import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promise
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
+  DispatchManager,
   PersistenceManager,
   SessionRegistry,
   TaskManager,
@@ -162,6 +163,14 @@ export function registerSessionIpc(
     }
   });
 
+  // Histórico de despachos (Épico 18, Story 18.4) — mesmo padrão do
+  // TaskManager/LearningManager. Sem push pra renderer: a story deixa o
+  // painel de UI explicitamente fora de escopo (AC5), então não há
+  // consumidor pro evento de domínio ainda — `onEvent` fica disponível pra
+  // quando essa UI ("árvore de delegação") existir.
+  const dispatchManager = new DispatchManager(store, queue);
+  dispatchManager.load();
+
   // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
   // para o handle já nascer sabendo se há uma Recovery Screen a resolver.
   const { cleanShutdown } = persistence.markBootStart();
@@ -250,6 +259,34 @@ export function registerSessionIpc(
       }
     } catch (err) {
       console.error('[terminalLink] roteamento automático falhou:', err);
+    }
+  });
+
+  // Desfecho do despacho (Story 18.4, AC3) — mesmo ponto que dispara o
+  // roteamento de vínculo automático acima (Story 9.2): estado terminal do
+  // agente atualiza o registro histórico do worker, quando existe um
+  // (recordOutcome é no-op pra worker sem despacho rastreável, AC4).
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    const status = event.session.agentStatus;
+    if (status !== 'done' && status !== 'error') return;
+    try {
+      dispatchManager.recordOutcome(event.session.id, status);
+    } catch (err) {
+      console.error('[dispatch] registro de desfecho falhou:', err);
+    }
+  });
+
+  // Fechamento do worker sem status terminal explícito (Story 18.4, AC3) —
+  // complementa o listener acima quando o terminal fecha ('closed', mesma
+  // exclusão definitiva usada pela limpeza de vínculo logo acima) antes de
+  // passar por done/error.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'closed') return;
+    try {
+      dispatchManager.recordOutcome(event.session.id, 'closed');
+    } catch (err) {
+      console.error('[dispatch] registro de fechamento falhou:', err);
     }
   });
 
@@ -579,6 +616,10 @@ export function registerSessionIpc(
   });
   ipcMain.handle(IpcChannels.taskList, () => taskManager.list());
 
+  // Histórico de despachos (Story 18.4, AC5) — consulta simples, sem
+  // paginação/filtro; mesmo padrão de taskList/learningList.
+  ipcMain.handle(IpcChannels.dispatchHistory, () => dispatchManager.list());
+
   // Decisao humana (Story 5.3): estado da tarefa (TaskManager) +, no
   // redirect, transferencia do vinculo (SessionRegistry) — so o Main enxerga
   // os dois lados. registry.list() e a fonte VIVA (nao o store). Story 7.4
@@ -763,6 +804,25 @@ export function registerSessionIpc(
           // vínculo manual: só entre terminais do MESMO projeto — violação
           // não bloqueia a adoção, só loga.
           if (plan.dispatchedBy !== null) {
+            // Histórico de despachos (Story 18.4, AC2/AC4): registra SEMPRE
+            // que há `dispatchedBy`, mesmo quando o vínculo automático abaixo
+            // acaba recusado (chefe sumiu do registry, projetos diferentes,
+            // adapter não-IA). AC4 exclui só o caso SEM `dispatchedBy` — a
+            // recusa do vínculo não desfaz o fato de que um despacho
+            // ocorreu, e o FR63 (Story 18.5) precisa desse dado bruto pra
+            // contar tentativas por adapter independente do vínculo ter
+            // "pegado". `model` fica null: não é propagado até este ponto
+            // (Épico 17.3 escolhe o modelo por sessão, mas essa escolha não
+            // atravessa a adoção externa).
+            dispatchManager.create({
+              dispatchedBy: plan.dispatchedBy,
+              workerId: plan.id,
+              label: plan.name,
+              adapterId: plan.adapterId,
+              model: null,
+              projectId: plan.projectId
+            });
+
             const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
             if (chefe === undefined) {
               console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);

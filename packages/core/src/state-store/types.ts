@@ -92,6 +92,35 @@ export interface PersistedLearning {
   updatedAt: number;
 }
 
+/** Desfecho de um worker despachado (Épico 18, FR62); null enquanto ainda roda. */
+export type DispatchOutcome = 'done' | 'error' | 'closed';
+
+/**
+ * Histórico de despachos (Épico 18, Story 18.4) — trilha factual de quem
+ * despachou quem, com que adapter/modelo, e qual foi o desfecho; consumida
+ * futuramente pelo FR63 (Story 18.5) pra roteamento orientado a dado real em
+ * vez de achismo. Só nasce pra despachos RASTREÁVEIS (`dispatchedBy`
+ * resolvido na adoção externa, Story 17.2) — sem vínculo detectado, nenhum
+ * registro é criado (AC4 da 18.4).
+ */
+export interface PersistedDispatchRecord {
+  id: string;
+  /** Sessão do chefe que despachou (Story 17.2). */
+  dispatchedBy: string;
+  /** Sessão do worker despachado — id da sessão externa adotada. */
+  workerId: string;
+  /** Nome/agente do worker (ex.: "@dev") — mesmo `label` da adoção externa. */
+  label: string;
+  adapterId: string;
+  /** Modelo escolhido pro despacho (Story 17.3) — null quando não propagado até a adoção. */
+  model: string | null;
+  projectId: string | null;
+  createdAt: number;
+  /** null enquanto o worker ainda não atingiu um desfecho rastreável. */
+  outcome: DispatchOutcome | null;
+  outcomeAt: number | null;
+}
+
 export interface StateStore {
   /** Cria/migra o schema (app_meta.schema_version). */
   init(): void;
@@ -145,5 +174,10 @@ export interface StateStore {
   createLearning(learning: PersistedLearning): void;
   updateLearningStatus(id: string, status: LearningStatus, updatedAt: number): void;
   listLearnings(): PersistedLearning[];
+  /** Histórico de despachos (Épico 18, FR62) — trilha factual worker↔chefe. */
+  createDispatchRecord(record: PersistedDispatchRecord): void;
+  /** Atualiza pelo id do WORKER (não do registro) — no-op se não existir. */
+  updateDispatchOutcome(workerId: string, outcome: DispatchOutcome, outcomeAt: number): void;
+  listDispatchRecords(): PersistedDispatchRecord[];
   close(): void;
 }

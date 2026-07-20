@@ -48,3 +48,6 @@ export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './brows
 export { LearningManager, canTransitionLearning } from './learning-manager';
 export type { Learning, LearningEvent, LearningListener } from './learning-manager';
 export { isSameProject } from './project-link-guard';
+export { DispatchManager } from './dispatch-manager';
+export type { DispatchRecord, DispatchEvent, DispatchListener } from './dispatch-manager';
+export type { DispatchOutcome } from './state-store/types';

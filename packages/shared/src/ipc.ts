@@ -85,6 +85,8 @@ export const IpcChannels = {
   learningList: 'learning.list',
   /** Push Main → renderer com eventos de domínio de learning. */
   learningEvent: 'learning.event',
+  /** Histórico de despachos (Épico 18, Story 18.4) — lista simples, sem paginação. */
+  dispatchHistory: 'dispatch.history',
   /** Recuperação pós-crash (Story 4.3). */
   recoverySummary: 'recovery.summary',
   recoveryResolve: 'recovery.resolve',
@@ -701,6 +703,30 @@ export const LearningEventSchema = z.object({
 });
 export type LearningEvent = z.infer<typeof LearningEventSchema>;
 
+/**
+ * Histórico de despachos (Épico 18, Story 18.4) — trilha factual de quem
+ * despachou quem, com que adapter/modelo, e o desfecho. Só existe pra
+ * despachos RASTREÁVEIS (dispatchedBy resolvido na adoção externa, Story
+ * 17.2); consulta simples (lista, sem paginação/filtro nesta story) — painel
+ * de UI ("árvore de delegação") é ideia separada, ainda não formalizada.
+ */
+export const DispatchOutcomeSchema = z.enum(['done', 'error', 'closed']);
+export type DispatchOutcome = z.infer<typeof DispatchOutcomeSchema>;
+
+export const DispatchRecordSchema = z.object({
+  id: z.string().min(1),
+  dispatchedBy: z.string().min(1),
+  workerId: z.string().min(1),
+  label: z.string().min(1),
+  adapterId: z.string().min(1),
+  model: z.string().min(1).nullable(),
+  projectId: z.string().min(1).nullable(),
+  createdAt: z.number().int().nonnegative(),
+  outcome: DispatchOutcomeSchema.nullable(),
+  outcomeAt: z.number().int().nonnegative().nullable()
+});
+export type DispatchRecord = z.infer<typeof DispatchRecordSchema>;
+
 /** Tile do canvas — espelho serializável do TileLayout da UI (Story 1.4). */
 export const LayoutTileSchema = z.object({
   id: z.string().min(1),
@@ -870,5 +896,9 @@ export interface CockpitApi {
     transcriptTail(req: SdcTranscriptTailRequest): Promise<string>;
     /** Correção agregada ao escritor após rejeição (Story 7.4, FR19); retorna unsubscribe. */
     onCorrectionRequested(cb: (event: SdcCorrectionRequestedEvent) => void): () => void;
+  };
+  dispatch: {
+    /** Histórico de despachos rastreáveis (Story 18.4, AC5) — lista completa, sem paginação. */
+    history(): Promise<DispatchRecord[]>;
   };
 }
