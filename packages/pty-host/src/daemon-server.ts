@@ -33,6 +33,8 @@ interface DaemonSession {
   pid: number;
   lastStatus: AgentStatus;
   createdAt: number;
+  /** Nome dado pelo cliente no create (17.1) — preservado na adoção. */
+  label: string | undefined;
 }
 
 export class DaemonServer {
@@ -142,7 +144,8 @@ export class DaemonServer {
               cwd,
               cols: msg.cols,
               rows: msg.rows,
-              ...(msg.args !== undefined ? { args: msg.args } : {})
+              ...(msg.args !== undefined ? { args: msg.args } : {}),
+              ...(msg.initialInstruction !== undefined ? { initialInstruction: msg.initialInstruction } : {})
             });
             const hosted: DaemonSession = {
               session,
@@ -155,7 +158,8 @@ export class DaemonServer {
               cwd,
               pid: session.pid,
               lastStatus: 'working',
-              createdAt: Date.now()
+              createdAt: Date.now(),
+              label: msg.label
             };
             this.sessions.set(msg.tag, hosted);
             this.wireSession(msg.tag, hosted, msg.restore === true);
@@ -221,7 +225,8 @@ export class DaemonServer {
             pid: s.pid,
             status: s.lastStatus,
             cwd: s.cwd,
-            createdAt: s.createdAt
+            createdAt: s.createdAt,
+            ...(s.label !== undefined ? { label: s.label } : {})
           }))
         });
         break;

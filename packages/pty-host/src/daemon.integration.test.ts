@@ -64,6 +64,41 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
     }
   );
 
+  it(
+    'create com label + initialInstruction: list-sessions expõe o label e o adapter entrega a instrução (17.1)',
+    { timeout: 60_000 },
+    async () => {
+      const pipe = uniquePipe();
+      const server = await startDaemon(pipe);
+      const client = new DaemonClient();
+      await client.connect(pipe);
+
+      let output = '';
+      const { id } = await client.createSession({
+        tag: 'sess-17-1',
+        cols: 80,
+        rows: 24,
+        adapterId: 'shell',
+        label: '@dev',
+        initialInstruction: 'echo dispatch-17-1'
+      });
+      // criador é o assinante: a saída do echo (instrução escrita no spawn) chega ao vivo
+      client.onData(id, (bytes) => {
+        output += Buffer.from(bytes).toString('utf8');
+      });
+      await waitFor(() => output.includes('dispatch-17-1'), 20_000);
+
+      const sessions = await client.listSessions();
+      expect(sessions).toEqual([expect.objectContaining({ id: 'sess-17-1', adapterId: 'shell', label: '@dev' })]);
+
+      await client.closeSession(id);
+      const { orphans } = await client.shutdownDaemon();
+      expect(orphans).toBe(0);
+      client.disconnect();
+      await server.shutdown();
+    }
+  );
+
   it('handshake com versão errada recebe hello-error', { timeout: 15_000 }, async () => {
     const pipe = uniquePipe();
     const server = await startDaemon(pipe);

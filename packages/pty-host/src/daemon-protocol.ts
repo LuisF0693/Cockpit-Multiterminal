@@ -24,6 +24,10 @@ export type DaemonInbound =
       restore?: boolean;
       /** Argumentos extra de CLI (Story 12.6) — ex.: Ollama precisa do modelo. */
       args?: string[];
+      /** Nome da sessão p/ adoção com identidade do agente (Story 17.1). */
+      label?: string;
+      /** Instrução entregue pelo adapter quando o CLI fica pronto (17.1/FR7). */
+      initialInstruction?: string;
     }
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }
@@ -45,6 +49,8 @@ export interface DaemonSessionInfo {
   status: AgentStatus;
   cwd: string;
   createdAt: number;
+  /** Nome dado pelo cliente externo no create (Story 17.1) — ausente em sessões antigas. */
+  label?: string;
 }
 
 export type DaemonOutbound =

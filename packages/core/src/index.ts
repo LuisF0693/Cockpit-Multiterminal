@@ -33,6 +33,8 @@ export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
 export { planExternalAdoption } from './external-adoption';
 export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
+export { classifyDispatchTask, planAgentDispatch } from './agent-dispatch';
+export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory } from './agent-dispatch';
 export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
 export { LearningManager, canTransitionLearning } from './learning-manager';

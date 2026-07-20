@@ -52,4 +52,17 @@ describe('planExternalAdoption (Story 16.3, Épico 16)', () => {
     const [plan] = planExternalAdoption([session('z', 'codex', 'C:\\qualquer')], new Set(), []);
     expect(plan).toMatchObject({ id: 'z', name: 'codex (externo)', adapterId: 'codex', pid: 1000, createdAt: 42 });
   });
+
+  it('label do despacho vira o nome do tile; label vazio cai no genérico (Story 17.1, AC4)', () => {
+    const [labeled, blank] = planExternalAdoption(
+      [
+        { ...session('a', 'claude-code', 'C:\\proj'), label: '@dev' },
+        { ...session('b', 'codex', 'C:\\proj'), label: '   ' }
+      ],
+      new Set(),
+      []
+    );
+    expect(labeled?.name).toBe('@dev');
+    expect(blank?.name).toBe('codex (externo)');
+  });
 });
