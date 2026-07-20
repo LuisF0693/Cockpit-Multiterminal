@@ -35,6 +35,8 @@ export {
 export type { CanvasLayout, TileLayout } from './layout';
 export { matchShortcut } from './shortcuts';
 export type { KeyStroke, ShortcutAction } from './shortcuts';
+export { attentionTiles, nextAttentionTile } from './attention-cycle';
+export type { AttentionCandidate } from './attention-cycle';
 export {
   STATUS_COLORS,
   STATUS_LABELS,

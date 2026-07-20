@@ -10,7 +10,8 @@ export type ShortcutAction =
   | { type: 'focus-terminal'; index: number }
   | { type: 'close-terminal' }
   | { type: 'toggle-master' }
-  | { type: 'toggle-timeline' };
+  | { type: 'toggle-timeline' }
+  | { type: 'next-attention' };
 
 export interface KeyStroke {
   ctrlKey: boolean;
@@ -28,6 +29,9 @@ export function matchShortcut(e: KeyStroke): ShortcutAction | null {
   if (key === 'w') return { type: 'close-terminal' };
   if (key === 'm') return { type: 'toggle-master' };
   if (key === 't') return { type: 'toggle-timeline' };
+  // Ctrl+` (Story 18.2, AC1-AC4): não colide com nenhum atalho acima nem com
+  // menu/accelerator do Electron (app não registra menu nativo com atalhos).
+  if (key === '`') return { type: 'next-attention' };
   if (key >= '1' && key <= '9' && key.length === 1) {
     return { type: 'focus-terminal', index: Number(key) - 1 };
   }

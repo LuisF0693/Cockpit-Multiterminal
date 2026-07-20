@@ -12,12 +12,14 @@ import {
   AgentCatalog,
   AppSidebar,
   AppToolbar,
+  attentionTiles,
   BrowserPreviewTile,
   CanvasMinimap,
   FilePreviewPanel,
   LearningsView,
   LifecycleBoard,
   MasterDashboard,
+  nextAttentionTile,
   PromptModal,
   RecoveryScreen,
   ReviewPanel,
@@ -218,6 +220,11 @@ export function App(): JSX.Element {
   const linkDragRef = useRef(linkDrag);
   linkDragRef.current = linkDrag;
   const canvasSectionRef = useRef<HTMLElement | null>(null);
+  // Ciclo do atalho "próxima atenção" (Story 18.2, AC3) — índice PURO do
+  // último tile focado por Ctrl+`; -1 = nenhum disparo ainda nesta sessão da
+  // janela. Ref (não state) porque não precisa re-render — só é lido/escrito
+  // dentro do handler de keydown.
+  const attentionCycleIndexRef = useRef(-1);
   // Learnings globais (Épico 11): lista espelhada via push — NUNCA escopada
   // ao projeto ativo (Story 11.3, AC2 — "banco separado dos projetos").
   const [learnings, setLearnings] = useState<Learning[]>([]);
@@ -477,6 +484,22 @@ export function App(): JSX.Element {
       if (action.type === 'toggle-master') setView(viewRef.current === 'master' ? 'canvas' : 'master');
       if (action.type === 'toggle-timeline')
         setView(viewRef.current === 'timeline' ? 'canvas' : 'timeline');
+      if (action.type === 'next-attention') {
+        // Story 18.2: percorre (ordem estável de criação) os tiles em
+        // waiting-input/error e centraliza o canvas no próximo (AC1-AC3).
+        // Lista vazia → nextAttentionTile devolve null → sem side effect (AC4).
+        const candidates = attentionTiles(st.sessions);
+        const result = nextAttentionTile(candidates, attentionCycleIndexRef.current);
+        if (result) {
+          attentionCycleIndexRef.current = result.index;
+          const targetId = result.tile.id;
+          setView('canvas');
+          // rAF: se o disparo veio de fora do canvas (master/timeline), a
+          // section só ganha dimensões (display:block) depois do commit —
+          // centraliza só depois que o layout está pronto (AC2/AC5).
+          requestAnimationFrame(() => focusAndScrollTo(targetId));
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown);
 
