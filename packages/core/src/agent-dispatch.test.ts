@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyDispatchTask, findDispatcherSession, planAgentDispatch } from './agent-dispatch';
+import { classifyDispatchTask, findDispatcherSession, findIdleCandidate, planAgentDispatch } from './agent-dispatch';
 
 const ALL_ADAPTERS = ['shell', 'cmd', 'claude-code', 'codex', 'grok', 'gemini-cli', 'antigravity', 'ollama'];
 
@@ -147,5 +147,46 @@ describe('findDispatcherSession (Story 17.2, AC1)', () => {
   it('cadeia sem nenhuma sessão viva devolve null (despacho de fora do Cockpit)', () => {
     expect(findDispatcherSession([1000, 700, 10], sessions)).toBeNull();
     expect(findDispatcherSession([], sessions)).toBeNull();
+  });
+});
+
+describe('findIdleCandidate (Story 18.1, AC1)', () => {
+  it('devolve a sessão ociosa (waiting-input) do MESMO adapter', () => {
+    const sessions = [
+      { id: 'worker-1', adapterId: 'claude-code', status: 'working' },
+      { id: 'worker-2', adapterId: 'claude-code', status: 'waiting-input' }
+    ];
+    expect(findIdleCandidate('claude-code', sessions)).toBe('worker-2');
+  });
+
+  it('considera "done" ocioso também', () => {
+    const sessions = [{ id: 'worker-1', adapterId: 'codex', status: 'done' }];
+    expect(findIdleCandidate('codex', sessions)).toBe('worker-1');
+  });
+
+  it('ignora sessões de outro adapter mesmo ociosas', () => {
+    const sessions = [{ id: 'worker-1', adapterId: 'codex', status: 'waiting-input' }];
+    expect(findIdleCandidate('claude-code', sessions)).toBeNull();
+  });
+
+  it('ignora sessões do mesmo adapter que não estão ociosas (working/idle/error)', () => {
+    const sessions = [
+      { id: 'worker-1', adapterId: 'claude-code', status: 'working' },
+      { id: 'worker-2', adapterId: 'claude-code', status: 'idle' },
+      { id: 'worker-3', adapterId: 'claude-code', status: 'error' }
+    ];
+    expect(findIdleCandidate('claude-code', sessions)).toBeNull();
+  });
+
+  it('sem sessões vivas devolve null', () => {
+    expect(findIdleCandidate('claude-code', [])).toBeNull();
+  });
+
+  it('devolve a PRIMEIRA sessão ociosa quando há mais de uma candidata', () => {
+    const sessions = [
+      { id: 'worker-1', adapterId: 'claude-code', status: 'waiting-input' },
+      { id: 'worker-2', adapterId: 'claude-code', status: 'done' }
+    ];
+    expect(findIdleCandidate('claude-code', sessions)).toBe('worker-1');
   });
 });

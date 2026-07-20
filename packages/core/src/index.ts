@@ -33,8 +33,14 @@ export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
 export { planExternalAdoption } from './external-adoption';
 export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
-export { classifyDispatchTask, planAgentDispatch, findDispatcherSession, NON_DISPATCHABLE } from './agent-dispatch';
-export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef } from './agent-dispatch';
+export {
+  classifyDispatchTask,
+  planAgentDispatch,
+  findDispatcherSession,
+  findIdleCandidate,
+  NON_DISPATCHABLE
+} from './agent-dispatch';
+export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef, IdleSessionRef } from './agent-dispatch';
 export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates } from './adapter-profile';
 export type { AdapterMatrix, AdapterProfile, CandidateExplanation } from './adapter-profile';
 export { BrowserTileManager } from './browser-tile-manager';
