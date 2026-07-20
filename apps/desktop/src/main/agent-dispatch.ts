@@ -6,12 +6,13 @@ import {
   DEFAULT_ADAPTER_MATRIX,
   explainCandidates,
   findDispatcherSession,
+  findIdleCandidate,
   mergeAdapterMatrix,
   planAgentDispatch,
   ulid,
   type AdapterMatrix
 } from '@cockpit/core';
-import { DaemonClient, DEFAULT_DAEMON_PIPE } from '@cockpit/pty-host';
+import { DaemonClient, DEFAULT_DAEMON_PIPE, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * CLI agent-dispatch (Stories 17.1/17.2) — despacho genérico de workers por
@@ -35,6 +36,13 @@ import { DaemonClient, DEFAULT_DAEMON_PIPE } from '@cockpit/pty-host';
  * modo auto (o término do worker instrui o chefe). `--no-link` desliga;
  * `--link-from` força a origem. Falha de detecção NUNCA bloqueia o despacho.
  * O Cockpit adota a sessão em até ~4s preservando o nome do agente (AC4).
+ *
+ * Checagem de sessão ociosa (18.1): antes de despachar, a CLI reusa a MESMA
+ * consulta `listSessions` (feita pro vínculo acima) pra procurar um worker
+ * ocioso (`waiting-input`/`done`) do mesmo adapter do primeiro candidato —
+ * se achar, avisa no stderr (AC3) mas NUNCA bloqueia (AC5). `--model` não
+ * entra no filtro: não há como ler o modelo de uma sessão já em execução
+ * sem introspecção nova (AC2 — limitação documentada, sem workaround hoje).
  * Exit codes: 0 despachado/recomendado; 1 sem candidato viável; 2 daemon inacessível.
  */
 
@@ -212,15 +220,46 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
     // --no-link é a trava de segurança: vence mesmo se --link-from também vier.
     const noLink = argv.includes('--no-link');
     let dispatchedBy = noLink ? undefined : argValue(argv, '--link-from');
-    if (dispatchedBy === undefined && !noLink) {
-      try {
-        const [chain, live] = await Promise.all([processPidChain(), client.listSessions()]);
-        dispatchedBy = findDispatcherSession(chain, live) ?? undefined;
+    // A cadeia de PIDs só é útil pro vínculo — `listSessions` (abaixo) também
+    // alimenta a checagem de ociosidade (18.1), então é buscada sempre,
+    // independente do vínculo estar ligado.
+    const needsChain = dispatchedBy === undefined && !noLink;
+
+    // Sessões vivas do daemon: insumo único pro vínculo automático (17.2) E
+    // pra checagem de sessão ociosa (18.1) — uma consulta só, sem round-trip
+    // duplicado ao daemon (Dev Notes da Story 18.1).
+    let liveSessions: DaemonSessionInfo[] = [];
+    try {
+      const [chain, sessions] = await Promise.all([
+        needsChain ? processPidChain() : Promise.resolve<number[]>([]),
+        client.listSessions()
+      ]);
+      liveSessions = sessions;
+      if (needsChain) {
+        dispatchedBy = findDispatcherSession(chain, sessions) ?? undefined;
         if (dispatchedBy === undefined) {
           console.error('[agent-dispatch] sem vínculo: nenhum terminal do Cockpit na cadeia de processos (siga sem ele)');
         }
-      } catch (err) {
-        console.error('[agent-dispatch] detecção do chefe falhou — despacho segue sem vínculo:', err instanceof Error ? err.message : err);
+      }
+    } catch (err) {
+      console.error(
+        needsChain
+          ? '[agent-dispatch] detecção do chefe falhou — despacho segue sem vínculo:'
+          : '[agent-dispatch] consulta de sessões vivas falhou — despacho segue sem checagem de ociosidade:',
+        err instanceof Error ? err.message : err
+      );
+    }
+
+    // Sessão ociosa do mesmo adapter (18.1, AC1/AC3): só o PRIMEIRO candidato
+    // é checado — é o que a política escolheria se nada estivesse ocioso.
+    // Aviso puro: nunca bloqueia o despacho (AC5).
+    const [firstCandidate] = plan.candidates;
+    if (firstCandidate !== undefined) {
+      const idleId = findIdleCandidate(firstCandidate, liveSessions);
+      if (idleId !== null) {
+        console.error(
+          `[agent-dispatch] sessão ociosa do mesmo adapter encontrada: ${idleId} — considere reusar em vez de abrir um novo worker`
+        );
       }
     }
 
