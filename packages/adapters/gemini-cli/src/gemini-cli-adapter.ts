@@ -89,7 +89,7 @@ export class GeminiCliAdapter implements AgentAdapter {
   }
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
-    // args extras (17.3): ex.: ['--model','gemini-2.5-pro'] — escolha do chefe por sessão
+    // args extras (17.3): ex.: ['--model','gemini-3.5-pro'] — escolha do chefe por sessão
     const pty = this.spawnFn(this.command, config.args ?? [], config);
     return new GeminiCliSession(pty, this.graceMs, config.initialInstruction);
   }
