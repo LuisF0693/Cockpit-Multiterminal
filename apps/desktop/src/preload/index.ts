@@ -35,6 +35,7 @@ import {
   BrowserTileEventSchema,
   LearningSchema,
   LearningEventSchema,
+  DispatchRecordSchema,
   type AppInfo,
   type CockpitApi,
   type LayoutUpdateRequest,
@@ -391,6 +392,12 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.sdcCorrectionRequested, listener);
       return () => ipcRenderer.removeListener(IpcChannels.sdcCorrectionRequested, listener);
+    }
+  },
+  dispatch: {
+    history: async () => {
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.dispatchHistory);
+      return DispatchRecordSchema.array().parse(raw);
     }
   }
 };
