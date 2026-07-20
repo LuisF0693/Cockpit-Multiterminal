@@ -41,7 +41,7 @@ export interface AgentDispatchPlan {
  * `waiting-input` (não são IA) e ollama exige argumento de modelo por
  * sessão. Override explícito (--adapter) ignora esta lista de propósito.
  */
-const NON_DISPATCHABLE = new Set(['shell', 'cmd', 'ollama']);
+export const NON_DISPATCHABLE = new Set(['shell', 'cmd', 'ollama']);
 
 /** Ordem de preferência por categoria — determinística por construção. */
 const PREFERENCES: Record<DispatchCategory, readonly string[]> = {
@@ -86,7 +86,10 @@ export function planAgentDispatch(req: AgentDispatchRequest): AgentDispatchPlan 
 
   const category = classifyDispatchTask(task);
   const dispatchable = req.availableAdapters.filter((id) => !NON_DISPATCHABLE.has(id));
-  const order = req.preferences?.[category] ?? PREFERENCES[category];
+  // Override vazio ([]) não é "nenhuma preferência" — é ausência de sinal,
+  // então cai no default curado em vez de perder a priorização silenciosamente.
+  const rawOrder = req.preferences?.[category];
+  const order = rawOrder !== undefined && rawOrder.length > 0 ? rawOrder : PREFERENCES[category];
   const preferred = order.filter((id) => dispatchable.includes(id));
   // Fallback (AC2): qualquer IA disponível fora da preferência entra no fim,
   // na ordem em que o daemon as listou — ainda determinístico.

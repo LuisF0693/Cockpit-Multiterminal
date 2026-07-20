@@ -13,6 +13,7 @@ import {
   planSdcRedirect,
   planTerminalLinkRouting,
   planExternalAdoption,
+  NON_DISPATCHABLE,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
@@ -764,10 +765,15 @@ export function registerSessionIpc(
             const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
             if (chefe === undefined) {
               console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);
-            } else if (chefe.projectId !== plan.projectId) {
+            } else if (chefe.projectId === null || plan.projectId === null || chefe.projectId !== plan.projectId) {
+              // null !== null é false — projectId ausente NUNCA conta como "mesmo projeto".
               console.warn(
                 `[daemon] vínculo do despacho ignorado: chefe (${chefe.projectId}) e worker (${plan.projectId}) em projetos diferentes`
               );
+            } else if (NON_DISPATCHABLE.has(chefe.adapterId)) {
+              // Chefe não é um adapter de IA (ex.: shell/cmd cru) — instrução em
+              // linguagem natural no stdin dele não faz sentido nenhum.
+              console.warn(`[daemon] vínculo do despacho ignorado: chefe (${chefe.id}) não é um adapter de IA (${chefe.adapterId})`);
             } else {
               terminalLinkManager.create({
                 sourceId: plan.id,

@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { z } from 'zod';
 import {
   DEFAULT_ADAPTER_MATRIX,
   explainCandidates,
@@ -64,18 +65,49 @@ function modelArgs(adapterId: string, model: string): string[] {
   return adapterId === 'ollama' ? ['run', model] : ['--model', model];
 }
 
+// Valida o SHAPE do override antes do merge — o arquivo é editado à mão
+// (AGENTS.md: "EDITE À VONTADE"), e um campo fora do formato (ex.: strengths
+// como string em vez de array) não pode virar TypeError em explainCandidates.
+const AdapterMatrixOverrideSchema = z.object({
+  adapters: z
+    .record(
+      z.object({
+        strengths: z.array(z.string()),
+        cost: z.string(),
+        notes: z.string().optional(),
+        models: z.array(z.string()).optional()
+      })
+    )
+    .optional(),
+  preferences: z.record(z.array(z.string())).optional()
+});
+
 /**
  * Matriz de capacidades: defaults do core + override editável. Sem arquivo
- * (ou JSON inválido) cai nos defaults — nunca bloqueia o despacho.
+ * cai nos defaults silenciosamente (ausência é o caso comum); arquivo
+ * presente mas inválido (JSON quebrado ou fora do schema) cai nos defaults
+ * TAMBÉM, mas avisa no stderr — nunca bloqueia o despacho, só nunca some.
  */
 function loadAdapterMatrix(argv: string[]): { matrix: AdapterMatrix; source: string } {
   const scriptDir = path.dirname(process.argv[1] ?? '.');
   const file = argValue(argv, '--profile') ?? path.resolve(scriptDir, ...REPO_ROOT_HOPS, 'adapters-profile.json');
+  let raw: string;
   try {
-    const override = JSON.parse(readFileSync(file, 'utf8')) as Partial<AdapterMatrix>;
-    return { matrix: mergeAdapterMatrix(DEFAULT_ADAPTER_MATRIX, override), source: file };
+    raw = readFileSync(file, 'utf8');
   } catch {
-    return { matrix: DEFAULT_ADAPTER_MATRIX, source: '(defaults embutidos — adapters-profile.json ausente/ilegível)' };
+    return { matrix: DEFAULT_ADAPTER_MATRIX, source: '(defaults embutidos — adapters-profile.json ausente)' };
+  }
+  try {
+    // Cast pós-validação: o parse acima já lançou se o shape não bater —
+    // exactOptionalPropertyTypes só reclama do tipo estático do zod
+    // (`T | undefined` em campo opcional), não do dado validado em si.
+    const override = AdapterMatrixOverrideSchema.parse(JSON.parse(raw)) as Partial<AdapterMatrix>;
+    return { matrix: mergeAdapterMatrix(DEFAULT_ADAPTER_MATRIX, override), source: file };
+  } catch (err) {
+    console.error(
+      `[agent-dispatch] adapters-profile.json inválido em ${file} — usando defaults: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return { matrix: DEFAULT_ADAPTER_MATRIX, source: '(defaults embutidos — adapters-profile.json inválido)' };
   }
 }
 
@@ -177,8 +209,10 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
 
     // Vínculo worker→chefe (17.2): detecção automática pela cadeia de PIDs,
     // a menos que o chefe desligue (--no-link) ou force a origem (--link-from).
-    let dispatchedBy = argValue(argv, '--link-from');
-    if (dispatchedBy === undefined && !argv.includes('--no-link')) {
+    // --no-link é a trava de segurança: vence mesmo se --link-from também vier.
+    const noLink = argv.includes('--no-link');
+    let dispatchedBy = noLink ? undefined : argValue(argv, '--link-from');
+    if (dispatchedBy === undefined && !noLink) {
       try {
         const [chain, live] = await Promise.all([processPidChain(), client.listSessions()]);
         dispatchedBy = findDispatcherSession(chain, live) ?? undefined;

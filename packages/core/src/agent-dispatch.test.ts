@@ -117,6 +117,16 @@ describe('planAgentDispatch (Story 17.1, AC1/AC2)', () => {
     });
     expect(untouched.candidates[0]).toBe('claude-code');
   });
+
+  it('preferência vazia ([]) na categoria cai no default curado, não some a priorização', () => {
+    const plan = planAgentDispatch({
+      agent: '@dev',
+      task: 'implementar tela',
+      availableAdapters: ALL_ADAPTERS,
+      preferences: { development: [] }
+    });
+    expect(plan.candidates).toEqual(['claude-code', 'codex', 'gemini-cli', 'antigravity', 'grok']);
+  });
 });
 
 describe('findDispatcherSession (Story 17.2, AC1)', () => {
