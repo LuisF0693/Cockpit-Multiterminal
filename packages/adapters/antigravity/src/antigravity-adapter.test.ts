@@ -49,6 +49,19 @@ function makeHarness(which: string | null = 'C:/Users/dev/AppData/Local/agy/bin/
 
 const CONFIG = { cwd: 'C:/work', cols: 80, rows: 24 };
 
+describe('AntigravityAdapter — args extras (Story 17.3)', () => {
+  it('repassa config.args no spawn (modelo por sessão)', async () => {
+    const seen: string[][] = [];
+    const spawnFn: AntigravitySpawnFn = (_cmd, args) => {
+      seen.push(args);
+      return makeFakePty();
+    };
+    const adapter = new AntigravityAdapter(spawnFn, () => 'C:/agy/agy.exe', 'agy', 10);
+    await adapter.spawn({ ...CONFIG, args: ['--model', 'qualquer'] });
+    expect(seen).toEqual([['--model', 'qualquer']]);
+  });
+});
+
 describe('AntigravityAdapter (Story 12.4, FR39)', () => {
   it('identidade output-parsing + availability com razão clara', async () => {
     const { adapter } = makeHarness();

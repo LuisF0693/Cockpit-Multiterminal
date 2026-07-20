@@ -1,25 +1,47 @@
-import { planAgentDispatch, ulid } from '@cockpit/core';
+import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { z } from 'zod';
+import {
+  DEFAULT_ADAPTER_MATRIX,
+  explainCandidates,
+  findDispatcherSession,
+  mergeAdapterMatrix,
+  planAgentDispatch,
+  ulid,
+  type AdapterMatrix
+} from '@cockpit/core';
 import { DaemonClient, DEFAULT_DAEMON_PIPE } from '@cockpit/pty-host';
 
 /**
- * CLI agent-dispatch (Story 17.1) — despacho genérico de workers por
+ * CLI agent-dispatch (Stories 17.1/17.2) — despacho genérico de workers por
  * agentes. Qualquer chefe/agente (não só o AIOX Master) roda:
  *
  *   node out/main/agent-dispatch.js --agent "@dev" --task "implementar X" \
- *     [--cwd F:\Projetos\App] [--adapter claude-code] [--pipe \\.\pipe\cockpit-daemon]
+ *     [--cwd F:\Projetos\App] [--adapter claude-code] [--pipe \\.\pipe\cockpit-daemon] \
+ *     [--no-link] [--link-from <sessionId>] [--profile <adapters-profile.json>]
  *
  * QUEM decide o modelo é o CHEFE que despacha (decisão do fundador,
  * 2026-07-17): ele avalia a demanda, explica por que o modelo serve e passa
- * `--adapter` explícito — perguntando ao usuário quando ambíguo. A política
- * pura (planAgentDispatch) é RECOMENDAÇÃO/fallback: `--recommend` a exibe
- * sem despachar; sem `--adapter`, ela decide sozinha (com fallback se o
- * adapter falhar ao iniciar — AC3). O Cockpit adota a sessão em até ~4s
- * preservando o nome do agente (AC4).
+ * `--adapter` explícito — perguntando ao usuário quando ambíguo. A matriz de
+ * capacidades editável (adapters-profile.json na raiz do repo — Story 17.2)
+ * embasa essa decisão: `--recommend` exibe candidatos COM justificativa sem
+ * despachar; sem `--adapter`, a política decide sozinha usando as
+ * preferências da matriz (com fallback se o adapter falhar ao iniciar — AC3).
+ *
+ * Vínculo automático (17.2): quando o despacho parte de um terminal do
+ * Cockpit, a CLI sobe a cadeia de PIDs até casar com uma sessão viva do
+ * daemon e envia `dispatchedBy` — a adoção cria o vínculo worker→chefe em
+ * modo auto (o término do worker instrui o chefe). `--no-link` desliga;
+ * `--link-from` força a origem. Falha de detecção NUNCA bloqueia o despacho.
+ * O Cockpit adota a sessão em até ~4s preservando o nome do agente (AC4).
  * Exit codes: 0 despachado/recomendado; 1 sem candidato viável; 2 daemon inacessível.
  */
 
 const COLS = 120;
 const ROWS = 30;
+/** Raiz do repo a partir de out/main (out → desktop → apps → raiz). */
+const REPO_ROOT_HOPS = ['..', '..', '..', '..'];
 
 function argValue(argv: string[], name: string): string | undefined {
   const idx = argv.indexOf(name);
@@ -28,8 +50,96 @@ function argValue(argv: string[], name: string): string | undefined {
 
 function usage(): void {
   console.error(
-    'uso: agent-dispatch --agent "<nome>" --task "<tarefa>" [--cwd <dir>] [--adapter <id>] [--recommend] [--pipe <named-pipe>]'
+    'uso: agent-dispatch --agent "<nome>" --task "<tarefa>" [--cwd <dir>] [--adapter <id>] ' +
+      '[--model <nome>] [--recommend] [--no-link] [--link-from <sessionId>] [--profile <json>] [--pipe <named-pipe>]'
   );
+}
+
+/**
+ * `--model` (Story 17.3): o worker JÁ NASCE com o modelo escolhido pelo
+ * chefe. A grafia é a da CLI alvo (claude: haiku/sonnet/opus; codex/gemini/
+ * grok: nome completo do modelo). Ollama usa `run <modelo>`; as demais CLIs
+ * aceitam `--model <nome>`.
+ */
+function modelArgs(adapterId: string, model: string): string[] {
+  return adapterId === 'ollama' ? ['run', model] : ['--model', model];
+}
+
+// Valida o SHAPE do override antes do merge — o arquivo é editado à mão
+// (AGENTS.md: "EDITE À VONTADE"), e um campo fora do formato (ex.: strengths
+// como string em vez de array) não pode virar TypeError em explainCandidates.
+const AdapterMatrixOverrideSchema = z.object({
+  adapters: z
+    .record(
+      z.object({
+        strengths: z.array(z.string()),
+        cost: z.string(),
+        notes: z.string().optional(),
+        models: z.array(z.string()).optional()
+      })
+    )
+    .optional(),
+  preferences: z.record(z.array(z.string())).optional()
+});
+
+/**
+ * Matriz de capacidades: defaults do core + override editável. Sem arquivo
+ * cai nos defaults silenciosamente (ausência é o caso comum); arquivo
+ * presente mas inválido (JSON quebrado ou fora do schema) cai nos defaults
+ * TAMBÉM, mas avisa no stderr — nunca bloqueia o despacho, só nunca some.
+ */
+function loadAdapterMatrix(argv: string[]): { matrix: AdapterMatrix; source: string } {
+  const scriptDir = path.dirname(process.argv[1] ?? '.');
+  const file = argValue(argv, '--profile') ?? path.resolve(scriptDir, ...REPO_ROOT_HOPS, 'adapters-profile.json');
+  let raw: string;
+  try {
+    raw = readFileSync(file, 'utf8');
+  } catch {
+    return { matrix: DEFAULT_ADAPTER_MATRIX, source: '(defaults embutidos — adapters-profile.json ausente)' };
+  }
+  try {
+    // Cast pós-validação: o parse acima já lançou se o shape não bater —
+    // exactOptionalPropertyTypes só reclama do tipo estático do zod
+    // (`T | undefined` em campo opcional), não do dado validado em si.
+    const override = AdapterMatrixOverrideSchema.parse(JSON.parse(raw)) as Partial<AdapterMatrix>;
+    return { matrix: mergeAdapterMatrix(DEFAULT_ADAPTER_MATRIX, override), source: file };
+  } catch (err) {
+    console.error(
+      `[agent-dispatch] adapters-profile.json inválido em ${file} — usando defaults: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return { matrix: DEFAULT_ADAPTER_MATRIX, source: '(defaults embutidos — adapters-profile.json inválido)' };
+  }
+}
+
+/**
+ * Cadeia de PIDs do processo da CLI até a raiz (Windows: uma chamada CIM).
+ * O matching cadeia→sessão é puro (findDispatcherSession, core).
+ */
+async function processPidChain(): Promise<number[]> {
+  if (process.platform !== 'win32') return [process.pid];
+  const json = await new Promise<string>((resolve, reject) => {
+    execFile(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress'
+      ],
+      { maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+      (err, stdout) => (err !== null ? reject(err) : resolve(stdout))
+    );
+  });
+  const rows = JSON.parse(json) as Array<{ ProcessId: number; ParentProcessId: number }>;
+  const parentOf = new Map(rows.map((r) => [r.ProcessId, r.ParentProcessId]));
+  const chain: number[] = [];
+  let pid: number | undefined = process.pid;
+  // limite defensivo: cadeias reais têm <20 níveis; ciclo de pid reciclado para aqui
+  while (pid !== undefined && pid > 0 && !chain.includes(pid) && chain.length < 64) {
+    chain.push(pid);
+    pid = parentOf.get(pid);
+  }
+  return chain;
 }
 
 export async function dispatchAgent(argv: string[]): Promise<number> {
@@ -41,7 +151,17 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
   }
   const cwd = argValue(argv, '--cwd') ?? process.cwd();
   const explicitAdapter = argValue(argv, '--adapter');
+  const model = argValue(argv, '--model');
   const pipe = argValue(argv, '--pipe') ?? DEFAULT_DAEMON_PIPE;
+  const { matrix, source: matrixSource } = loadAdapterMatrix(argv);
+
+  // Modelo é escolha por CLI — sem adapter explícito a política poderia cair
+  // numa CLI que não conhece esse nome de modelo. Quem escolhe modelo,
+  // escolhe a CLI (protocolo do chefe, AC7 da 17.1).
+  if (model !== undefined && explicitAdapter === undefined && !argv.includes('--recommend')) {
+    console.error('[agent-dispatch] --model exige --adapter explícito (a grafia do modelo é específica de cada CLI)');
+    return 1;
+  }
 
   const client = new DaemonClient();
   try {
@@ -57,7 +177,8 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
       agent,
       task,
       ...(explicitAdapter !== undefined ? { explicitAdapter } : {}),
-      availableAdapters: available
+      availableAdapters: available,
+      ...(matrix.preferences !== undefined ? { preferences: matrix.preferences } : {})
     });
     if (plan.candidates.length === 0) {
       console.error(
@@ -68,11 +189,39 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
       return 1;
     }
 
-    // --recommend: só CONSULTA a política — o chefe decide (ou pergunta ao
-    // usuário) e despacha depois com --adapter explícito, justificando.
+    // --recommend: só CONSULTA a política + matriz — o chefe decide (ou
+    // pergunta ao usuário) e despacha depois com --adapter explícito.
     if (argv.includes('--recommend')) {
-      console.log(JSON.stringify({ category: plan.category, candidates: plan.candidates, available }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            category: plan.category,
+            candidates: explainCandidates(plan.candidates, matrix),
+            available,
+            matrixSource
+          },
+          null,
+          2
+        )
+      );
       return 0;
+    }
+
+    // Vínculo worker→chefe (17.2): detecção automática pela cadeia de PIDs,
+    // a menos que o chefe desligue (--no-link) ou force a origem (--link-from).
+    // --no-link é a trava de segurança: vence mesmo se --link-from também vier.
+    const noLink = argv.includes('--no-link');
+    let dispatchedBy = noLink ? undefined : argValue(argv, '--link-from');
+    if (dispatchedBy === undefined && !noLink) {
+      try {
+        const [chain, live] = await Promise.all([processPidChain(), client.listSessions()]);
+        dispatchedBy = findDispatcherSession(chain, live) ?? undefined;
+        if (dispatchedBy === undefined) {
+          console.error('[agent-dispatch] sem vínculo: nenhum terminal do Cockpit na cadeia de processos (siga sem ele)');
+        }
+      } catch (err) {
+        console.error('[agent-dispatch] detecção do chefe falhou — despacho segue sem vínculo:', err instanceof Error ? err.message : err);
+      }
     }
 
     for (const adapterId of plan.candidates) {
@@ -84,12 +233,16 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
           cwd,
           adapterId,
           label: plan.label,
-          initialInstruction: plan.initialInstruction
+          initialInstruction: plan.initialInstruction,
+          ...(model !== undefined ? { args: modelArgs(adapterId, model) } : {}),
+          ...(dispatchedBy !== undefined ? { dispatchedBy } : {})
         });
         console.log(
           `[agent-dispatch] worker despachado: agente=${plan.label} adapter=${adapterId} ` +
+            (model !== undefined ? `modelo=${model} ` : '') +
             `sessão=${id} pid=${pid} cwd=${cwd}` +
-            (plan.category !== null ? ` categoria=${plan.category}` : ' (adapter explícito)')
+            (plan.category !== null ? ` categoria=${plan.category}` : ' (adapter explícito)') +
+            (dispatchedBy !== undefined ? ` vínculo→chefe=${dispatchedBy}` : ' sem-vínculo')
         );
         console.log('[agent-dispatch] o Cockpit adota a sessão em até ~4s com o nome do agente.');
         return 0;

@@ -26,7 +26,7 @@ export interface ShellPtyLike {
   kill(): void;
 }
 
-export type ShellSpawnFn = (shell: string, config: SpawnConfig) => ShellPtyLike;
+export type ShellSpawnFn = (shell: string, args: string[], config: SpawnConfig) => ShellPtyLike;
 
 const DEFAULT_SHELL = 'powershell.exe';
 const KILL_GRACE_MS = 1500;
@@ -40,8 +40,8 @@ function isPidAlive(pid: number): boolean {
   }
 }
 
-const defaultSpawn: ShellSpawnFn = (shell, config) =>
-  ptySpawn(shell, [], {
+const defaultSpawn: ShellSpawnFn = (shell, args, config) =>
+  ptySpawn(shell, args, {
     name: 'xterm-256color',
     cols: config.cols,
     rows: config.rows,
@@ -97,7 +97,7 @@ export class ShellAdapter implements AgentAdapter {
   }
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
-    const pty = this.spawnFn(this.shell, config);
+    const pty = this.spawnFn(this.shell, config.args ?? [], config);
     return new ShellSession(pty, this.graceMs, config.initialInstruction);
   }
 }

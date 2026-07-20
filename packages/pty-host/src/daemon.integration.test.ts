@@ -80,7 +80,8 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
         rows: 24,
         adapterId: 'shell',
         label: '@dev',
-        initialInstruction: 'echo dispatch-17-1'
+        initialInstruction: 'echo dispatch-17-1',
+        dispatchedBy: 'chefe-sessao-01'
       });
       // criador é o assinante: a saída do echo (instrução escrita no spawn) chega ao vivo
       client.onData(id, (bytes) => {
@@ -89,7 +90,10 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
       await waitFor(() => output.includes('dispatch-17-1'), 20_000);
 
       const sessions = await client.listSessions();
-      expect(sessions).toEqual([expect.objectContaining({ id: 'sess-17-1', adapterId: 'shell', label: '@dev' })]);
+      expect(sessions).toEqual([
+        // dispatchedBy propagado (17.2): insumo do vínculo worker→chefe na adoção
+        expect.objectContaining({ id: 'sess-17-1', adapterId: 'shell', label: '@dev', dispatchedBy: 'chefe-sessao-01' })
+      ]);
 
       await client.closeSession(id);
       const { orphans } = await client.shutdownDaemon();

@@ -65,4 +65,19 @@ describe('planExternalAdoption (Story 16.3, Épico 16)', () => {
     expect(labeled?.name).toBe('@dev');
     expect(blank?.name).toBe('codex (externo)');
   });
+
+  it('propaga dispatchedBy do despacho; ausente ou em branco vira null (Story 17.2, AC3)', () => {
+    const [linked, blank, absent] = planExternalAdoption(
+      [
+        { ...session('a', 'claude-code', 'C:\\proj'), dispatchedBy: 'chefe-01' },
+        { ...session('b', 'codex', 'C:\\proj'), dispatchedBy: '  ' },
+        session('c', 'codex', 'C:\\proj')
+      ],
+      new Set(),
+      []
+    );
+    expect(linked?.dispatchedBy).toBe('chefe-01');
+    expect(blank?.dispatchedBy).toBeNull();
+    expect(absent?.dispatchedBy).toBeNull();
+  });
 });

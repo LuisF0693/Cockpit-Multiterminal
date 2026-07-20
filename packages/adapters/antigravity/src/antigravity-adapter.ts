@@ -95,7 +95,8 @@ export class AntigravityAdapter implements AgentAdapter {
   }
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
-    const pty = this.spawnFn(this.command, [], config);
+    // args extras (17.3): escolha de modelo/flags do chefe por sessão
+    const pty = this.spawnFn(this.command, config.args ?? [], config);
     return new AntigravitySession(pty, this.graceMs, config.initialInstruction);
   }
 }

@@ -13,6 +13,7 @@ import {
   planSdcRedirect,
   planTerminalLinkRouting,
   planExternalAdoption,
+  NON_DISPATCHABLE,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
   isPathWithin,
@@ -756,6 +757,32 @@ export function registerSessionIpc(
             createdAt: plan.createdAt
           });
           persistence.recordAdoption(plan.id, { name: plan.name, adapterId: plan.adapterId, pid: plan.pid });
+          // Vínculo automático worker→chefe (Story 17.2, AC1/AC3): o término
+          // do worker dispara a instrução no chefe (FR26). Mesma regra do
+          // vínculo manual: só entre terminais do MESMO projeto — violação
+          // não bloqueia a adoção, só loga.
+          if (plan.dispatchedBy !== null) {
+            const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
+            if (chefe === undefined) {
+              console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);
+            } else if (chefe.projectId === null || plan.projectId === null || chefe.projectId !== plan.projectId) {
+              // null !== null é false — projectId ausente NUNCA conta como "mesmo projeto".
+              console.warn(
+                `[daemon] vínculo do despacho ignorado: chefe (${chefe.projectId}) e worker (${plan.projectId}) em projetos diferentes`
+              );
+            } else if (NON_DISPATCHABLE.has(chefe.adapterId)) {
+              // Chefe não é um adapter de IA (ex.: shell/cmd cru) — instrução em
+              // linguagem natural no stdin dele não faz sentido nenhum.
+              console.warn(`[daemon] vínculo do despacho ignorado: chefe (${chefe.id}) não é um adapter de IA (${chefe.adapterId})`);
+            } else {
+              terminalLinkManager.create({
+                sourceId: plan.id,
+                targetId: chefe.id,
+                mode: 'auto',
+                projectId: plan.projectId
+              });
+            }
+          }
           for (const win of BrowserWindow.getAllWindows()) {
             if (deliverPort(plan.id, win.webContents)) break;
           }

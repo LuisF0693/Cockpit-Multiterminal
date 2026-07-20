@@ -156,3 +156,27 @@ describe('ShellAdapter (contrato — Story 2.1)', () => {
     expect(codes).toEqual([42]);
   });
 });
+
+describe('ShellAdapter — args extras (Story 17.3)', () => {
+  it('repassa config.args pro spawnFn (modelo/args por sessão)', async () => {
+    const seen: string[][] = [];
+    const spawnFn: ShellSpawnFn = (_shell, args) => {
+      seen.push(args);
+      return makeFakePty();
+    };
+    const adapter = new ShellAdapter({ spawnFn, graceMs: 10 });
+    await adapter.spawn({ ...CONFIG, args: ['run', 'algum-comando'] });
+    expect(seen).toEqual([['run', 'algum-comando']]);
+  });
+
+  it('sem config.args, spawnFn recebe array vazio', async () => {
+    const seen: string[][] = [];
+    const spawnFn: ShellSpawnFn = (_shell, args) => {
+      seen.push(args);
+      return makeFakePty();
+    };
+    const adapter = new ShellAdapter({ spawnFn, graceMs: 10 });
+    await adapter.spawn(CONFIG);
+    expect(seen).toEqual([[]]);
+  });
+});

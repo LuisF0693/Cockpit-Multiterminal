@@ -71,6 +71,22 @@ function makeHarness(which: string | null = 'C:/npm/claude.ps1'): Harness {
 
 const CONFIG = { cwd: 'C:/work', cols: 80, rows: 24 };
 
+describe('ClaudeCodeAdapter — args extras (Story 17.3)', () => {
+  it('repassa config.args após --settings (modelo por sessão)', async () => {
+    let seen: string[] = [];
+    const spawnFn: ClaudeSpawnFn = (_cmd, args) => {
+      seen = args;
+      return makeFakePty();
+    };
+    const adapter = new ClaudeCodeAdapter(spawnFn, () => 'C:/npm/claude.ps1', 'claude.cmd', 10, 200);
+    const session = await adapter.spawn({ ...CONFIG, args: ['--model', 'haiku'] });
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    expect(seen[0]).toBe('--settings');
+    expect(seen.slice(2)).toEqual(['--model', 'haiku']);
+  });
+});
+
 describe('buildHookSettings', () => {
   it('gera hooks para os 4 eventos com append no arquivo de status', () => {
     const settings = buildHookSettings('C:\\tmp\\s.status') as {

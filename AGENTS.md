@@ -41,7 +41,7 @@ Este arquivo define as instrucoes do projeto para o Codex CLI.
 - `npm run validate:agents`
 <!-- AIOX-MANAGED-END: commands -->
 
-## Despacho de Workers (Story 17.1)
+## Despacho de Workers (Stories 17.1/17.2)
 
 Qualquer chefe de departamento ou agente pode despachar um worker para o
 Cockpit — outro terminal abre no projeto com a IA adequada e ja recebe a
@@ -55,8 +55,34 @@ node "apps/desktop/out/main/agent-dispatch.js" --agent "@dev" --task "implementa
 - `--task` (obrigatorio): tarefa em linguagem natural — entregue como instrucao inicial ao CLI da IA.
 - `--cwd` (opcional): diretorio do projeto; default e o cwd atual. O Cockpit infere o projeto por ele.
 - `--adapter` (opcional): escolha explicita da IA (`claude-code`, `codex`, `gemini-cli`, `grok`, `antigravity`).
-- `--recommend` (opcional): NAO despacha — imprime JSON com a recomendacao da politica e os adapters disponiveis, como insumo da sua decisao.
+- `--model <nome>` (opcional, exige --adapter): o worker JA NASCE com o modelo escolhido, na grafia da CLI alvo (claude: `haiku`/`sonnet`/`opus`; codex/gemini/grok: nome completo). Consulte `models` no `--recommend`.
+- `--recommend` (opcional): NAO despacha — imprime JSON com candidatos JUSTIFICADOS pela matriz de capacidades e os adapters disponiveis, como insumo da sua decisao.
+- `--no-link` (opcional): NAO cria vinculo com o terminal do chefe.
+- `--link-from <sessionId>` (opcional): forca a origem do vinculo (sem detecao automatica).
+- `--profile <json>` (opcional): caminho alternativo da matriz de capacidades.
 - `--pipe` (opcional): named pipe do daemon; default `\\.\pipe\cockpit-daemon`.
+
+### Vinculo automatico chefe-worker (Story 17.2)
+
+Quando o despacho parte de um terminal do Cockpit, a CLI detecta o terminal
+do CHEFE sozinha (cadeia de PIDs ate uma sessao viva do daemon) e o worker
+nasce VINCULADO em modo auto: quando o worker termina (done/waiting-input),
+o chefe recebe instrucao automatica pra avaliar o resultado. Despacho de fora
+do Cockpit segue funcionando, apenas sem vinculo.
+
+### Reuso antes de abrir terminal novo
+
+Antes de despachar, verifique se JA existe um worker ocioso do mesmo
+adapter/modelo no canvas: reutilize-o (envie a tarefa pelo vinculo ou pelo
+bridge) em vez de abrir CLI duplicada. Despacho novo e para trabalho paralelo
+ou identidade de agente diferente.
+
+### Matriz de capacidades (Story 17.2)
+
+`adapters-profile.json` na raiz do repo descreve forcas/custo/notas de cada
+CLI e pode sobrescrever a ordem de preferencia por categoria. EDITE o arquivo
+quando sua percepcao mudar (ex.: "codex melhorou em review") — o --recommend
+passa a justificar com o novo conteudo, sem story nova.
 
 ### Protocolo de escolha de modelo (decisao do fundador, 2026-07-17)
 
