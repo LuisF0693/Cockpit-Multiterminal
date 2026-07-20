@@ -13,6 +13,7 @@ import {
   planSdcRedirect,
   planTerminalLinkRouting,
   planExternalAdoption,
+  isSameProject,
   NON_DISPATCHABLE,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
@@ -540,7 +541,7 @@ export function registerSessionIpc(
     const source = sessions.find((s) => s.id === req.sourceId);
     const target = sessions.find((s) => s.id === req.targetId);
     if (!source || !target) throw new Error('terminal de origem/alvo não encontrado');
-    if (source.projectId !== target.projectId) {
+    if (!isSameProject(source.projectId, target.projectId)) {
       throw new Error('vínculo só é permitido entre terminais do mesmo projeto');
     }
     return terminalLinkManager.create({
@@ -765,8 +766,8 @@ export function registerSessionIpc(
             const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
             if (chefe === undefined) {
               console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);
-            } else if (chefe.projectId === null || plan.projectId === null || chefe.projectId !== plan.projectId) {
-              // null !== null é false — projectId ausente NUNCA conta como "mesmo projeto".
+            } else if (!isSameProject(chefe.projectId, plan.projectId)) {
+              // projectId ausente NUNCA conta como "mesmo projeto" (isSameProject).
               console.warn(
                 `[daemon] vínculo do despacho ignorado: chefe (${chefe.projectId}) e worker (${plan.projectId}) em projetos diferentes`
               );
