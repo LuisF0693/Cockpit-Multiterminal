@@ -2,6 +2,7 @@ import { createConnection, type Socket } from 'node:net';
 import { FrameDecoder, encodeControl, encodeData } from './framing';
 import {
   DAEMON_PROTOCOL_VERSION,
+  type AdapterOutcomeCount,
   type DaemonInbound,
   type DaemonOutbound,
   type DaemonSessionInfo
@@ -25,7 +26,8 @@ type Pending =
       resolve: (v: { daemonPid: number; sessions: number; protocolVersion: number }) => void;
       reject: (e: Error) => void;
     }
-  | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void };
+  | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void }
+  | { kind: 'dispatch-history'; resolve: (v: AdapterOutcomeCount[]) => void; reject: (e: Error) => void };
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -169,6 +171,25 @@ export class DaemonClient {
     return await this.request('shutdown', (requestId) => ({ type: 'shutdown', requestId }));
   }
 
+  /**
+   * Empurra o snapshot mais recente do histórico de despachos (Story 18.5) —
+   * fire-and-forget, sem requestId/ack: o Main é a fonte de verdade e reenvia
+   * o snapshot inteiro a cada mudança no DispatchManager (create/outcome),
+   * então um push perdido não deixa o cache do daemon preso desatualizado.
+   */
+  pushDispatchHistory(counts: AdapterOutcomeCount[]): void {
+    this.post({ type: 'dispatch-history-push', counts });
+  }
+
+  /**
+   * Consulta o cache do daemon (Story 18.5) — usado pela CLI `agent-dispatch`
+   * no `--recommend`. Vazio se o Main nunca empurrou (app nunca aberto desde
+   * o boot do daemon, ou histórico realmente sem registros) — nunca lança.
+   */
+  async listDispatchHistory(): Promise<AdapterOutcomeCount[]> {
+    return await this.request('dispatch-history', (requestId) => ({ type: 'dispatch-history', requestId }));
+  }
+
   onData(sessionId: string, cb: (bytes: Uint8Array) => void): () => void {
     this.dataListeners.set(sessionId, cb);
     return () => this.dataListeners.delete(sessionId);
@@ -233,6 +254,11 @@ export class DaemonClient {
       case 'shutdown-done': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'shutdown') p.resolve({ orphans: msg.orphans });
+        break;
+      }
+      case 'dispatch-history-result': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'dispatch-history') p.resolve(msg.counts);
         break;
       }
       case 'session-exit':

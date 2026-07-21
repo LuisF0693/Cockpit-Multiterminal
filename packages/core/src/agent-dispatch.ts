@@ -121,3 +121,28 @@ export function findDispatcherSession(
   }
   return null;
 }
+
+/**
+ * Referência mínima de sessão viva pro reuso de worker ocioso (Story 18.1) —
+ * campos além de `LiveSessionRef` porque a checagem precisa do adapter e do
+ * status, não do pid.
+ */
+export interface IdleSessionRef {
+  id: string;
+  adapterId: string;
+  status: string;
+}
+
+/** Status considerados "ociosos" — o worker terminou o turno e aceita nova instrução. */
+const IDLE_STATUSES = new Set(['waiting-input', 'done']);
+
+/**
+ * Encontra a primeira sessão ociosa (`waiting-input` ou `done`) do MESMO
+ * adapter do candidato escolhido (Story 18.1, AC1) — o chamador usa isso só
+ * pra AVISAR (AC3), nunca pra bloquear o despacho (AC5). Pura: quem consulta
+ * `listSessions` no daemon é a CLI; aqui só decide.
+ */
+export function findIdleCandidate(adapterId: string, sessions: readonly IdleSessionRef[]): string | null {
+  const match = sessions.find((s) => s.adapterId === adapterId && IDLE_STATUSES.has(s.status));
+  return match?.id ?? null;
+}

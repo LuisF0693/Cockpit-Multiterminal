@@ -33,11 +33,21 @@ export { planTerminalLinkRouting } from './terminal-link-routing';
 export type { TerminalLinkRouting } from './terminal-link-routing';
 export { planExternalAdoption } from './external-adoption';
 export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
-export { classifyDispatchTask, planAgentDispatch, findDispatcherSession, NON_DISPATCHABLE } from './agent-dispatch';
-export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef } from './agent-dispatch';
-export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates } from './adapter-profile';
-export type { AdapterMatrix, AdapterProfile, CandidateExplanation } from './adapter-profile';
+export {
+  classifyDispatchTask,
+  planAgentDispatch,
+  findDispatcherSession,
+  findIdleCandidate,
+  NON_DISPATCHABLE
+} from './agent-dispatch';
+export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef, IdleSessionRef } from './agent-dispatch';
+export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates, aggregateDispatchOutcomes } from './adapter-profile';
+export type { AdapterMatrix, AdapterProfile, CandidateExplanation, AdapterOutcomeCounts } from './adapter-profile';
 export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
 export { LearningManager, canTransitionLearning } from './learning-manager';
 export type { Learning, LearningEvent, LearningListener } from './learning-manager';
+export { isSameProject } from './project-link-guard';
+export { DispatchManager } from './dispatch-manager';
+export type { DispatchRecord, DispatchEvent, DispatchListener } from './dispatch-manager';
+export type { DispatchOutcome } from './state-store/types';

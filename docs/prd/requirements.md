@@ -72,3 +72,11 @@
 - **NFR7:** O core (session manager, state store, lifecycle engine) não pode ter dependência de provider específico; toda especificidade vive nos adapters.
 - **NFR8:** Persistência incremental sem degradar performance dos terminais (gravação assíncrona/batched, nunca bloqueante do input do usuário).
 - **NFR9:** Playwright é a única exceção ao NFR1 de dependências mínimas do core — dependência externa nova, confinada ao processo de preview de browser (Épico 10), nunca importada por core/shared (mesmo isolamento de provider do NFR7).
+
+### Functional (Épico 18)
+
+- **FR59:** Antes de despachar um novo worker, o sistema deve verificar se já existe uma sessão OCIOSA do mesmo adapter (e mesmo modelo, quando aplicável) disponível no daemon, avisando o chefe — reduzindo terminais duplicados desnecessários (reforça a instrução já existente no AGENTS.md com uma verificação real).
+- **FR60:** O sistema deve oferecer um atalho de teclado que navegue, em ordem, entre os terminais em estado `waiting-input`/`error`, centralizando o canvas e focando o terminal alvo — funcional mesmo com pan/zoom e além do limite indexado do atalho existente (Ctrl+1..9).
+- **FR61:** A regra "vínculo só é permitido entre terminais do mesmo projeto" (FR25) deve ter o MESMO comportamento de recusa tanto no vínculo manual quanto no automático (Épico 17, Story 17.2) — hoje divergem: um bloqueia com erro, o outro apenas registra aviso e segue.
+- **FR62:** O sistema deve registrar um histórico de despachos de workers (quem despachou, agente, adapter, modelo, projeto, timestamp e desfecho quando disponível) — insumo factual para decisões futuras de roteamento, sem alterar a matriz de capacidades editável já existente automaticamente.
+- **FR63:** O `--recommend` do despacho deve exibir, ao lado de cada candidato, um contador de desfechos históricos (quantas aprovações/rejeições) por adapter e categoria, calculado a partir do histórico do FR62 — dado bruto de apoio à decisão do chefe, nunca reordenando a matriz sozinho.

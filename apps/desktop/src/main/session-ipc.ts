@@ -3,16 +3,19 @@ import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promise
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
+  DispatchManager,
   PersistenceManager,
   SessionRegistry,
   TaskManager,
   TerminalLinkManager,
   WriteQueue,
+  aggregateDispatchOutcomes,
   planSdcReviewRouting,
   planSdcCorrectionRouting,
   planSdcRedirect,
   planTerminalLinkRouting,
   planExternalAdoption,
+  isSameProject,
   NON_DISPATCHABLE,
   ALWAYS_HIDDEN_NAMES,
   isGitignored,
@@ -65,7 +68,7 @@ import {
   type TaskEvent,
   type TerminalLinkEvent
 } from '@cockpit/shared';
-import { readScrollbackTail, type DaemonSessionInfo } from '@cockpit/pty-host';
+import { readScrollbackTail, type AdapterOutcomeCount, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * Cola entre SessionRegistry (fonte de verdade, @cockpit/core) e o mundo:
@@ -95,6 +98,13 @@ export interface PtyBackend {
   onHostExit(cb: () => void): void;
   listSessions?(): Promise<DaemonSessionInfo[]>;
   adoptPty?(sessionId: string): Promise<{ pid: number; rendererPort: Electron.MessagePortMain }>;
+  /**
+   * Empurra o snapshot mais recente do histórico de despachos pro cache do
+   * daemon (Story 18.5) — só o backend do daemon implementa; o utilityProcess
+   * clássico (COCKPIT_NO_DAEMON=1) não tem CLI externa pra servir, então o
+   * método fica ausente e a chamada vira no-op (optional chaining no wiring).
+   */
+  pushDispatchHistory?(counts: AdapterOutcomeCount[]): void;
 }
 
 export interface SessionIpcHandle {
@@ -160,6 +170,29 @@ export function registerSessionIpc(
       win.webContents.send(IpcChannels.terminalLinkEvent, event);
     }
   });
+
+  // Histórico de despachos (Épico 18, Story 18.4) — mesmo padrão do
+  // TaskManager/LearningManager. Sem push pra renderer: a story deixa o
+  // painel de UI explicitamente fora de escopo (AC5), então não há
+  // consumidor pro evento de domínio ainda — `onEvent` fica disponível pra
+  // quando essa UI ("árvore de delegação") existir.
+  const dispatchManager = new DispatchManager(store, queue);
+  dispatchManager.load();
+
+  // Contador histórico no `--recommend` (Story 18.5, FR63): a CLI
+  // `agent-dispatch` roda num processo Node puro separado do Main — sem
+  // acesso ao SQLite (better-sqlite3 aqui é rebuildado pra ABI do Electron,
+  // decisão crítica 2 da 1.4) nem ao DispatchManager (vive só neste
+  // processo). O Main já é cliente do daemon (DaemonManager, Story 6.3):
+  // reusa essa conexão pra empurrar o snapshot agregado sempre que o
+  // histórico muda — o daemon vira um cache simples que a CLI consulta pelo
+  // MESMO pipe que já usa hoje. `pushDispatchHistory` é opcional no
+  // PtyBackend (só o backend do daemon implementa) — nunca lança se ausente.
+  const pushDispatchHistory = (): void => {
+    ptyHost.pushDispatchHistory?.(aggregateDispatchOutcomes(dispatchManager.list()));
+  };
+  pushDispatchHistory(); // snapshot inicial — histórico carregado no boot já fica disponível
+  dispatchManager.onEvent(() => pushDispatchHistory());
 
   // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
   // para o handle já nascer sabendo se há uma Recovery Screen a resolver.
@@ -249,6 +282,34 @@ export function registerSessionIpc(
       }
     } catch (err) {
       console.error('[terminalLink] roteamento automático falhou:', err);
+    }
+  });
+
+  // Desfecho do despacho (Story 18.4, AC3) — mesmo ponto que dispara o
+  // roteamento de vínculo automático acima (Story 9.2): estado terminal do
+  // agente atualiza o registro histórico do worker, quando existe um
+  // (recordOutcome é no-op pra worker sem despacho rastreável, AC4).
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    const status = event.session.agentStatus;
+    if (status !== 'done' && status !== 'error') return;
+    try {
+      dispatchManager.recordOutcome(event.session.id, status);
+    } catch (err) {
+      console.error('[dispatch] registro de desfecho falhou:', err);
+    }
+  });
+
+  // Fechamento do worker sem status terminal explícito (Story 18.4, AC3) —
+  // complementa o listener acima quando o terminal fecha ('closed', mesma
+  // exclusão definitiva usada pela limpeza de vínculo logo acima) antes de
+  // passar por done/error.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'closed') return;
+    try {
+      dispatchManager.recordOutcome(event.session.id, 'closed');
+    } catch (err) {
+      console.error('[dispatch] registro de fechamento falhou:', err);
     }
   });
 
@@ -540,7 +601,7 @@ export function registerSessionIpc(
     const source = sessions.find((s) => s.id === req.sourceId);
     const target = sessions.find((s) => s.id === req.targetId);
     if (!source || !target) throw new Error('terminal de origem/alvo não encontrado');
-    if (source.projectId !== target.projectId) {
+    if (!isSameProject(source.projectId, target.projectId)) {
       throw new Error('vínculo só é permitido entre terminais do mesmo projeto');
     }
     return terminalLinkManager.create({
@@ -577,6 +638,10 @@ export function registerSessionIpc(
     return taskManager.updateState(req.id, req.state);
   });
   ipcMain.handle(IpcChannels.taskList, () => taskManager.list());
+
+  // Histórico de despachos (Story 18.4, AC5) — consulta simples, sem
+  // paginação/filtro; mesmo padrão de taskList/learningList.
+  ipcMain.handle(IpcChannels.dispatchHistory, () => dispatchManager.list());
 
   // Decisao humana (Story 5.3): estado da tarefa (TaskManager) +, no
   // redirect, transferencia do vinculo (SessionRegistry) — so o Main enxerga
@@ -762,11 +827,30 @@ export function registerSessionIpc(
           // vínculo manual: só entre terminais do MESMO projeto — violação
           // não bloqueia a adoção, só loga.
           if (plan.dispatchedBy !== null) {
+            // Histórico de despachos (Story 18.4, AC2/AC4): registra SEMPRE
+            // que há `dispatchedBy`, mesmo quando o vínculo automático abaixo
+            // acaba recusado (chefe sumiu do registry, projetos diferentes,
+            // adapter não-IA). AC4 exclui só o caso SEM `dispatchedBy` — a
+            // recusa do vínculo não desfaz o fato de que um despacho
+            // ocorreu, e o FR63 (Story 18.5) precisa desse dado bruto pra
+            // contar tentativas por adapter independente do vínculo ter
+            // "pegado". `model` fica null: não é propagado até este ponto
+            // (Épico 17.3 escolhe o modelo por sessão, mas essa escolha não
+            // atravessa a adoção externa).
+            dispatchManager.create({
+              dispatchedBy: plan.dispatchedBy,
+              workerId: plan.id,
+              label: plan.name,
+              adapterId: plan.adapterId,
+              model: null,
+              projectId: plan.projectId
+            });
+
             const chefe = registry.list().find((s) => s.id === plan.dispatchedBy);
             if (chefe === undefined) {
               console.warn(`[daemon] vínculo do despacho ignorado: chefe ${plan.dispatchedBy} não existe no registry`);
-            } else if (chefe.projectId === null || plan.projectId === null || chefe.projectId !== plan.projectId) {
-              // null !== null é false — projectId ausente NUNCA conta como "mesmo projeto".
+            } else if (!isSameProject(chefe.projectId, plan.projectId)) {
+              // projectId ausente NUNCA conta como "mesmo projeto" (isSameProject).
               console.warn(
                 `[daemon] vínculo do despacho ignorado: chefe (${chefe.projectId}) e worker (${plan.projectId}) em projetos diferentes`
               );

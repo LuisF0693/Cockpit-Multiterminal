@@ -2,7 +2,7 @@ import { MessageChannelMain, app } from 'electron';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DaemonClient, DEFAULT_DAEMON_PIPE, type DaemonSessionInfo } from '@cockpit/pty-host';
+import { DaemonClient, DEFAULT_DAEMON_PIPE, type AdapterOutcomeCount, type DaemonSessionInfo } from '@cockpit/pty-host';
 import type { ScrollbackConfig } from './pty-host-manager';
 
 /**
@@ -153,6 +153,16 @@ export class DaemonManager {
 
   resizePty(ptyId: string, cols: number, rows: number): void {
     this.client?.resize(ptyId, cols, rows);
+  }
+
+  /**
+   * Empurra o snapshot do histórico de despachos pro cache do daemon (Story
+   * 18.5) — best-effort como resizePty acima: sem client conectado (boot
+   * ainda subindo, ou reconexão em andamento), o push simplesmente some; o
+   * próximo evento do DispatchManager reenvia o snapshot inteiro.
+   */
+  pushDispatchHistory(counts: AdapterOutcomeCount[]): void {
+    this.client?.pushDispatchHistory(counts);
   }
 
   /**

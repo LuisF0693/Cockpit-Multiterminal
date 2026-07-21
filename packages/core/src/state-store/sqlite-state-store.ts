@@ -1,7 +1,9 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type {
+  DispatchOutcome,
   LearningStatus,
   PersistedBrowserTile,
+  PersistedDispatchRecord,
   PersistedEvent,
   PersistedLearning,
   PersistedTask,
@@ -33,7 +35,7 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
 }
 
-const SCHEMA_VERSION = '10';
+const SCHEMA_VERSION = '11';
 
 interface TerminalRow {
   id: string;
@@ -84,6 +86,19 @@ interface LearningRow {
   status: string;
   created_at: number;
   updated_at: number;
+}
+
+interface DispatchRecordRow {
+  id: string;
+  dispatched_by: string;
+  worker_id: string;
+  label: string;
+  adapter_id: string;
+  model: string | null;
+  project_id: string | null;
+  created_at: number;
+  outcome: string | null;
+  outcome_at: number | null;
 }
 
 export class SqliteStateStore implements StateStore {
@@ -149,11 +164,24 @@ export class SqliteStateStore implements StateStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS dispatch_records (
+        id TEXT PRIMARY KEY,
+        dispatched_by TEXT NOT NULL,
+        worker_id TEXT NOT NULL,
+        label TEXT NOT NULL,
+        adapter_id TEXT NOT NULL,
+        model TEXT,
+        project_id TEXT,
+        created_at INTEGER NOT NULL,
+        outcome TEXT,
+        outcome_at INTEGER
+      );
       CREATE INDEX IF NOT EXISTS idx_terminals_active ON terminals (archived_at) WHERE archived_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_terminal_links_source ON terminal_links (source_id);
       CREATE INDEX IF NOT EXISTS idx_terminal_links_target ON terminal_links (target_id);
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts);
       CREATE INDEX IF NOT EXISTS idx_events_terminal ON events (terminal_id, type);
+      CREATE INDEX IF NOT EXISTS idx_dispatch_records_worker ON dispatch_records (worker_id);
     `);
     this.migrate();
     this.setMeta('schema_version', SCHEMA_VERSION);
@@ -242,6 +270,7 @@ export class SqliteStateStore implements StateStore {
     // (mesmo caso da tabela tasks na v3→v4).
     // v8 → v9 (Épico 10): tabela browser_tiles é NOVA — mesmo caso acima.
     // v9 → v10 (Épico 11): tabela learnings é NOVA — mesmo caso acima.
+    // v10 → v11 (Épico 18): tabela dispatch_records é NOVA — mesmo caso acima.
   }
 
   upsertTerminal(t: PersistedTerminal): void {
@@ -517,6 +546,50 @@ export class SqliteStateStore implements StateStore {
       status: r.status as LearningStatus,
       createdAt: r.created_at,
       updatedAt: r.updated_at
+    }));
+  }
+
+  createDispatchRecord(r: PersistedDispatchRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO dispatch_records (id, dispatched_by, worker_id, label, adapter_id, model, project_id, created_at, outcome, outcome_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        r.id,
+        r.dispatchedBy,
+        r.workerId,
+        r.label,
+        r.adapterId,
+        r.model,
+        r.projectId,
+        r.createdAt,
+        r.outcome,
+        r.outcomeAt
+      );
+  }
+
+  updateDispatchOutcome(workerId: string, outcome: DispatchOutcome, outcomeAt: number): void {
+    this.db
+      .prepare('UPDATE dispatch_records SET outcome = ?, outcome_at = ? WHERE worker_id = ?')
+      .run(outcome, outcomeAt, workerId);
+  }
+
+  listDispatchRecords(): PersistedDispatchRecord[] {
+    const rows = this.db
+      .prepare('SELECT * FROM dispatch_records ORDER BY created_at DESC')
+      .all() as DispatchRecordRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      dispatchedBy: r.dispatched_by,
+      workerId: r.worker_id,
+      label: r.label,
+      adapterId: r.adapter_id,
+      model: r.model ?? null,
+      projectId: r.project_id ?? null,
+      createdAt: r.created_at,
+      outcome: (r.outcome as DispatchOutcome | null) ?? null,
+      outcomeAt: r.outcome_at ?? null
     }));
   }
 

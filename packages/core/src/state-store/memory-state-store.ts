@@ -1,7 +1,9 @@
 import type { LayoutTile, TaskRole } from '@cockpit/shared';
 import type {
+  DispatchOutcome,
   LearningStatus,
   PersistedBrowserTile,
+  PersistedDispatchRecord,
   PersistedEvent,
   PersistedLearning,
   PersistedTask,
@@ -24,6 +26,7 @@ export class MemoryStateStore implements StateStore {
   readonly terminalLinks = new Map<string, PersistedTerminalLink>();
   readonly browserTiles = new Map<string, PersistedBrowserTile>();
   readonly learnings = new Map<string, PersistedLearning>();
+  readonly dispatchRecords = new Map<string, PersistedDispatchRecord>();
 
   init(): void {
     this.meta.set('schema_version', '1');
@@ -181,6 +184,20 @@ export class MemoryStateStore implements StateStore {
 
   listLearnings(): PersistedLearning[] {
     return [...this.learnings.values()].sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  createDispatchRecord(r: PersistedDispatchRecord): void {
+    this.dispatchRecords.set(r.id, r);
+  }
+
+  updateDispatchOutcome(workerId: string, outcome: DispatchOutcome, outcomeAt: number): void {
+    for (const [id, r] of this.dispatchRecords) {
+      if (r.workerId === workerId) this.dispatchRecords.set(id, { ...r, outcome, outcomeAt });
+    }
+  }
+
+  listDispatchRecords(): PersistedDispatchRecord[] {
+    return [...this.dispatchRecords.values()].sort((a, b) => b.createdAt - a.createdAt);
   }
 
   close(): void {
