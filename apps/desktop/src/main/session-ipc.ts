@@ -9,6 +9,7 @@ import {
   TaskManager,
   TerminalLinkManager,
   WriteQueue,
+  aggregateDispatchOutcomes,
   planSdcReviewRouting,
   planSdcCorrectionRouting,
   planSdcRedirect,
@@ -67,7 +68,7 @@ import {
   type TaskEvent,
   type TerminalLinkEvent
 } from '@cockpit/shared';
-import { readScrollbackTail, type DaemonSessionInfo } from '@cockpit/pty-host';
+import { readScrollbackTail, type AdapterOutcomeCount, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * Cola entre SessionRegistry (fonte de verdade, @cockpit/core) e o mundo:
@@ -97,6 +98,13 @@ export interface PtyBackend {
   onHostExit(cb: () => void): void;
   listSessions?(): Promise<DaemonSessionInfo[]>;
   adoptPty?(sessionId: string): Promise<{ pid: number; rendererPort: Electron.MessagePortMain }>;
+  /**
+   * Empurra o snapshot mais recente do histórico de despachos pro cache do
+   * daemon (Story 18.5) — só o backend do daemon implementa; o utilityProcess
+   * clássico (COCKPIT_NO_DAEMON=1) não tem CLI externa pra servir, então o
+   * método fica ausente e a chamada vira no-op (optional chaining no wiring).
+   */
+  pushDispatchHistory?(counts: AdapterOutcomeCount[]): void;
 }
 
 export interface SessionIpcHandle {
@@ -170,6 +178,21 @@ export function registerSessionIpc(
   // quando essa UI ("árvore de delegação") existir.
   const dispatchManager = new DispatchManager(store, queue);
   dispatchManager.load();
+
+  // Contador histórico no `--recommend` (Story 18.5, FR63): a CLI
+  // `agent-dispatch` roda num processo Node puro separado do Main — sem
+  // acesso ao SQLite (better-sqlite3 aqui é rebuildado pra ABI do Electron,
+  // decisão crítica 2 da 1.4) nem ao DispatchManager (vive só neste
+  // processo). O Main já é cliente do daemon (DaemonManager, Story 6.3):
+  // reusa essa conexão pra empurrar o snapshot agregado sempre que o
+  // histórico muda — o daemon vira um cache simples que a CLI consulta pelo
+  // MESMO pipe que já usa hoje. `pushDispatchHistory` é opcional no
+  // PtyBackend (só o backend do daemon implementa) — nunca lança se ausente.
+  const pushDispatchHistory = (): void => {
+    ptyHost.pushDispatchHistory?.(aggregateDispatchOutcomes(dispatchManager.list()));
+  };
+  pushDispatchHistory(); // snapshot inicial — histórico carregado no boot já fica disponível
+  dispatchManager.onEvent(() => pushDispatchHistory());
 
   // Antecipado (Story 4.3): precisa estar resolvido ANTES do primeiro IPC
   // para o handle já nascer sabendo se há uma Recovery Screen a resolver.

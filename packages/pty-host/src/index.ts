@@ -8,6 +8,6 @@ export { AdapterRegistry } from './adapter-registry';
 export { FrameDecoder, encodeControl, encodeData, FRAME_CONTROL, FRAME_DATA } from './framing';
 export type { Frame } from './framing';
 export { DAEMON_PROTOCOL_VERSION, DEFAULT_DAEMON_PIPE } from './daemon-protocol';
-export type { DaemonInbound, DaemonOutbound, DaemonSessionInfo } from './daemon-protocol';
+export type { DaemonInbound, DaemonOutbound, DaemonSessionInfo, AdapterOutcomeCount } from './daemon-protocol';
 export { DaemonServer } from './daemon-server';
 export { DaemonClient } from './daemon-client';

@@ -41,7 +41,29 @@ export type DaemonInbound =
   | { type: 'list-sessions'; requestId: number }
   /** Heartbeat (6.4): prova de vida + versão sem efeitos colaterais. */
   | { type: 'ping'; requestId: number }
-  | { type: 'shutdown'; requestId: number };
+  | { type: 'shutdown'; requestId: number }
+  /**
+   * Histórico de despachos (Épico 18, Story 18.5) — o Main empurra o
+   * snapshot mais recente (fire-and-forget, sem ack: o próximo evento do
+   * DispatchManager reenvia o snapshot inteiro, então perder um push não
+   * deixa o cache preso desatualizado por muito tempo). O DAEMON é só um
+   * RELAY em memória — a CLI (`agent-dispatch`, processo separado do Main)
+   * não tem outro jeito seguro de ler o histórico: ele vive em SQLite aberto
+   * pelo Main com o `better-sqlite3` rebuildado pra ABI do Electron (decisão
+   * crítica 2 da Story 1.4), que não carrega sob o `node` puro que roda a
+   * CLI. O Main já é cliente do próprio daemon (DaemonManager, Story 6.3) —
+   * reusar essa conexão evita abrir um segundo canal.
+   */
+  | { type: 'dispatch-history-push'; counts: AdapterOutcomeCount[] }
+  /** Consulta do cache acima — usada pela CLI no `--recommend` (Story 18.5). */
+  | { type: 'dispatch-history'; requestId: number };
+
+/** Contagem agregada de desfechos por adapter (Épico 18, Story 18.5, FR63). */
+export interface AdapterOutcomeCount {
+  adapterId: string;
+  done: number;
+  error: number;
+}
 
 /** Metadados de sessão viva no daemon (list-sessions — Story 6.2). */
 export interface DaemonSessionInfo {
@@ -69,4 +91,6 @@ export type DaemonOutbound =
   | { type: 'attached'; requestId: number; id: string; ok: boolean }
   | { type: 'sessions'; requestId: number; sessions: DaemonSessionInfo[] }
   | { type: 'pong'; requestId: number; daemonPid: number; sessions: number; protocolVersion: number }
-  | { type: 'shutdown-done'; requestId: number; orphans: number };
+  | { type: 'shutdown-done'; requestId: number; orphans: number }
+  /** Resposta à consulta de histórico (Story 18.5) — cache do daemon, pode vir vazio. */
+  | { type: 'dispatch-history-result'; requestId: number; counts: AdapterOutcomeCount[] };

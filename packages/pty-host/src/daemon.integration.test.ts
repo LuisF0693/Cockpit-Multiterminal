@@ -103,6 +103,41 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
     }
   );
 
+  it(
+    'dispatch-history: cache começa vazio, um cliente empurra e OUTRO cliente lê o mesmo snapshot (Story 18.5)',
+    { timeout: 30_000 },
+    async () => {
+      const pipe = uniquePipe();
+      const server = await startDaemon(pipe);
+
+      // CLI (agent-dispatch) consulta ANTES de qualquer push do Main — AC3:
+      // sem histórico, o cache vem vazio, nunca lança.
+      const cli = new DaemonClient();
+      await cli.connect(pipe);
+      expect(await cli.listDispatchHistory()).toEqual([]);
+
+      // Main empurra o snapshot numa conexão SEPARADA — mesmo padrão real
+      // (DaemonManager do Main é um cliente distinto da CLI).
+      const main = new DaemonClient();
+      await main.connect(pipe);
+      main.pushDispatchHistory([{ adapterId: 'claude-code', done: 2, error: 1 }]);
+
+      // Push é fire-and-forget (sem ack) — poll até o cache do daemon refletir.
+      const deadline = Date.now() + 10_000;
+      let counts: Awaited<ReturnType<typeof cli.listDispatchHistory>> = [];
+      while (Date.now() < deadline) {
+        counts = await cli.listDispatchHistory();
+        if (counts.length > 0) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(counts).toEqual([{ adapterId: 'claude-code', done: 2, error: 1 }]);
+
+      cli.disconnect();
+      main.disconnect();
+      await server.shutdown();
+    }
+  );
+
   it('handshake com versão errada recebe hello-error', { timeout: 15_000 }, async () => {
     const pipe = uniquePipe();
     const server = await startDaemon(pipe);
