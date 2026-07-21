@@ -41,8 +41,8 @@ export {
   NON_DISPATCHABLE
 } from './agent-dispatch';
 export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef, IdleSessionRef } from './agent-dispatch';
-export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates } from './adapter-profile';
-export type { AdapterMatrix, AdapterProfile, CandidateExplanation } from './adapter-profile';
+export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates, aggregateDispatchOutcomes } from './adapter-profile';
+export type { AdapterMatrix, AdapterProfile, CandidateExplanation, AdapterOutcomeCounts } from './adapter-profile';
 export { BrowserTileManager } from './browser-tile-manager';
 export type { BrowserTile, BrowserTileEvent, BrowserTileListener } from './browser-tile-manager';
 export { LearningManager, canTransitionLearning } from './learning-manager';

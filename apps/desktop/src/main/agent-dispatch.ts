@@ -12,7 +12,7 @@ import {
   ulid,
   type AdapterMatrix
 } from '@cockpit/core';
-import { DaemonClient, DEFAULT_DAEMON_PIPE, type DaemonSessionInfo } from '@cockpit/pty-host';
+import { DaemonClient, DEFAULT_DAEMON_PIPE, type AdapterOutcomeCount, type DaemonSessionInfo } from '@cockpit/pty-host';
 
 /**
  * CLI agent-dispatch (Stories 17.1/17.2) — despacho genérico de workers por
@@ -200,11 +200,26 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
     // --recommend: só CONSULTA a política + matriz — o chefe decide (ou
     // pergunta ao usuário) e despacha depois com --adapter explícito.
     if (argv.includes('--recommend')) {
+      // Contador histórico (Story 18.5, FR63): a CLI não tem acesso direto
+      // ao histórico do Main (SQLite fechado por driver de ABI do Electron —
+      // ver Dev Notes) — consulta o cache que o Main empurra pro daemon pelo
+      // MESMO pipe já usado aqui. Puramente informativo (AC2/AC3): falha na
+      // consulta (daemon antigo sem o comando, Main nunca conectou) cai pra
+      // array vazio — `explainCandidates` já trata isso como "sem sufixo".
+      let outcomeCounts: AdapterOutcomeCount[] = [];
+      try {
+        outcomeCounts = await client.listDispatchHistory();
+      } catch (err) {
+        console.error(
+          '[agent-dispatch] histórico de despachos indisponível — --recommend segue sem o contador:',
+          err instanceof Error ? err.message : err
+        );
+      }
       console.log(
         JSON.stringify(
           {
             category: plan.category,
-            candidates: explainCandidates(plan.candidates, matrix),
+            candidates: explainCandidates(plan.candidates, matrix, outcomeCounts),
             available,
             matrixSource
           },

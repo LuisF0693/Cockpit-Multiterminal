@@ -5,7 +5,7 @@ import type { AgentSession } from '@cockpit/adapter-contract';
 import type { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import { FrameDecoder, encodeControl, encodeData } from './framing';
-import { DAEMON_PROTOCOL_VERSION, type DaemonInbound, type DaemonOutbound } from './daemon-protocol';
+import { DAEMON_PROTOCOL_VERSION, type AdapterOutcomeCount, type DaemonInbound, type DaemonOutbound } from './daemon-protocol';
 
 /**
  * DaemonServer (Story 6.1, decisão crítica 5) — hospeda sessões PTY num
@@ -44,6 +44,8 @@ export class DaemonServer {
   private readonly sessions = new Map<string, DaemonSession>();
   private scrollbackConfig: { dir: string; maxFileBytes: number; restoreTailBytes: number } | null = null;
   private shuttingDown = false;
+  /** Cache do histórico de despachos (Story 18.5) — empurrado pelo Main, servido a qualquer cliente. */
+  private dispatchHistoryCache: AdapterOutcomeCount[] = [];
 
   constructor(private readonly registry: AdapterRegistry) {}
 
@@ -260,6 +262,12 @@ export class DaemonServer {
         });
         break;
       }
+      case 'dispatch-history-push':
+        this.dispatchHistoryCache = msg.counts;
+        break;
+      case 'dispatch-history':
+        this.send(socket, { type: 'dispatch-history-result', requestId: msg.requestId, counts: this.dispatchHistoryCache });
+        break;
     }
   }
 
