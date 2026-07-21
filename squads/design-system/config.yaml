@@ -1,0 +1,471 @@
+pack:
+  name: design-system
+  version: "2.1.0"
+  description: >-
+    Squad provider/core transitório do futuro design-ops, com runtime técnico
+    para aiox-design-starter. Especializado em tokens, foundations,
+    componentes, acessibilidade, registry, metadata machine-readable,
+    DesignOps e delivery local-first.
+  icon: "🎨"
+  author: Synkra Hub
+  slashPrefix: DS
+  title: Design System Squad
+
+type: specialist
+
+# --- Hub Governance (Story 60.8) ---
+bu_mapping: "hub-framework"
+
+artifact_contracts:
+  - artifact_id: "ds-health-report"
+    template_path: "templates/ds-health-report-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "ds-migration-strategy"
+    template_path: "templates/ds-migration-strategy-tmpl.md"
+    lifecycle_states: [draft, validated, approved, superseded, archived]
+  - artifact_id: "ds-tokens-schema"
+    template_path: "templates/ds-tokens-schema-tmpl.yaml"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "design-fidelity-report"
+    template_path: "templates/design-fidelity-report-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "critical-eye-cycle-report"
+    template_path: "templates/critical-eye-cycle-report-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+
+supported_modes:
+  - CRIAR
+  - VALIDAR
+  - CONFIGURAR
+entry_agent: design-chief
+domain_model:
+  Strategic:
+    label: "Estratégico"
+    scope: "Governança, DesignOps, auditoria estrutural e decisões de adoção"
+  Tactical:
+    label: "Tático"
+    scope: "Tokens, foundations, componentes, documentação e contratos públicos do sistema"
+  Operational:
+    label: "Operacional"
+    scope: "Validação, scans, métricas, Storybook e execução de checks do provider"
+logging:
+  runtime_audit: true
+  error_behavior: fail_loud
+  error_handling:
+    on_validation_fail: block_publish
+    on_handoff_fail: emit_recovery_handoff
+    on_runtime_error: preserve_partial_artifact
+composition_mapping:
+  tokens: token-registry.yaml
+  atoms: tasks/
+  molecules: workflows/
+  organisms: templates/
+  templates: templates/
+  instances: outputs/design-system/
+settings:
+  activation:
+    show_context_report: true
+    show_preload_report: true
+    show_quick_commands: true
+    quick_commands_limit: 6
+  preload:
+    max_token_files: 5
+    max_blueprint_files: 3
+independence: true
+independence_details: |
+  This squad is completely self-contained:
+  - No database required
+  - No external APIs
+  - Works with any codebase (React, Vue, HTML/CSS)
+  - All operations are filesystem-based
+dependencies:
+  optional:
+    - name: Node.js
+      version: '>=18.0'
+      description: For component generation and npm packages
+    - name: Tailwind CSS
+      version: '>=4.0.0'
+      description: CSS-first token system with @theme
+    - name: shadcn/ui CLI
+      version: latest
+      description: Registry-first component distribution
+metadata:
+  # MIGRATION-SCHEMA-001 backfill
+  name: design-system
+  status: active
+  domain: design-system
+  version: 2.1.0
+  score: 10
+workspace_integration:
+  level: controlled_runtime_consumer
+  rationale: >-
+    Design squad depende de contexto canônico de Design System por BU/app, mas não é owner da integração com workspace.
+    O gate de readiness vem do COO e o squad só expande contexto local depois de receber liberação.
+  read_paths:
+    - workspace/_system/config.yaml
+    - workspace/businesses/
+    - workspace/businesses/{business}/L2-tactical/brand/brand-context.yaml
+    - workspace/businesses/{business}/L2-tactical/design/social-visual-tokens.yaml
+    - workspace/businesses/{business}/L2-tactical/design/marketing-ui-patterns.yaml
+  write_paths: []
+  readiness_owner: workspace-chief
+  readiness_resolver: workspace/scripts/resolve-squad-workspace-readiness.cjs
+tier_system:
+  tier_0_foundation:
+    description: Entry point agents for operations and adoption strategy
+    agents: []
+  tier_1_masters:
+    description: Execution masters with specialist practices
+    agents: []
+  tier_2_specialists:
+    description: Deep specialists for DS implementation
+    agents: []
+  orchestrator:
+    description: Routes requests
+    agent: design-chief
+agents:
+  - id: design-operator
+    name: "Design Operator"
+    role: "Human approval, cross-squad signoff and business context"
+    tier: human
+    executor_profile:
+      story_role: "executor"
+      can_execute: true
+      sinkra_type: Human
+      human_in_the_loop: true
+      output_schema: design-approval-brief
+  - id: design-runtime
+    name: "Design Runtime"
+    role: "Worker for deterministic validation, extraction and packaging"
+    tier: worker
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Worker
+      human_in_the_loop: true
+      output_schema: design-runtime-report
+  - id: design-chief
+    name: "Design Chief"
+    role: "Orchestrator and design-system lead"
+    tier: 0
+    executor_profile:
+      story_role: "executor"
+      can_execute: true
+      sinkra_type: Agent
+      human_in_the_loop: true
+      output_schema: design-routing-decision
+  - id: brad-frost
+    name: "Brad Frost"
+    role: "Design system architect and pattern consolidator"
+    tier: 2
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: ds-pattern-audit
+  - id: dave-malouf
+    name: "Dave Malouf"
+    role: "DesignOps governance and scaling"
+    tier: 1
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: designops-assessment
+  - id: dan-mall
+    name: "Dan Mall"
+    role: "Stakeholder buy-in and collaboration"
+    tier: 1
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: stakeholder-collage-report
+  - id: nano-banana-generator
+    name: "Nano Banana Generator"
+    role: "Visual generation and exploration"
+    tier: 2
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: visual-generation-pack
+  - id: ds-token-architect
+    name: "DS Token Architect"
+    role: "Token extraction and schema design"
+    tier: 2
+    ide_sync:
+      enabled: false
+      rationale: "Fonte atual não é parseável pelo runtime; manter fora da projeção até normalização"
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: token-schema-package
+  - id: ds-foundations-lead
+    name: "DS Foundations Lead"
+    role: "Foundations, primitives and system rules"
+    tier: 2
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: foundations-spec
+  - id: storybook-expert
+    name: "Storybook Expert"
+    role: "Documentation and stories"
+    tier: 2
+    executor_profile:
+      story_role: "consultant"
+      can_execute: false
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: storybook-governance-report
+  - id: page-composer
+    name: "Page Composer"
+    role: "Page choreography and layout composition"
+    tier: 2
+    executor_profile:
+      story_role: "executor"
+      can_execute: true
+      sinkra_type: Clone
+      human_in_the_loop: true
+      output_schema: page-composition-report
+tasks:
+  - ds-audit-codebase
+  - ds-bootstrap-starter
+  - ds-build-component
+  - ds-build-mcp-server
+  - ds-calculate-roi
+  - ds-compose-molecule
+  - ds-consolidate-patterns
+  - ds-context-contract
+  - ds-extend-pattern
+  - ds-extract-tokens
+  - ds-generate-ai-metadata
+  - ds-generate-documentation
+  - ds-generate-migration-strategy
+  - ds-generate-shock-report
+  - ds-govern-a11y-compliance
+  - ds-health-metrics
+  - ds-integrate-squad
+  - ds-integrate-workspace
+  - ds-legacy-modernization
+  - ds-parallelization-gate
+  - ds-rebuild-artifact
+  - ds-reverse-engineer
+  - ds-scan-artifact
+  - ds-setup-design-system
+  - ds-sync-registry
+  - ds-generate-cursor-rules
+  - ds-mcp-status
+  - ds-query
+  - ds-validate-ai-readiness
+  - ds-agentic-audit
+  - ds-agentic-setup
+  - ds-token-w3c-extract
+  - ds-token-modes
+  - ds-motion-audit
+  - ds-motion-tokens
+  - ds-motion-primitives
+  - ds-motion-extraction
+  - ds-kinetic-replication
+  - ds-page-choreography
+  - ds-visual-regression
+  - ds-fluent-audit
+  - ds-fluent-build
+  - ds-theme-multi-brand
+  - ds-multi-framework
+  - ds-governance
+  - ds-designops
+  - ds-critical-eye-inventory
+  - ds-critical-eye-score
+  - ds-critical-eye-compare
+  - ds-critical-eye-decide
+  - ds-critical-eye-report
+  - ds-figma-pipeline
+  - f1-ingest-figma-tokens
+  - f1-map-tokens-to-shadcn
+  - f1-apply-foundations
+  - f1-qa-foundations
+  - f2-ingest-base-components
+  - f2-adapt-shadcn-components
+  - f2-qa-base-components
+  - f3-derive-components
+  - f3-qa-derived-components
+  - a11y-audit
+  - aria-audit
+  - contrast-matrix
+  - focus-order-audit
+  - atomic-refactor-plan
+  - atomic-refactor-execute
+  - audit-reading-experience
+  - audit-tailwind-config
+  - bootstrap-shadcn-library
+  - bundle-audit
+  - dead-code-detection
+  - design-compare
+  - export-design-tokens-dtcg
+  - tailwind-upgrade
+  - token-usage-analytics
+  - ux-rewrite-sixth-grade
+  - validate-design-fidelity
+  - designops-maturity-assessment
+  - designops-metrics-setup
+  - design-team-scaling
+  - design-tooling-audit
+  - design-process-optimization
+  - design-triage
+  - design-review-orchestration
+  - create-doc
+  - execute-checklist
+templates:
+  - component-prompt-injection-tmpl
+  - component-visual-spec-tmpl
+  - design-fidelity-report-tmpl
+  - ds-artifact-analysis
+  - ds-health-report-tmpl
+  - ds-migration-strategy-tmpl
+  - ds-state-persistence-tmpl
+  - ds-tokens-schema-tmpl
+  - ds-ai-component-metadata-schema-tmpl
+  - state-persistence-tmpl
+  - tokens-schema-tmpl
+  - reading-design-tokens
+  - agent-template
+  - clone-mind-template
+  - critical-eye-cycle-report-tmpl
+checklists:
+  - atomic-refactor-checklist
+  - ds-accessibility-wcag-checklist
+  - ds-a11y-release-gate-checklist
+  - ds-component-quality-checklist
+  - ds-migration-readiness-checklist
+  - ds-pattern-audit-checklist
+  - token-mapping-checklist
+  - component-adaptation-checklist
+  - design-fidelity-checklist
+  - reading-accessibility-checklist
+  - design-handoff-checklist
+  - design-team-health-checklist
+  - designops-maturity-checklist
+  - ds-critical-eye-review-checklist
+  - page-composition-checklist
+  - motion-quality-checklist
+workflows:
+  - audit-only
+  - brownfield-complete
+  - greenfield-new
+  - self-healing-workflow
+  - agentic-readiness
+  - dtcg-tokens-governance
+  - motion-quality
+  - foundations-pipeline
+  - page-composition
+  - critical-eye
+epic_119_transition:
+  acting_identity: design-ops-provider-core
+  target_final_provider_shape:
+    resident_agents:
+      - design-chief
+    legacy_brownfield_agents:
+      - brad-frost
+      - dave-malouf
+      - dan-mall
+      - nano-banana-generator
+      - ds-token-architect
+      - ds-foundations-lead
+      - storybook-expert
+    downstream_agent_targets:
+      design_pages:
+        - page-composer
+      design_app: []
+    open_gaps:
+      - "Nao existe agent legacy claramente mapeado para a lane `design-app`."
+  workflow_partition:
+    provider_core:
+      - agentic-readiness
+      - audit-only
+      - brownfield-complete
+      - critical-eye
+      - dtcg-tokens-governance
+      - foundations-pipeline
+      - motion-quality
+      - ops-audit
+      - storybook-brownfield-migration
+      - storybook-full-setup
+    consumer_residue:
+      design_pages:
+        - page-composition
+      design_app:
+        - self-healing-workflow
+    transitional_generated:
+      - epic-ds-alignment
+      - greenfield-new
+      - map-generated-quality-gates
+      - map-generated-workflow-definition
+  scope_boundaries:
+    remains_in_core:
+      - tokens
+      - foundations
+      - base-components
+      - motion-primitives
+      - storybook
+      - docs
+      - ai-readable-metadata
+      - designops
+      - quality-chain
+      - release-contracts
+      - starter-runtime-bootstrap
+    leaves_core:
+      design_pages:
+        - page-composition
+      design_app:
+        - self-healing-workflow
+data:
+  - design-mappings
+  - motion-tokens-schema
+  - motion-primitives-registry
+  - motion-map-schema
+tags:
+  - design-system
+  - tokens
+  - components
+  - accessibility
+  - wcag
+  - atomic-design
+  - tailwind-v4
+  - shadcn-registry
+  - machine-readable
+  - mcp
+  - designops
+  - kinetic-design
+  - motion-tokens
+  - animation-primitives
+  - scroll-driven
+  - view-transitions
+# BEGIN MAP MATERIALIZATION: supported_domains
+materialized_supported_domains: [Strategic, Tactical, Operational]
+materialized_supported_domains_ptbr: [Estratégico, Tático, Operacional]
+# Source: outputs/sinkra-squad/design-system/map/20260328-065055-gemini-gemini-3.1-pro-preview/domain_map.yaml
+# END MAP MATERIALIZATION: supported_domains
+
+# ADR-119: Selective manifest domains (Story 119.12)
+synapse_domains:
+  - quality
+  - architecture
+
+
+# --- MIGRATION-SCHEMA-001 (top-level schema backfill) ---
+capabilities:
+  - design-system-default
+# --- /MIGRATION-SCHEMA-001 ---
+
+# Production evidence: squad has been executed in real scenarios
+tested: true

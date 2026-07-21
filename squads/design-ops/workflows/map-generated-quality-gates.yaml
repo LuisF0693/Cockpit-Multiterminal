@@ -1,0 +1,75 @@
+# Managed by materialize-map.py
+# Source: outputs/sinkra-squad/design-system/map/20260328-065055-gemini-gemini-3.1-pro-preview/quality_gates.yaml
+# Category: governance
+
+quality_gates:
+  - gate_id: "QG-1.1"
+    name: "Completude de Dados do Colaborador"
+    position: "Entre wf_intake_validacao e wf_provisionamento_ti"
+    type: "preventive"
+    executor: "Worker (atm_validar_completude)"
+    threshold: "campos_pendentes == 0"
+    criteria:
+      - "Todos os campos obrigatórios do formulário preenchidos"
+      - "Documentos validados com sucesso"
+    escalation_path: "Notificar candidato e Analista de RH"
+    veto_power: true
+    mandamento_enforced: [2, 5, 8]
+
+  - gate_id: "QG-2.1"
+    name: "Garantia de Provisionamento"
+    position: "Entre wf_provisionamento_ti e wf_integracao"
+    type: "reactive"
+    executor: "Worker (verificação paralela)"
+    threshold: "contas_criadas_sucesso == 100"
+    criteria:
+      - "Google Workspace ID ativo"
+      - "Slack ID ativo"
+      - "Equipamento em status 'Pronto'"
+    escalation_path: "Ticket bloqueante para N2 de TI"
+    veto_power: true
+    mandamento_enforced: [2, 5, 8]
+
+  - gate_id: "QG-3.1"
+    name: "Validação do Plano 30-60-90"
+    position: "Dentro de wf_integracao (após atm_gerar_plano_30_60_90)"
+    type: "preventive"
+    executor: "Agent (validador de schema)"
+    threshold: "schema_match_score >= 0.9"
+    criteria:
+      - "O Markdown gerado contém as seções 30, 60 e 90 dias"
+      - "Métricas de sucesso estão definidas no plano"
+    escalation_path: "Fallback para Human (Gestor da Área)"
+    veto_power: false
+    mandamento_enforced: [4, 5]
+
+  - gate_id: "QG-4.1"
+    name: "Aprovação Final de Onboarding"
+    position: "Final do processo (wf_quality_gate_conclusao)"
+    type: "axiomatica"
+    executor: "Worker (atm_calcular_score_final) + Human (validador final)"
+    threshold: "score_final_onboarding >= 8.0"
+    criteria:
+      - "Avaliações 30, 60 e 90 dias concluídas"
+      - "Treinamentos 100% concluídos"
+      - "Acessos verificados"
+    escalation_path: "Review executivo com RH e Diretoria"
+    veto_power: true
+    mandamento_enforced: [1, 2, 5]
+
+checkpoint_self_eval:
+  checkpoint_id: "META_AXIOMAS"
+  scores:
+    truthfulness: 7.5
+    coherence: 9.0
+    strategic_alignment: 8.5
+    operational_excellence: 8.5
+    innovation_capacity: 9.0
+    risk_management: 9.0
+    resource_optimization: 9.5
+    stakeholder_value: 8.5
+    sustainability: 8.0
+    adaptability: 8.5
+  overall_score: 8.54
+  auto_verdict: "APPROVE"
+  notes: "O processo pontua alto em otimização de recursos e coerência. A penalidade em truthfulness se dá pela base simulada (YOLO) na Fase 1, mas não atinge o limite de VETO (7.0)."

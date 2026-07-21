@@ -1,0 +1,37 @@
+workflow:
+  phases:
+    0_auto_clarify:
+      name: "Auto-Clarificação"
+      description: |
+        Automatic context inference from the user query. Runs BEFORE the
+        Strategic Brief Builder (Phase P1). Analyzes the query against pattern
+        lists and technology detection to build an inferred_context object.
+        inferred_context is a SEED for the brief — this phase NEVER skips or
+        reduces clarification. The Strategic Brief Builder ALWAYS runs next.
+      execution: |
+        1. Read the user query (original text, unmodified)
+        2. PATTERN MATCHING (case-insensitive):
+           - Scan query against auto_clarification.patterns.technical.keywords
+             → If ANY keyword matches: set inferred_context.focus = "technical"
+           - Scan query against auto_clarification.patterns.comparison.keywords
+             → If ANY keyword matches: set inferred_context.focus = "comparison"
+           - Scan query against auto_clarification.patterns.recent.keywords
+             → If ANY keyword matches: set inferred_context.temporal = "recent"
+           - Note: if both technical and comparison match, comparison takes precedence
+        3. TECHNOLOGY DETECTION (case-insensitive):
+           - Scan query against ALL entries in auto_clarification.technology_detection.technologies
+           - For each technology, check if ANY of its aliases appear in the query
+           - Collect all matched technologies into inferred_context.domain = [list]
+        4. COUNT matched patterns:
+           - matched_patterns = number of pattern categories matched (0-3: technical, comparison, recent)
+           - detected_technologies = length of inferred_context.domain list
+        5. NO DECISION GATE. There is no skip path. ALWAYS:
+           → Carry inferred_context forward as the SEED
+           → Proceed to phase 1_strategic_brief (the Strategic Brief Builder)
+           The strength of inference only changes how much of the brief is
+           pre-filled vs. inferred — it never bypasses the brief.
+      output: "inferred_context object (SEED) passed to Phase P1 Strategic Brief Builder"
+      backward_compatibility: |
+        If this phase fails or auto_clarification config is missing, fall back
+        to the legacy single-question clarify flow in phase-1-clarify.yaml.
+        The skill MUST still work without auto_clarification configured.

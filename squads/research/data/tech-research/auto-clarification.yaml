@@ -1,0 +1,488 @@
+auto_clarification:
+  description: |
+    Automatic context inference from the user query. Runs BEFORE the Strategic
+    Brief Builder (Phase P1). Detects focus, domain, temporal intent, and
+    product-validation intent. The inferred_context is a SEED for the brief —
+    it NEVER skips clarification. The Strategic Brief Builder ALWAYS runs and
+    turns the raw query into a structured, copy-pasteable Deep Research brief.
+    This section is optional - if missing, the skill falls back to the legacy
+    single-question clarification flow (backward compatible).
+
+  patterns:
+    technical:
+      description: "Keywords indicating technical/code focus"
+      keywords:
+        - "codigo"
+        - "código"
+        - "implementar"
+        - "implementação"
+        - "how to"
+        - "como implementar"
+        - "como fazer"
+        - "api"
+        - "bug"
+        - "error"
+        - "erro"
+        - "debug"
+        - "code"
+        - "implementation"
+        - "library"
+        - "biblioteca"
+        - "sdk"
+        - "tutorial"
+        - "exemplo"
+        - "example"
+      inferred_value:
+        focus: "technical"
+
+    comparison:
+      description: "Keywords indicating comparison focus"
+      keywords:
+        - "compare"
+        - "comparar"
+        - "vs"
+        - "versus"
+        - "diferenca"
+        - "diferença"
+        - "melhor"
+        - "melhor entre"
+        - "qual escolher"
+        - "alternativa"
+        - "alternative"
+        - "tradeoff"
+        - "pros and cons"
+      inferred_value:
+        focus: "comparison"
+
+    recent:
+      description: "Keywords indicating temporal/recency focus"
+      keywords:
+        - "latest"
+        - "novo"
+        - "nova"
+        - "2024"
+        - "2025"
+        - "2026"
+        - "atual"
+        - "recente"
+        - "recent"
+        - "new"
+        - "last year"
+        - "estado da arte"
+        - "state of the art"
+        - "trending"
+      inferred_value:
+        temporal: "recent"
+        search_constraint: "Append current year range to search queries for freshness"
+
+    academic_signal:
+      description: |
+        Keywords indicating academic/scholarly research intent. Triggers adapter routing to
+        scholarly databases (arXiv, PubMed, Semantic Scholar) before generic WebSearch in Phase 3.
+        Added in v1.2.0 (2026-05-18) as part of STORY-154.2 scholarly adapter integration.
+      keywords:
+        - "arxiv"
+        - "pubmed"
+        - "paper"
+        - "study"
+        - "trial"
+        - "cohort"
+        - "systematic review"
+        - "meta-analysis"
+        - "peer-reviewed"
+        - "systematic review"
+        - "clinical trial"
+        - "randomized controlled"
+        - "academic"
+        - "journal"
+        - "doi"
+        - "preprint"
+        - "literature review"
+      regex: "arxiv|pubmed|paper|study|trial|cohort|systematic review|meta-analysis|peer-reviewed"
+      inferred_value:
+        focus: "academic"
+        adapter_routing: "scholarly_first"
+        search_constraint: "Route to scholarly databases (arXiv/PubMed/Semantic Scholar) before generic WebSearch. Use scholarly_search.py bridge."
+
+    product_validation:
+      description: |
+        Keywords indicating product idea validation. Triggers --product-discovery mode automatically.
+        Added in v1.1.0 (2026-05-11) as bridge to spy:validate-product-idea molecule.
+      keywords:
+        - "validar ideia"
+        - "validar produto"
+        - "jtbd"
+        - "jobs to be done"
+        - "mom test"
+        - "smoke test"
+        - "willingness to pay"
+        - "wtp"
+        - "product-market fit"
+        - "pmf"
+        - "validate idea"
+        - "validate product"
+        - "lean startup"
+        - "mvp validation"
+        - "concierge mvp"
+        - "blue ocean"
+        - "founder-problem fit"
+        - "early adopter"
+        - "pre-sale"
+        - "pré-venda"
+      inferred_value:
+        focus: "product-discovery"
+        mode_flag: "--product-discovery"
+        search_constraint: "Use Mom Test interview templates + villain mapping OSINT + blue ocean positioning frameworks instead of generic technical decomposition"
+        cross_link:
+          consumer: "spy:validate-product-idea"
+          framework_ref: "squads/research/data/product-discovery-framework.md"
+
+  technology_detection:
+    description: |
+      Common technologies to detect in queries. Case-insensitive matching.
+      Handles variations (e.g., "node" matches "Node.js", "nodejs", "node.js").
+      Detected technologies are set in inferred_context.domain as a list.
+    technologies:
+      languages:
+        - { name: "JavaScript", aliases: ["javascript", "js", "ecmascript"] }
+        - { name: "TypeScript", aliases: ["typescript", "ts"] }
+        - { name: "Python", aliases: ["python", "py"] }
+        - { name: "Java", aliases: ["java"] }
+        - { name: "Go", aliases: ["go", "golang"] }
+        - { name: "Rust", aliases: ["rust"] }
+        - { name: "C#", aliases: ["c#", "csharp", "dotnet", ".net"] }
+        - { name: "Ruby", aliases: ["ruby"] }
+        - { name: "PHP", aliases: ["php"] }
+        - { name: "Swift", aliases: ["swift"] }
+        - { name: "Kotlin", aliases: ["kotlin"] }
+      frameworks:
+        - { name: "React", aliases: ["react", "reactjs", "react.js"] }
+        - { name: "Next.js", aliases: ["next", "nextjs", "next.js"] }
+        - { name: "Vue", aliases: ["vue", "vuejs", "vue.js"] }
+        - { name: "Angular", aliases: ["angular"] }
+        - { name: "Svelte", aliases: ["svelte", "sveltekit"] }
+        - { name: "Express", aliases: ["express", "expressjs"] }
+        - { name: "FastAPI", aliases: ["fastapi"] }
+        - { name: "Django", aliases: ["django"] }
+        - { name: "Flask", aliases: ["flask"] }
+        - { name: "Spring", aliases: ["spring", "spring boot", "springboot"] }
+        - { name: "Rails", aliases: ["rails", "ruby on rails"] }
+        - { name: "Laravel", aliases: ["laravel"] }
+      databases:
+        - { name: "PostgreSQL", aliases: ["postgresql", "postgres", "pg"] }
+        - { name: "MySQL", aliases: ["mysql"] }
+        - { name: "MongoDB", aliases: ["mongodb", "mongo"] }
+        - { name: "Redis", aliases: ["redis"] }
+        - { name: "Memcached", aliases: ["memcached"] }
+        - { name: "SQLite", aliases: ["sqlite"] }
+        - { name: "Supabase", aliases: ["supabase"] }
+        - { name: "Firebase", aliases: ["firebase", "firestore"] }
+        - { name: "DynamoDB", aliases: ["dynamodb", "dynamo"] }
+        - { name: "Elasticsearch", aliases: ["elasticsearch", "elastic"] }
+      ai_ml:
+        - { name: "LLM", aliases: ["llm", "llms", "large language model"] }
+        - { name: "RAG", aliases: ["rag", "retrieval augmented generation"] }
+        - { name: "LangChain", aliases: ["langchain"] }
+        - { name: "OpenAI", aliases: ["openai", "gpt", "chatgpt"] }
+        - { name: "Claude", aliases: ["claude", "anthropic"] }
+        - { name: "TensorFlow", aliases: ["tensorflow", "tf"] }
+        - { name: "PyTorch", aliases: ["pytorch", "torch"] }
+        - { name: "Hugging Face", aliases: ["hugging face", "huggingface", "transformers"] }
+      infra:
+        - { name: "Docker", aliases: ["docker", "container", "containers"] }
+        - { name: "Kubernetes", aliases: ["kubernetes", "k8s"] }
+        - { name: "AWS", aliases: ["aws", "amazon web services"] }
+        - { name: "Vercel", aliases: ["vercel"] }
+        - { name: "Nginx", aliases: ["nginx"] }
+        - { name: "GraphQL", aliases: ["graphql", "gql"] }
+        - { name: "REST", aliases: ["rest", "restful", "rest api"] }
+        - { name: "WebSocket", aliases: ["websocket", "ws", "websockets"] }
+
+  strategic_brief_builder:
+    description: |
+      ALWAYS runs as Phase P1 (no skip path — replaces the legacy ask_threshold
+      skip/1-question logic). Transforms the raw user query + inferred_context
+      (seed) into a structured, copy-pasteable Deep Research brief, then asks
+      2-3 clarifying questions OUTSIDE the code block so the operator can copy
+      the brief even without answering.
+
+    role: |
+      You are a research-prompt strategist. You convert a simple question into a
+      strategic Deep Research brief. EXPAND the scope, never narrow it. Bias
+      toward actionable insight over generic summary. The brief is consumed
+      internally by Phase P1.5 Decompose AND is copy-pasteable to an external
+      Deep Research tool (OpenAI Deep Research, etc.).
+
+    output_contract:
+      format: |
+        1. Emit the brief inside ONE fenced code block (```) so it is
+           copy-pasteable AND machine-consumable by Phase P1.5.
+        2. Emit the 2-3 clarifying questions AFTER and OUTSIDE the code block.
+        3. NEVER put questions inside the code block.
+        4. The brief must stand alone — answering the questions only refines it.
+      language: |
+        The BRIEF (everything inside the code block, including section headers)
+        is ALWAYS in ENGLISH — it is pasted into Deep Research tools and drives
+        English search queries (better coverage). The CLARIFYING QUESTIONS
+        (outside the block) are in the operator's language (PT-BR default for
+        AIOX operators).
+
+    brief_structure:
+      - id: TOPIC
+        label: "TOPIC"
+        instruction: "Reformulate into a strategic title; expand scope and add a time horizon when relevant."
+      - id: CONTEXT
+        label: "CONTEXT"
+        instruction: "One short paragraph: purpose, practical objective, why this matters now."
+      - id: SCOPE
+        label: "SCOPE"
+        instruction: |
+          4-6 NAMED angles. For complex topics each angle SHOULD carry 2-4
+          concrete sub-bullets (specific facets, not restatements). MUST cover:
+          canonical definition / fundamentals; trends & case studies; relevant
+          quantitative data; implementable aspects; risks & tradeoffs; relevant
+          comparisons. Depth bar = the `few_shot_examples` design-system case
+          (named angles in CAPS + nested sub-bullets). Each SCOPE angle becomes
+          2-3 orthogonal sub-queries in Phase P1.5 — write them decomposable.
+      - id: REQUIREMENTS
+        label: "REQUIREMENTS"
+        instruction: "3-4 parameters: recency vs historical baseline; geographic/demographic focus; technical depth vs accessibility; practical vs theoretical emphasis."
+      - id: SOURCES
+        label: "RECOMMENDED SOURCES"
+        instruction: "3-4 specific source TYPES (not URLs) carrying the most evidential weight for this topic."
+      - id: OUTCOMES
+        label: "EXPECTED OUTCOMES"
+        instruction: "3-5 concrete, applicable deliverables (frameworks, comparative matrices, roadmaps, model lists)."
+
+    clarifying_questions:
+      count: "2-3"
+      placement: "outside_code_block"
+      intent: "Sharpen scope / audience / the decision the research must inform. Skippable — the brief stands alone."
+
+    seed_usage: |
+      Use inferred_context to pre-fill the brief:
+      - focus=technical    → bias SCOPE toward implementation + tradeoffs
+      - focus=comparison   → SCOPE leads with a comparative-matrix angle
+      - temporal=recent    → REQUIREMENTS demands current-year data; flag fast-moving area
+      - domain=[techs]     → name them explicitly in TOPIC / SCOPE
+      - product_discovery=true → reshape brief around JTBD, villain OSINT, WTP,
+        blue ocean, validation case studies (see product-discovery-framework.md)
+
+    template: |
+      TOPIC: "{strategic title with expanded scope + time horizon}"
+
+      CONTEXT: {one paragraph — purpose, practical objective, why now}
+
+      SCOPE:
+      1. {ANGLE NAME — canonical definition / fundamentals}:
+         - {specific facet}
+         - {specific facet}
+      2. {ANGLE NAME — trends / case studies}:
+         - {specific facet}
+         - {specific facet}
+      3. {ANGLE NAME — quantitative data}:
+         - {specific facet}
+      4. {ANGLE NAME — implementable aspects}:
+         - {specific facet}
+         - {specific facet}
+      5. {ANGLE NAME — risks & tradeoffs}:
+         - {specific facet}
+      6. {ANGLE NAME — relevant comparison (optional, only if it adds signal)}:
+         - {specific facet}
+
+      REQUIREMENTS:
+      - {recency vs historical baseline}
+      - {geographic / demographic focus}
+      - {technical depth vs accessibility}
+      - {practical vs theoretical emphasis}
+
+      RECOMMENDED SOURCES:
+      - {source type 1}
+      - {source type 2}
+      - {source type 3}
+
+      EXPECTED OUTCOMES:
+      - {deliverable 1}
+      - {deliverable 2}
+      - {deliverable 3}
+
+    few_shot_examples:
+      calibration_note: |
+        These are DEPTH ANCHORS, not formatting samples. Match this level:
+        reframe the naive question into a strategic research TERRITORY, EXPAND
+        scope, add a time horizon, make SCOPE angles specific (not "AI trends"
+        but "growth in family-centered campaigns among Tier-1 brands, last 3
+        years"). The brief (English, in a code block) and the questions
+        (operator language, OUTSIDE the block).
+      cases:
+        - original: "Como ficar milionário usando a IA?"
+          brief: |
+            TOPIC: "Strategies for Building Millionaire-Level Wealth Using AI as Leverage (2025-2030)"
+
+            CONTEXT: Understand how AI can be used as a multiplier of financial outcomes. Focus on evidence-based approaches to build substantial wealth over the next 5-10 years.
+
+            SCOPE:
+            1. PROVEN MODELS: Real cases of people/companies that reached 7-8 figure wealth with AI as the differentiator.
+            2. PROMISING SECTORS: Niches with the best combination of high demand, high margins, and an AI-driven entry barrier.
+            3. KEY COMPETENCIES: Skills most correlated with financial success in AI-based ventures.
+            4. CAPITAL STRATEGIES: How resource-constrained founders have leveraged AI to fund expansion.
+            5. RISKS & MITIGATIONS: Main failure factors and how to avoid them.
+            6. EMERGING OPPORTUNITIES: 3-5 verticals with the highest potential over the next 36 months.
+
+            REQUIREMENTS:
+            - Concrete wealth-growth metrics
+            - Strategies applicable by an individual / small team
+            - Differentiate B2B, B2C, and B2B2C opportunities
+            - Include specific "playbook" examples
+
+            RECOMMENDED SOURCES:
+            - Interviews with founders of successful AI startups
+            - Venture capital reports (Sequoia, a16z, Y Combinator)
+            - Sector analyses from consultancies (McKinsey, BCG)
+            - Studies on predictive factors of success
+
+            EXPECTED OUTCOMES:
+            - 3-5 detailed business models with the highest potential
+            - Framework for selecting high-potential opportunities
+            - Roadmap for developing the required competencies
+            - Comparative analysis across the different strategies
+          clarifying_questions:
+            - "Você quer foco em criar um negócio de IA ou em usar IA para alavancar um negócio existente?"
+            - "Qual seu ponto de partida (capital, skill técnico, audiência)?"
+            - "Horizonte: patrimônio em 5 anos agressivo ou 10 anos sustentável?"
+        - original: "Como a causa família voltará como pauta nos próximos anos?"
+          brief: |
+            TOPIC: "Resurgence of Family as a Strategic Brand Territory: Trends and Opportunities (2025-2030)"
+
+            CONTEXT: I identified a trend: global brands are pivoting toward family-centered messaging, possibly as a response to social fragmentation and anxiety about AI's impact.
+
+            SCOPE:
+            1. ENGAGEMENT DATA: Growth in family-centered campaigns among Tier-1 brands over the last 3 years.
+            2. AI-VALUES CORRELATION: Relationship between AI adoption at work and shifts in family values.
+            3. SECTOR ANALYSIS: Sectors leading vs. resisting this transition.
+            4. DYNAMIC SPIRAL: Assess whether this is a "return movement" or an evolution toward new concepts.
+            5. GLOBAL COMPARISON: Differences across North America, Europe, Asia, and Latin America.
+
+            REQUIREMENTS:
+            - Differentiate traditional vs. emerging definitions of "family"
+            - Focus on psychographic over demographic analysis
+            - Consider whether it is a cyclical phenomenon or a permanent shift
+
+            RECOMMENDED SOURCES:
+            - Marketing and consumer-behavior data
+            - Opinions from CMOs and strategy directors
+            - Social trend reports
+            - Public-policy impact analyses
+
+            EXPECTED OUTCOMES:
+            - Quantitative evidence of a shift in brand positioning
+            - Case studies of 3-5 successful campaigns
+            - Strategic framework adaptable across industries
+            - Forecast of evolution over the next 36 months
+          clarifying_questions:
+            - "Você quer ângulo de marca/marketing ou sociocultural amplo?"
+            - "Mercado-alvo: global ou um recorte geográfico específico?"
+            - "O output alimenta uma decisão de posicionamento de marca concreta?"
+        - original: "Qual o melhor banco de dados vetorial?"
+          brief: |
+            TOPIC: "Vector Database Selection for Production RAG: Performance, Cost, and Operational Tradeoffs (2025-2026)"
+
+            CONTEXT: I need to choose a vector store for a RAG pipeline going to production. I want a decision grounded in latency, total cost of ownership, and operational maturity — not vendor benchmark hype.
+
+            SCOPE:
+            1. REAL BENCHMARKS: p95/p99 latency and recall on datasets >10M vectors (pgvector, Pinecone, Qdrant, Weaviate, Milvus).
+            2. TOTAL COST: Self-hosted vs managed, cost per million queries at scale, hidden operational cost.
+            3. INTEGRATION & OPERATIONS: Metadata filtering, hybrid search, incremental index updates, maintenance effort.
+            4. RISKS: Lock-in, scale limits, project maturity, documented production-failure post-mortems.
+            5. DECISION COMPARISON: Decision matrix per scenario (early-stage startup vs enterprise vs edge/on-prem).
+
+            REQUIREMENTS:
+            - 2025-2026 data — discard pre-2024 benchmarks (fast-moving area)
+            - Focus on production deployment, not prototyping
+            - High technical depth — assume an engineer reader
+            - Concrete numbers, not vendor marketing
+
+            RECOMMENDED SOURCES:
+            - Independent benchmarks (ANN-Benchmarks, academic papers)
+            - Engineering blogs and post-mortems from companies in production
+            - Official pricing and scale-limit documentation
+            - Technical discussions (HN, eng forums) with real tradeoffs
+
+            EXPECTED OUTCOMES:
+            - Decision matrix per use scenario
+            - Top 3 options with quantified cost/latency/maturity
+            - Red-flag list per candidate
+            - Grounded recommendation for "production RAG, 10M+ vectors"
+          clarifying_questions:
+            - "Qual a escala alvo (nº de vetores, QPS de pico)?"
+            - "Self-hosted é requisito ou managed é aceitável?"
+            - "Já tem Postgres na stack (pgvector reduz superfície operacional)?"
+        - original: "Quais as melhores práticas de Design Atômico para design systems?"
+          depth_tag: "GOLD — maximum-depth reference. Match THIS level for any non-trivial topic: named angles in CAPS, 2-4 nested sub-bullets each, 3-layer requirements (canonical / observed / operational), grouped source types, deliverables as concrete artifacts."
+          brief: |
+            TOPIC: "Operational Taxonomy of Atomic Design for Design Systems, UI Libraries, and Design-Test Artifacts in Complex Digital Products"
+
+            CONTEXT: Investigate best practices for defining and applying Atomic Design in modern design systems, UI libraries, and visual documentation/testing tools. The goal is to separate Brad Frost's canonical definition from the operational adaptations used by mature product teams, especially in SaaS interfaces and digital products with complex shells, persistent navigation, composed layouts, and highly dynamic pages. The research must produce recommendations applicable to design-test artifacts for Medium, Gmail, and Amazon, with no code implementation.
+
+            SCOPE:
+            1. CANONICAL DEFINITION OF ATOMIC DESIGN:
+               - Investigate Brad Frost's original definition of atoms, molecules, organisms, templates, and pages.
+               - Identify the conceptual intent of each layer and the author's original examples.
+               - Clearly separate the original definition from later interpretations.
+            2. ADAPTATION FOR SAAS PRODUCTS AND COMPLEX INTERFACES:
+               - Differentiate organisms, templates, and pages in products with application shells, sidebars, persistent headers, dashboards, grids, feeds, inboxes, and authenticated flows.
+               - Assess when a shell should be classified as an organism, template, layout pattern, or page structure.
+               - Consider dynamic, personalized, responsive, or multi-state composed pages.
+            3. MATURE DESIGN SYSTEMS:
+               - Compare how Material Design, Carbon, Polaris, Atlassian, Fluent, GOV.UK, and Lightning define foundations, components, patterns, layouts, templates, and page-level experiences.
+               - Identify convergences and divergences relative to classic Atomic Design.
+            4. UI AND DOCUMENTATION TOOLING:
+               - Investigate how Storybook, Chromatic, and visual-testing platforms treat small components, composed components, patterns, layouts, and pages.
+               - Assess organization of hierarchies, stories, args, states, variants, and page-level examples.
+               - Identify naming, grouping, and granularity practices.
+            5. TAXONOMY FOR DESIGN-TESTS:
+               - Propose an operational taxonomy applicable to Medium, Gmail, and Amazon.
+               - Differentiate foundation, primitive, atom, molecule, component, organism, pattern, layout/template, page, and flow.
+               - Consider feed, inbox, search, PDP, cart, checkout, global navigation, and dashboards.
+            6. RISKS, TRADE-OFFS, AND OPERATIONAL DECISIONS:
+               - Map the risks of overly theoretical, ambiguous, or hard-to-maintain taxonomies.
+               - Weigh trade-offs between fidelity to original Atomic Design and practical usability for design, eng, and visual QA.
+               - Identify objective criteria for ambiguous cases.
+
+            REQUIREMENTS:
+            1. Prioritize primary sources: Brad Frost (book/articles), official design-system docs, official UI/component-testing tool docs.
+            2. Separate three analysis layers: canonical definition; observed adaptation; operational recommendation.
+            3. Keep a practical focus: applicable recommendations, no code, with concrete examples from Medium, Gmail, and Amazon.
+            4. Balance conceptual precision and utility: do not treat Atomic Design as a rigid rule; state explicitly when a recommendation is a pragmatic adaptation, not the original definition.
+
+            RECOMMENDED SOURCES:
+            1. Atomic Design primary sources: Brad Frost's book, site, articles, and talks.
+            2. Official design-system docs: Material, Carbon, Polaris, Atlassian, Fluent, GOV.UK, Lightning.
+            3. Official tool docs: Storybook, Chromatic, Playwright CT, Testing Library, Figma component docs.
+            4. Studies and practice guides: design-systems, frontend, design-ops, visual regression testing, component-driven UI teams.
+
+            EXPECTED OUTCOMES:
+            1. Comparative table of Brad Frost's canonical definition of atoms/molecules/organisms/templates/pages.
+            2. Operational adaptation map: foundations/components/patterns/templates/layouts/pages/flows across mature design systems.
+            3. Decision guide for ambiguous cases: objective criteria for organisms vs templates vs pages in complex shells.
+            4. Recommended design-test taxonomy: categories, inclusion criteria, examples and anti-examples (Medium/Gmail/Amazon).
+            5. Practical recommendations: naming, organization, documentation; how to avoid overlap; design/eng/QA alignment.
+            6. Executive synthesis: conclusions, trade-offs, final taxonomy recommendation for immediate adoption.
+          clarifying_questions:
+            - "A taxonomia final é para um design system próprio ou para auditar/classificar interfaces de terceiros (Medium/Gmail/Amazon)?"
+            - "O consumidor é design, engenharia ou QA visual — ou os três precisam de uma única taxonomia compartilhada?"
+            - "Stack de documentação alvo é Storybook, ou precisa ser tool-agnostic?"
+
+    decomposition_contract: |
+      The strategic_brief is the input to Phase P1.5 Decompose. Decomposition is
+      NOT capped at 5-7 for rich briefs: generate 2-3 orthogonal sub-queries PER
+      SCOPE angle (and its sub-bullets), honoring REQUIREMENTS as search
+      constraints. Floor 5 (thin briefs), ceiling ~18 (M4 runs a search wave per
+      sub-query — cost is linear). A 6-angle GOLD-depth brief → ~12-18 queries.
+      product-discovery mode keeps its fixed 5-7 framework (JTBD/Villain/WTP/
+      BlueOcean/CaseStudies + 2 optional) — it does NOT scale.
+
+    legacy_single_question_fallback: |
+      Used ONLY if strategic_brief_builder cannot run (config error). Ask one
+      combined question: "Sua query parece ampla. Em uma frase: qual o foco e
+      contexto desta pesquisa?"

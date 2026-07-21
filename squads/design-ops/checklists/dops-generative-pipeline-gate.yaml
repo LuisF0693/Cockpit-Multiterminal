@@ -1,0 +1,28 @@
+checklist:
+  id: dops-generative-pipeline-gate
+  version: "1.0.0"
+  squad: design-ops
+  owner: design-chief
+  title: Design-Ops Generative Pipeline Gate
+  scope: Provider generative component pipeline
+  items:
+    - id: GP-001
+      check: workspace_contracts_valid
+      required: true
+      description: Contratos canônicos do workspace estão válidos e em modo strict.
+    - id: GP-002
+      check: pipeline_execution_read_only_default
+      required: true
+      description: Execução padrão do pipeline permanece read-only sem flags mutáveis.
+    - id: GP-003
+      check: deterministic_autofix_available
+      required: true
+      description: Autofix determinístico executável para target configurado.
+    - id: GP-004
+      check: checklists_gate_pass
+      required: true
+      description: validate-checklists-gate passa antes e depois de correções.
+    - id: GP-005
+      check: runtime_artifacts_not_committed
+      required: true
+      description: Artefatos transitórios em outputs/design-ops não poluem versionamento.

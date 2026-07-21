@@ -1,0 +1,216 @@
+pack:
+  name: design-ops
+  version: "1.0.0"
+  description: >-
+    Provider canônico de design do hub. Centraliza tokens, foundations,
+    componentes-base, acessibilidade, registry, metadata e runtime técnico do
+    starter, usando `squads/design-system/` apenas como legacy source
+    congelado durante a migração.
+  icon: "🎯"
+  author: Synkra Hub
+  slashPrefix: DOPS
+  title: Design Ops Squad
+
+type: specialist
+bu_mapping: "hub-framework"
+entry_agent: design-chief
+
+supported_modes:
+  - CRIAR
+  - VALIDAR
+  - CONFIGURAR
+
+artifact_contracts:
+  - artifact_id: "design-routing-decision"
+    template_path: templates/design-routing-decision-tmpl.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "ds-health-report"
+    template_path: templates/ds-health-report-tmpl.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "ds-tokens-schema"
+    template_path: templates/ds-tokens-schema-tmpl.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "ds-tokens-defaults"
+    template_path: templates/ds-tokens-defaults-tmpl.yaml
+    implements: "ds-tokens-schema"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "provider-governance-pack"
+    template_path: templates/provider-governance-pack-tmpl.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "design-brief-intake"
+    template_path: templates/design-brief-intake-tmpl.yaml
+    lifecycle_states: [draft, validated, approved]
+
+  # Wave C.1 — artifact-creation capability contracts (per ADR-018 v1.1)
+  - artifact_id: "tweak-protocol-spec"
+    template_path: data/tweak-protocol-spec.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "export-contract"
+    template_path: data/export-contracts-spec.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "starter-components-registry"
+    template_path: data/starter-components-catalog.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "animation-primitives-contract"
+    template_path: data/animation-primitives-contract.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "window-claude-complete-contract"
+    template_path: data/window-claude-complete-contract.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "primitives-interface"
+    template_path: data/primitives-interface.yaml
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "artifact-post-build-verification"
+    template_path: checklists/dops-post-build-verification.yaml
+    lifecycle_states: [draft, validated, approved]
+
+  # ── Cross-fit bench absorption (2026-05-19) ───────────────────────────────
+  # Outputs emitted by extract-from-url pipeline, consumed by downstream tasks.
+  # Authority: .claude/rules/design-absolute-bans.md + docs/bench/2026-05-18-impeccable-vs-sinkra-design-stack/
+
+  - artifact_id: "ai-fingerprint-report"
+    schema_ref: data/font-allowlist.yaml   # validation source (cross-fit data)
+    template_path: null                     # no skeleton — sidecar is generated, not authored
+    lifecycle_states: [generated, reviewed, blocked, approved]
+    emit_by: scripts/extract-from-url/run.cjs
+    emitter_lib: scripts/extract-from-url/lib/ai-fingerprint-detector.cjs
+    consumed_by:
+      - tasks/ds-critical-eye-score.md
+      - tasks/ds-critical-eye-decide.md
+    output_path: outputs/design-ops/url-extracts/{company}/ai-fingerprint-report.json
+    schema_root: { ai_slop_score: "0-100", recommendation: "adopt-safely | adopt-with-warnings | review-manually | rebrief-recommended | rebrief-required" }
+    block_threshold: "ai_slop_score > 60"
+    override_path: data/ai-fingerprint-allowlist.yaml   # RT-FIX-2: whitelist by domain/brief_id to downgrade hard-gate to advisory
+    description: |
+      AI-slop probability score + detected fingerprints (font monoculture,
+      gradient text, side-stripe borders, pure #000/#fff, lila palette,
+      bouncy easing, layout-property animation). Generated post-LLM phase
+      of extract-from-url. Blocks downstream apps/design materialization
+      when score > 60.
+
+  - artifact_id: "dial-inference"
+    schema_ref: data/register-inference.yaml   # tasteskill_dials schema authority
+    template_path: null
+    lifecycle_states: [inferred, validated, applied]
+    emit_by: scripts/extract-from-url/run.cjs
+    emitter_lib: scripts/extract-from-url/lib/dial-inference.cjs
+    consumed_by:
+      - tasks/extract-design-md-from-url.md
+      - tasks/ds-generate-stitch-design-md.md
+    output_path: outputs/design-ops/url-extracts/{company}/dial-inference.yaml
+    schema_root: { dials: { DESIGN_VARIANCE: "1-10", MOTION_INTENSITY: "1-10", VISUAL_DENSITY: "1-10" }, overall_confidence: "0.0-1.0" }
+    description: |
+      Reverse-inferred tasteskill dials from extracted sidecars. Output
+      consumed by DESIGN.md frontmatter (tasteskill_dials block) and by
+      slide-creator render-lock when replicating the source style.
+
+  # register-inference is a POLICY ref, not an emitted artifact. Promoted to
+  # policies[] block below per @architect C1 condition (2026-05-19 roundtable).
+
+policies:
+  - policy_id: "register-inference"
+    policy_path: data/register-inference.yaml
+    consumed_by:
+      - tasks/extract-design-md-from-url.md
+      - tasks/emit-design-md.md
+      - scripts/extract-from-url/run.cjs (inline register inference)
+      - squads/copy/data/register-aware-copy.yaml (cross-skill)
+    description: |
+      Brand vs Product register inference HEURISTIC. Read at runtime to set
+      `register:` in DESIGN.md frontmatter. Not emitted as standalone file —
+      its OUTPUT lives inline in DESIGN.md frontmatter + briefing-normalized.
+
+workspace_integration:
+  level: controlled_runtime_consumer
+  rationale: >-
+    O provider consome contexto canônico do workspace e, nesta fase de
+    bootstrap, também referencia o legado congelado para extração controlada de
+    conhecimento.
+  read_paths:
+    - workspace/_system/config.yaml
+    - workspace/businesses/
+    - squads/design-system/
+  write_paths: []
+  readiness_owner: workspace-chief
+  readiness_resolver: workspace/scripts/resolve-squad-workspace-readiness.cjs
+  handoff_target: "@coo"
+  handoff_rationale: >-
+    Design-Ops é consumidor read-only; qualquer mutação em workspace/businesses/
+    é delegada ao c-level (COO) via handoff explícito.
+
+legacy_source:
+  squad: design-system
+  lifecycle_state: frozen
+  allowed_change_types:
+    - deprecation_marking
+    - minimum_bridge
+    - knowledge_extraction
+    - safety_or_integrity_fix
+  excluded_from_bootstrap:
+    - legacy_multi_agent_roster
+    - page-composer
+    - app-surface-specialization
+
+provider_scope:
+  owns:
+    - tokens
+    - foundations
+    - base-components
+    - accessibility
+    - registry
+    - metadata
+    - starter-runtime
+  delegates:
+    design-pages:
+      - page-composition
+      - marketing-surfaces
+      - page-recipes
+    design-app:
+      - app-surfaces
+      - product-ui
+      - app-recipes
+
+tier_system:
+  orchestrator:
+    description: "Router único do provider"
+    agent: design-chief
+
+agents:
+  - id: design-chief
+    name: "Design Chief"
+    role: "Orquestrador canônico do provider de design"
+    tier: orchestrator
+    executor_profile:
+      story_role: "executor"
+      can_execute: true
+      sinkra_type: Agent
+      human_in_the_loop: true
+      output_schema: design-routing-decision
+
+metadata:
+  # MIGRATION-SCHEMA-001 backfill
+  name: design-ops
+  status: active
+  domain: design-ops
+  version: 1.0.0
+  lifecycle_state: greenfield_bootstrap
+
+
+# --- MIGRATION-SCHEMA-001 (top-level schema backfill) ---
+capabilities:
+  - design-ops-default
+  - ds-static-to-dynamic-migration
+workflows:
+  ds-static-to-dynamic-migration:
+    path: workflows/ds-static-to-dynamic-migration.yaml
+    description: >-
+      Migra DS estático (HTML + CSS tokens + kits JSX) para Next.js 16 + Tailwind v4 +
+      shadcn/ui + TypeScript strict. Perfis lean (redpine-like) e full (aiox-brandbook-like).
+    sinkra_process_ref: outputs/sinkra-squad/migracao-ds-estatico-para-dinamico-tokenizado/
+    reference_execution: apps/anthropic-ds
+    sinkra_compliance_score: 87
+    tags: [design-system, migration, nextjs, tailwind-v4, shadcn, typescript]
+# --- /MIGRATION-SCHEMA-001 ---
+
+# Production evidence: squad has been executed in real scenarios
+tested: true

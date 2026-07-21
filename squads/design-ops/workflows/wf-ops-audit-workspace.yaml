@@ -1,0 +1,47 @@
+workflow:
+  id: dops-ops-audit-workspace
+  name: Design Ops Workspace Audit
+  description: Auditoria periódica workspace-first para drift de contratos, qualidade e cobertura de motion.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-ops-audit {business}"
+  sequence:
+    - step: step-1-validate-contracts
+      id: step-1-validate-contracts
+      phase: 1
+      phase_name: Validar contratos canônicos
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-workspace-contracts.cjs --business={business} --strict --format=json
+      next: step-2-validate-checklists-gate
+    - step: step-2-validate-checklists-gate
+      id: step-2-validate-checklists-gate
+      phase: 2
+      phase_name: Validar gate de checklists
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+      next: step-3-metadata-manifest
+    - step: step-3-metadata-manifest
+      id: step-3-metadata-manifest
+      phase: 3
+      phase_name: Validar metadata e manifesto
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-design-manifest-drift.cjs
+      next: step-4-motion-coverage
+    - step: step-4-motion-coverage
+      id: step-4-motion-coverage
+      phase: 4
+      phase_name: Validar cobertura de motion
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-motion-coverage.cjs --business={business}
+      next: step-5-yaml-gate
+    - step: step-5-yaml-gate
+      id: step-5-yaml-gate
+      phase: 5
+      phase_name: Validar YAML incremental
+      agent: design-chief
+      action: npm run validate:yaml:changed
+    - workflow_end:
+        id: complete
+        action: workflow_complete

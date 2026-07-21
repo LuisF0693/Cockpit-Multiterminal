@@ -1,0 +1,67 @@
+# Task: Bench Matrix — Technology
+
+## Contrato SINKRA
+
+Domain: `Tactical`
+
+task: benchMatrixTechnology()
+responsavel: bench-analyst
+responsavel_type: Agent
+atomic_layer: Atom
+Entrada:
+- `inventory_a`
+- `inventory_b`
+- `output_dir`
+Saida:
+- matriz technology JSON/MD
+Inputs: ver bloco `Entrada`
+Outputs: ver bloco `Saida`
+Pre-conditions: ver `pre_condition`
+Post-conditions: ver `post_condition`
+Performance: ver `performance`
+Error Handling: ver `error_handling`
+
+Checklist:
+- comparar maturidade, DX, performance e ecossistema
+- diferenciar fato de opinião
+pre_condition: evidências mínimas carregadas e subject validado
+post_condition: artefato persistido com achados e próximos passos rastreáveis
+performance: falhar alto, registrar fontes e manter consistência entre evidências e relatório
+error_handling: "on_fail: HALT matrix build, log dimension gaps"
+
+## Metadata
+
+```yaml
+id: bench-matrix-technology
+parent_task: bench-matrix
+category: benchmark-matrix-atom
+agent: bench-analyst
+elicit: false
+autonomous: true
+description: "Constrói a matriz comparativa para tecnologias e frameworks."
+```
+
+## Steps
+
+1. Comparar maturidade e adoção.
+2. Comparar DX, performance e ecossistema.
+3. Sinalizar tradeoffs reais por dimensão.
+4. Persistir matriz final em JSON + MD.
+
+## Acceptance Criteria
+
+- maturidade, DX e performance cobertos
+- tradeoffs explícitos
+- output rastreável para fontes técnicas
+
+---
+
+Completion Criteria: artefato concluído, validado contra checklist e pronto para handoff ou publish
+
+---
+
+accountability:
+  accountable: "Human (Process Owner)"
+  responsible: "bench-analyst"
+  consulted: [research-chief]
+  informed: [research-operator]

@@ -1,0 +1,41 @@
+/* Cobalt DS — minimal fixture for discovery testing */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Foundation */
+  --_bg-100: 210 20% 98%;
+  --_bg-200: 210 16% 95%;
+  --_bg-card: 0 0% 100%;
+
+  /* Text */
+  --_text-100: 220 15% 12%;
+  --_text-300: 220 10% 40%;
+
+  /* Border */
+  --_border-100: 220 10% 85%;
+
+  /* Brand accent — cobalt blue */
+  --_brand-cobalt:             222 69% 55%;
+  --_brand-cobalt-emphasized:  222 75% 45%;
+
+  /* Feedback */
+  --success: 140 55% 45%;
+  --info:    210 80% 55%;
+  --warn:    40 85% 55%;
+  --danger:  0 70% 50%;
+  --pro:     270 55% 55%;
+
+  /* Legacy hex sample */
+  --cobalt-ink: #0f172a;
+
+  /* Typography */
+  --font-sans:    "Inter", system-ui, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+}
+
+.dark {
+  --_bg-100: 220 20% 10%;
+  --_text-100: 210 20% 95%;
+}

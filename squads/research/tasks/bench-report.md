@@ -1,0 +1,98 @@
+# Task: Executive Report Consolidation (Composed)
+
+```yaml
+id: bench-report
+name: "Executive Report"
+category: benchmark-core
+agent: bench-analyst
+elicit: false
+autonomous: true
+type: molecule
+description: "Composed executive report stub with 3 internal atoms: load-evidence, synthesize-findings, publish"
+```
+
+## Contrato SINKRA
+
+Domain: `Strategic`
+
+task: benchReport()
+responsavel: bench-analyst
+responsavel_type: Agent
+atomic_layer: Molecule
+Entrada:
+- artefatos upstream do benchmark
+Saida:
+- `executive-report.md`
+Inputs: ver bloco `Entrada`
+Outputs: ver bloco `Saida`
+Pre-conditions: ver `pre_condition`
+Post-conditions: ver `post_condition`
+Performance: ver `performance`
+Error Handling: ver `error_handling`
+
+Checklist:
+- `checklists/bench-quality-checklist.md`
+pre_condition: evidências mínimas carregadas e subject validado
+post_condition: artefato persistido com achados e próximos passos rastreáveis
+performance: falhar alto, registrar fontes e manter consistência entre evidências e relatório
+error_handling: "on_fail: HALT phase, preserve partial artifacts, log failure context"
+
+## Task Anatomy
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | `bench-report` |
+| **Version** | `2.0.0` |
+| **Status** | `active` |
+| **Responsible Executor** | `bench-analyst` |
+| **Execution Type** | `Composed` |
+
+## Metadata
+
+```yaml
+id: bench-report
+name: "Executive Report Consolidation"
+category: benchmark-core
+agent: bench-analyst
+elicit: false
+autonomous: true
+type: composed
+description: "Orquestra carga de evidência, síntese executiva e publicação final do relatório."
+```
+
+## Execution Sequence
+
+```text
+[1] bench-report-load-evidence        -> carrega e valida artefatos upstream
+[2] bench-report-synthesize-findings  -> produz narrativa executiva e recomendações
+[3] bench-report-publish              -> grava report final e metadata de rastreio
+```
+
+## Sub-Task Reference
+
+| # | Task ID | Responsibility | Output |
+|---|---------|----------------|--------|
+| 1 | `bench-report-load-evidence` | carregar/validar evidência | evidence bundle |
+| 2 | `bench-report-synthesize-findings` | sintetizar narrativa | executive draft |
+| 3 | `bench-report-publish` | persistir report final | `executive-report.md` |
+
+## Veto Conditions
+
+- artefatos essenciais ausentes
+- números inconsistentes entre matrix/score/gap
+- recomendações sem evidência
+
+---
+
+_Task Version: 2.0.0 (atomized stub)_
+_Last Updated: 2026-03-27_
+
+Completion Criteria: artefato concluído, validado contra checklist e pronto para handoff ou publish
+
+---
+
+accountability:
+  accountable: "Human (Process Owner)"
+  responsible: "bench-analyst"
+  consulted: [research-chief]
+  informed: [research-operator]

@@ -1,0 +1,664 @@
+# DesignOps Maturity Model -- extraido de dave-malouf.md
+# Source: STORY-128.4 BLK-001
+# Origin: Dave Malouf / DesignOps Assembly
+version: "1.0.0"
+
+maturity_levels:
+  - level: 1
+    id: ad-hoc
+    name: "Ad Hoc"
+    description: "No formal DesignOps - everything is reactive and individual"
+    characteristics:
+      work:
+        - "Each designer uses own tools"
+        - "No standard processes"
+        - "Tribal knowledge only"
+        - "Reactive problem solving"
+      grow:
+        - "No career ladder"
+        - "Hiring is ad hoc"
+        - "Onboarding is 'figure it out'"
+        - "No training program"
+      thrive:
+        - "No design community"
+        - "Isolated designers"
+        - "No recognition system"
+        - "Design undervalued"
+    typical_symptoms:
+      - "Every designer does things differently"
+      - "Lost files and duplicated work"
+      - "No one knows the 'right' process"
+      - "High friction in collaboration"
+      - "Burnout common"
+    next_steps:
+      - "Document current practices"
+      - "Identify biggest pain points"
+      - "Start standardizing one thing"
+      - "Create basic design ops role"
+
+  - level: 2
+    id: emerging
+    name: "Emerging"
+    description: "Basic standardization beginning - some awareness of need"
+    characteristics:
+      work:
+        - "Some tool standardization"
+        - "Basic processes documented"
+        - "Shared asset repository starting"
+        - "Some workflow defined"
+      grow:
+        - "Basic job descriptions"
+        - "Some interview structure"
+        - "Informal onboarding checklist"
+        - "Occasional training"
+      thrive:
+        - "Some team rituals"
+        - "Occasional critiques"
+        - "Basic recognition happening"
+        - "Design starting to be valued"
+    typical_symptoms:
+      - "Inconsistent process adoption"
+      - "Champions driving change"
+      - "Resistance to standardization"
+      - "Some teams better than others"
+    next_steps:
+      - "Formalize what's working"
+      - "Create DesignOps roadmap"
+      - "Get leadership buy-in"
+      - "Start measuring basics"
+
+  - level: 3
+    id: defined
+    name: "Defined"
+    description: "Clear processes and standards exist - adoption is growing"
+    characteristics:
+      work:
+        - "Standard toolset defined"
+        - "Clear processes documented"
+        - "Component library exists"
+        - "Handoff process defined"
+      grow:
+        - "Career ladder defined"
+        - "Structured hiring process"
+        - "Onboarding program exists"
+        - "Training calendar"
+      thrive:
+        - "Regular design community events"
+        - "Recognition programs"
+        - "Culture values articulated"
+        - "Design has visibility"
+    typical_symptoms:
+      - "Most teams following standards"
+      - "Metrics being collected"
+      - "DesignOps team exists"
+      - "Leadership engaged"
+    next_steps:
+      - "Focus on adoption and compliance"
+      - "Start measuring outcomes"
+      - "Optimize processes"
+      - "Scale programs"
+
+  - level: 4
+    id: managed
+    name: "Managed"
+    description: "Metrics-driven optimization - continuous improvement"
+    characteristics:
+      work:
+        - "Tools optimized for workflow"
+        - "Processes measured and improved"
+        - "Design system mature"
+        - "Automation in place"
+      grow:
+        - "Data-driven hiring"
+        - "Continuous learning culture"
+        - "Clear progression paths"
+        - "High retention"
+      thrive:
+        - "Strong design culture"
+        - "Active community"
+        - "High satisfaction"
+        - "Design influences strategy"
+    typical_symptoms:
+      - "KPIs tracked regularly"
+      - "Continuous improvement cycles"
+      - "Proactive not reactive"
+      - "Design ops seen as strategic"
+    next_steps:
+      - "Focus on business impact"
+      - "Optimize for scale"
+      - "Innovation in ops"
+      - "Industry leadership"
+
+  - level: 5
+    id: optimized
+    name: "Optimized"
+    description: "Industry-leading operations - innovation and excellence"
+    characteristics:
+      work:
+        - "Best-in-class tools and processes"
+        - "Automation and AI integration"
+        - "Continuous innovation"
+        - "Industry benchmark"
+      grow:
+        - "Talent magnet organization"
+        - "World-class development"
+        - "Career destination"
+        - "Internal mobility"
+      thrive:
+        - "Design-led culture"
+        - "Thriving community"
+        - "Exceptional well-being"
+        - "Strategic partner"
+    typical_symptoms:
+      - "Copied by competitors"
+      - "Speaking at conferences"
+      - "Publishing case studies"
+      - "Attracting top talent"
+    maintenance_focus:
+      - "Stay ahead of industry"
+      - "Continue innovating"
+      - "Share knowledge externally"
+      - "Mentor other organizations"
+
+assessment_dimensions:
+  - dimension: how_we_work
+    name: "How We Work"
+    focus: "Workflow, tools, and processes"
+    key_areas:
+      - id: workflow_management
+        items:
+          - "Design sprints and rituals"
+          - "Handoff processes (design -> dev)"
+          - "Review and feedback cycles"
+          - "Version control for design"
+      - id: tooling
+        items:
+          - "Design tool selection (Figma, Sketch, etc.)"
+          - "Prototyping tools"
+          - "Research tools"
+          - "Collaboration tools"
+          - "Design system tooling"
+      - id: asset_management
+        items:
+          - "Component libraries"
+          - "Icon systems"
+          - "Photography/illustration assets"
+          - "Brand guidelines"
+      - id: cross_functional
+        items:
+          - "Design-dev collaboration"
+          - "PM-design alignment"
+          - "Research integration"
+          - "QA processes"
+    metrics:
+      - "Time from concept to handoff"
+      - "Design iteration cycles"
+      - "Tool adoption rates"
+      - "Handoff rejection rate"
+      - "Design debt accumulation"
+    common_problems:
+      - "Tool fragmentation (each designer using different tools)"
+      - "No clear handoff process"
+      - "Design review bottlenecks"
+      - "Lost assets and duplicated work"
+      - "Poor version control"
+
+  - dimension: how_we_grow
+    name: "How We Grow"
+    focus: "Skills, careers, and professional development"
+    key_areas:
+      - id: hiring
+        items:
+          - "Recruiting pipeline"
+          - "Interview processes"
+          - "Portfolio review standards"
+          - "Offer competitiveness"
+          - "Diversity in hiring"
+      - id: onboarding
+        items:
+          - "First 90 days program"
+          - "Buddy/mentor assignment"
+          - "Tool training"
+          - "Culture introduction"
+          - "First project assignment"
+      - id: career_development
+        items:
+          - "Career ladder definition"
+          - "Skills matrix"
+          - "Performance reviews"
+          - "Promotion criteria"
+          - "IC vs management tracks"
+      - id: learning
+        items:
+          - "Training programs"
+          - "Conference attendance"
+          - "Learning budgets"
+          - "Skill sharing sessions"
+          - "External courses/certifications"
+    metrics:
+      - "Time to hire"
+      - "Offer acceptance rate"
+      - "Time to productivity (new hires)"
+      - "Retention rate"
+      - "Internal promotion rate"
+      - "Training hours per designer"
+    common_problems:
+      - "No clear career ladder"
+      - "Inconsistent hiring criteria"
+      - "Sink or swim onboarding"
+      - "No learning budget"
+      - "High turnover"
+
+  - dimension: how_we_thrive
+    name: "How We Thrive"
+    focus: "Culture, community, and well-being"
+    key_areas:
+      - id: culture
+        items:
+          - "Design values and principles"
+          - "Psychological safety"
+          - "Feedback culture"
+          - "Recognition and celebration"
+          - "Inclusion and belonging"
+      - id: community
+        items:
+          - "Design critiques"
+          - "Show and tell sessions"
+          - "Design guild/community"
+          - "Cross-team connections"
+          - "External community engagement"
+      - id: well_being
+        items:
+          - "Workload management"
+          - "Work-life balance"
+          - "Mental health support"
+          - "Burnout prevention"
+          - "Remote/hybrid support"
+      - id: advocacy
+        items:
+          - "Design leadership visibility"
+          - "Executive sponsorship"
+          - "Design influence on strategy"
+          - "Seat at the table"
+    metrics:
+      - "Employee satisfaction scores"
+      - "Engagement survey results"
+      - "Burnout indicators"
+      - "Community participation rates"
+      - "Design influence perception"
+    common_problems:
+      - "Siloed designers (no community)"
+      - "No recognition culture"
+      - "Burnout and high stress"
+      - "Design undervalued by org"
+      - "Lack of psychological safety"
+
+frameworks:
+  - id: three-lenses-of-designops
+    name: "Three Lenses of DesignOps"
+    category: core_methodology
+    origin: "Dave Malouf / DesignOps Assembly"
+    purpose: >
+      O framework fundamental que organiza todas as atividades de DesignOps
+      em tres dimensoes complementares. Cada lente representa um aspecto
+      critico de operacoes de design que deve ser enderecado.
+    principle: "DesignOps must address how teams work, grow, and thrive - ignore any lens at your peril."
+    lenses:
+      - "How We Work (workflow, tools, processes)"
+      - "How We Grow (skills, careers, professional development)"
+      - "How We Thrive (culture, community, well-being)"
+    implementation_checklist:
+      - "Avaliado status atual de cada lente?"
+      - "Identificado gaps mais criticos?"
+      - "Priorizado melhorias por impacto?"
+      - "Definido metricas para cada lente?"
+      - "Criado roadmap de melhorias?"
+      - "Estabelecido ownership para cada area?"
+
+  - id: design-team-topology
+    name: "Design Team Topology"
+    category: organizational_structure
+    origin: "Dave Malouf / Industry Best Practices"
+    purpose: >
+      Framework para avaliar e selecionar a estrutura organizacional
+      ideal para times de design baseado em contexto, tamanho, e objetivos.
+    principle: "Structure shapes behavior - choose topology that enables your goals."
+    topologies:
+      - id: centralized
+        name: "Centralized"
+        description: "All designers in one team, assigned to projects"
+        best_for:
+          - "Small to medium teams (< 20 designers)"
+          - "Organizations valuing consistency"
+          - "Early-stage design orgs"
+        pros:
+          - "Consistent design quality"
+          - "Easy to share knowledge"
+          - "Clear career paths"
+          - "Efficient resource allocation"
+        cons:
+          - "Can be disconnected from product"
+          - "Context switching"
+          - "Potential bottleneck"
+      - id: embedded
+        name: "Embedded"
+        description: "Designers sit within product teams full-time"
+        best_for:
+          - "Product-led organizations"
+          - "Fast-moving teams"
+          - "Complex products requiring deep knowledge"
+        pros:
+          - "Deep product context"
+          - "Strong product relationships"
+          - "Fast iteration"
+        cons:
+          - "Inconsistent design practices"
+          - "Siloed designers"
+          - "Career path unclear"
+      - id: federated
+        name: "Federated"
+        description: "Designers embedded but with dotted line to design org"
+        best_for:
+          - "Large organizations (50+ designers)"
+          - "Multiple products needing consistency"
+          - "Mature design organizations"
+        pros:
+          - "Product context AND design consistency"
+          - "Career paths through design org"
+          - "Knowledge sharing"
+        cons:
+          - "Complex reporting"
+          - "Potential for conflict"
+          - "Requires strong coordination"
+      - id: hybrid
+        name: "Hybrid"
+        description: "Mix of centralized and embedded based on function"
+        best_for:
+          - "Large, complex organizations"
+          - "Mix of product types"
+          - "Specialized design needs"
+        pros:
+          - "Best of both worlds"
+          - "Efficient specialist usage"
+          - "Flexibility"
+        cons:
+          - "Complex to manage"
+          - "Requires clear rules"
+          - "Can be confusing for new hires"
+    decision_matrix:
+      factors:
+        - factor: "Team Size < 20"
+          scores: { centralized: 4, embedded: 2, federated: 1, hybrid: 1 }
+        - factor: "Team Size 20-50"
+          scores: { centralized: 2, embedded: 3, federated: 4, hybrid: 3 }
+        - factor: "Team Size 50+"
+          scores: { centralized: 1, embedded: 2, federated: 4, hybrid: 5 }
+        - factor: "Consistency Priority"
+          scores: { centralized: 5, embedded: 2, federated: 4, hybrid: 3 }
+        - factor: "Speed Priority"
+          scores: { centralized: 2, embedded: 5, federated: 4, hybrid: 4 }
+        - factor: "Early Stage Org"
+          scores: { centralized: 5, embedded: 3, federated: 1, hybrid: 2 }
+        - factor: "Mature Design Org"
+          scores: { centralized: 2, embedded: 3, federated: 5, hybrid: 5 }
+
+  - id: designops-metrics-stack
+    name: "DesignOps Metrics Stack"
+    category: measurement
+    origin: "Dave Malouf / DesignOps Assembly"
+    purpose: >
+      Framework de tres camadas para medir o impacto de DesignOps,
+      desde outputs taticos ate impacto estrategico de negocio.
+    principle: "Measure what matters at every level - outputs, outcomes, and impact."
+    layers:
+      - id: output_metrics
+        name: "Output Metrics"
+        description: "What the team produces - activity and deliverables"
+        cadence: "Weekly or sprint-based"
+        examples:
+          - name: "Design throughput"
+            target: "Consistent or improving trend"
+          - name: "Time to first design"
+            target: "< 5 days for standard projects"
+          - name: "Design iteration cycles"
+            target: "2-3 cycles"
+          - name: "Handoff success rate"
+            target: "> 90%"
+          - name: "Tool adoption rate"
+            target: "> 95%"
+          - name: "Component usage rate"
+            target: "> 80%"
+        warning: "Output metrics alone can incentivize wrong behaviors (speed over quality)"
+      - id: outcome_metrics
+        name: "Outcome Metrics"
+        description: "What the team achieves - quality and effectiveness"
+        cadence: "Monthly or quarterly"
+        examples:
+          - name: "Usability test success rate"
+            target: "> 80%"
+          - name: "Accessibility compliance"
+            target: "100%"
+          - name: "Designer satisfaction"
+            target: "> 40 NPS"
+          - name: "Retention rate"
+            target: "> 80%"
+          - name: "Time to productivity"
+            target: "< 90 days"
+          - name: "Design-dev sync"
+            target: "> 85% specs implemented as designed"
+        warning: "Outcome metrics need context - satisfaction without quality is problematic"
+      - id: impact_metrics
+        name: "Impact Metrics"
+        description: "Business value created - strategic contribution"
+        cadence: "Quarterly or annually"
+        examples:
+          - name: "Design-attributed revenue"
+            target: "Increasing trend"
+          - name: "Cost savings from design"
+            target: "2-5x design investment"
+          - name: "Time to market impact"
+            target: "20-30% improvement"
+          - name: "NPS improvement"
+            target: "+10 points year over year"
+          - name: "Task success rate"
+            target: "> 90%"
+        warning: "Impact metrics require cross-functional data and attribution models"
+
+  - id: designops-pillars
+    name: "DesignOps Pillars"
+    category: organizational_building_blocks
+    origin: "Dave Malouf / Industry Synthesis"
+    purpose: >
+      Os cinco pilares fundamentais que toda funcao de DesignOps
+      deve construir para suportar uma organizacao de design escalavel.
+    principle: "Build all five pillars - weakness in one undermines the others."
+    pillars:
+      - id: workflow
+        name: "Workflow Operations"
+        description: "How work flows through the design organization"
+        maturity_indicators:
+          level_1: "No standard process"
+          level_3: "Defined process, growing adoption"
+          level_5: "Optimized, measured, continuously improved"
+      - id: governance
+        name: "Governance"
+        description: "Decision rights and standards management"
+        maturity_indicators:
+          level_1: "No formal governance"
+          level_3: "Defined standards, enforcement beginning"
+          level_5: "Self-governing teams with clear guardrails"
+      - id: tools
+        name: "Tools & Technology"
+        description: "Technology stack for design work"
+        maturity_indicators:
+          level_1: "Everyone uses different tools"
+          level_3: "Standard stack defined and adopted"
+          level_5: "Integrated, automated, continuously optimized"
+      - id: growth
+        name: "Growth & Development"
+        description: "How designers develop and progress"
+        maturity_indicators:
+          level_1: "Ad hoc hiring, no career paths"
+          level_3: "Structured programs, growing adoption"
+          level_5: "Talent magnet, world-class development"
+      - id: community
+        name: "Community & Culture"
+        description: "How designers connect and thrive"
+        maturity_indicators:
+          level_1: "Siloed, no community"
+          level_3: "Active community, growing culture"
+          level_5: "Thriving, industry-leading culture"
+
+  - id: scaling-design-teams
+    name: "Scaling Design Teams"
+    category: growth_strategy
+    origin: "Dave Malouf / Industry Best Practices"
+    purpose: >
+      Framework para escalar times de design de forma sustentavel,
+      desde primeiros designers ate centenas de profissionais.
+    principle: "Scale through systems, not just headcount."
+    phases:
+      - id: founding
+        stage: "0-5 designers"
+        name: "Founding"
+        priorities:
+          - "Establish design credibility"
+          - "Build relationships with stakeholders"
+          - "Create first wins"
+          - "Define basic processes"
+        key_hires:
+          - "Generalist designers"
+          - "Strong individual contributors"
+        ops_focus:
+          - "Basic tool selection"
+          - "Simple workflow"
+          - "Portfolio development"
+      - id: building
+        stage: "5-15 designers"
+        name: "Building"
+        priorities:
+          - "Standardize processes"
+          - "Build design system foundations"
+          - "Create hiring pipeline"
+          - "Establish design community"
+        key_hires:
+          - "First DesignOps role"
+          - "Design system lead"
+          - "Specialized skills (research, content)"
+        ops_focus:
+          - "Process documentation"
+          - "Tool standardization"
+          - "Career ladder draft"
+          - "Onboarding program"
+      - id: scaling
+        stage: "15-50 designers"
+        name: "Scaling"
+        priorities:
+          - "Scale processes that work"
+          - "Build management layer"
+          - "Mature design system"
+          - "Establish governance"
+        key_hires:
+          - "Additional managers"
+          - "DesignOps team"
+          - "Design program managers"
+        ops_focus:
+          - "Metrics and reporting"
+          - "Self-service resources"
+          - "Training programs"
+          - "Cross-team coordination"
+      - id: optimizing
+        stage: "50-150 designers"
+        name: "Optimizing"
+        priorities:
+          - "Optimize for efficiency"
+          - "Build centers of excellence"
+          - "Strategic design influence"
+          - "Industry leadership"
+        key_hires:
+          - "Senior leadership"
+          - "Specialized functions"
+          - "Innovation roles"
+        ops_focus:
+          - "Automation and tooling"
+          - "Advanced metrics"
+          - "Strategic planning"
+      - id: enterprise
+        stage: "150+ designers"
+        name: "Enterprise"
+        priorities:
+          - "Multi-BU coordination"
+          - "Global consistency"
+          - "Design at scale"
+          - "Industry thought leadership"
+        key_hires:
+          - "VP/SVP level leaders"
+          - "Regional leads"
+          - "Chief Design Officer"
+        ops_focus:
+          - "Enterprise governance"
+          - "Global programs"
+          - "M&A integration"
+          - "Innovation labs"
+    scaling_principles:
+      - "Systems before headcount"
+      - "Hire one level ahead"
+      - "Document before scaling"
+      - "Measure what matters"
+      - "Culture is fragile at scale"
+      - "Governance enables, not restricts"
+
+  - id: designops-budget-model
+    name: "DesignOps Budget Model"
+    category: financial_planning
+    origin: "Dave Malouf / Industry Best Practices"
+    purpose: >
+      Framework para modelar e justificar investimentos em DesignOps,
+      conectando custos a valor de negocio.
+    principle: "Every ops investment should show ROI - measure and communicate value."
+    budget_categories:
+      - id: people
+        description: "Headcount and contractors"
+        typical_allocation: "60-70%"
+        items:
+          - "DesignOps manager/director"
+          - "Design program managers"
+          - "Design systems team"
+          - "Tooling specialists"
+          - "Contract support"
+      - id: tools
+        description: "Software and platforms"
+        typical_allocation: "15-25%"
+        items:
+          - "Design tools (Figma, etc.)"
+          - "Collaboration tools"
+          - "Research platforms"
+          - "Design system tooling"
+          - "Analytics and metrics"
+      - id: programs
+        description: "Training, events, initiatives"
+        typical_allocation: "10-20%"
+        items:
+          - "Conference attendance"
+          - "Training programs"
+          - "Community events"
+          - "Learning budgets"
+          - "Team building"
+      - id: infrastructure
+        description: "Supporting resources"
+        typical_allocation: "5-10%"
+        items:
+          - "Asset storage"
+          - "Documentation systems"
+          - "Hardware/equipment"
+          - "Office/space"
+    roi_formulas:
+      - name: "Designer Productivity"
+        formula: "Hours saved per designer x hourly cost x number of designers"
+        example: "5 hrs/week x $75/hr x 50 designers = $975,000/year"
+      - name: "Reduced Rework"
+        formula: "% reduction in rework x average rework cost x project volume"
+        example: "30% reduction x $10,000 avg x 100 projects = $300,000/year"
+      - name: "Faster Onboarding"
+        formula: "Days saved x daily cost x number of hires"
+        example: "30 days saved x $500/day x 20 hires = $300,000/year"

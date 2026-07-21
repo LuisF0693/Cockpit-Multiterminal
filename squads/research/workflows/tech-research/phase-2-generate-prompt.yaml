@@ -1,0 +1,21 @@
+workflow:
+  phases:
+    2_generate_prompt:
+      name: "Gerar Prompt de Deep Research"
+      description: |
+        Transforma query + context em prompt estruturado.
+        Uses inferred_context from Phase 0 (auto-clarification) when available:
+        - inferred_context.focus → determines research angle (technical, comparison, general)
+        - inferred_context.temporal → adds year constraints to searches if "recent"
+        - inferred_context.domain → scopes research to specific technologies
+        If manual clarification was used (Phase 1), merge those answers with inferred_context.
+
+        When decomposition_result is available (from Phase 1.5):
+        - Use decomposition_result.sub_queries to generate more targeted research prompts
+        - Each sub-query becomes a focused search vector instead of a single broad query
+        - decomposition_result.main_topic provides the central theme for the research prompt
+        - decomposition_result.search_strategy ("parallel"|"sequential") informs execution order
+        When decomposition_result is NOT available (backward compatibility):
+        - Use the original single query as before (no behavior change)
+      template: "deep-research-prompt-template.md"
+      output: "01-deep-research-prompt.md"

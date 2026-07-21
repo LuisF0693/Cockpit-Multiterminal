@@ -1,0 +1,34 @@
+# Deviation Registry — Research Squad
+# Tracks formal deviations from SINKRA methodology (Mandamento 7)
+# Created: 2026-04-12
+# Owner: spy squad
+
+schema_version: "1.0.0"
+squad: research
+created: "2026-04-12"
+updated: "2026-04-12"
+
+deviations:
+  - id: DEV-RESEARCH-001
+    type: naming
+    description: "Data files use squad-prefix naming (spy-infrastructure-map.yaml, spy-service-catalog.yaml) instead of canonical names"
+    rationale: "Avoids collision with hub-level files of the same name"
+    status: accepted
+    approved_by: "validate-squad deep 2026-04-12"
+    created: "2026-04-12"
+
+  - id: DEV-RESEARCH-002
+    type: output_path
+    description: "Benchmark artifacts persist to docs/bench/{slug}/ instead of outputs/research/"
+    rationale: "Benchmarks are shared reference documents, not transient squad outputs. Cross-consumed by multiple skills and agents."
+    status: accepted
+    approved_by: "spy squad v3.0 design decision"
+    created: "2026-03-27"
+
+  - id: DEV-RESEARCH-003
+    type: executor
+    description: "Composed executor type used for 6 molecule-level tasks instead of canonical Agent type"
+    rationale: "Composed indicates orchestration stub pattern — task routes to child atoms, does not execute directly"
+    status: accepted
+    approved_by: "spy squad v3.0 design decision"
+    created: "2026-03-27"

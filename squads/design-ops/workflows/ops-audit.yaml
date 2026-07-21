@@ -1,0 +1,239 @@
+workflow:
+  id: designops-audit
+  name: DesignOps Audit
+  description: >
+    Full DesignOps audit: scan DS source health, measure token drift across all consumer apps,
+    measure component reuse rates, assess Three Lenses (Work/Grow/Thrive), and generate
+    a remediation epic draft with prioritized stories.
+    Combines Dave Malouf Three Lenses framework with automated cross-app scanning.
+  version: 1.0.0
+  type: sequential
+  trigger: "*ops-audit {app_path}"
+
+  sequence:
+    - step: step-1-resolve-consumers
+      id: step-1-resolve-consumers
+      phase: 1
+      phase_name: Resolve DS Source and Consumer Apps
+      agent: design-chief
+      action: resolve-consumers
+      description: >
+        Identify the DS source app and all consumer apps.
+        Uses consumer-contracts.md if it exists, otherwise scans for bb-* imports
+        and --bb-* token references across all apps/ directories.
+      outputs:
+        - ds_source_app
+        - consumer_apps_list
+      next: step-2-health-scan
+
+    - step: step-2-health-scan
+      id: step-2-health-scan
+      phase: 2
+      phase_name: DS Source Health Scan
+      agent: brad-frost
+      action: ds-health
+      description: >
+        Run ds-health-metrics on the DS source app.
+        Measures: token coverage, component count, story coverage, test coverage,
+        bundle size, code quality, consistency score.
+      inputs:
+        path: "{{app_path}}"
+      outputs:
+        - health_report
+        - health_score
+      next: step-3-token-drift-scan
+
+    - step: step-3-token-drift-scan
+      id: step-3-token-drift-scan
+      phase: 3
+      phase_name: Cross-App Token Drift Scan
+      agent: ds-token-architect
+      action: token-drift-scan
+      description: >
+        For each consumer app, measure:
+        - Hardcoded hex/rgb/hsl count (in TSX/CSS, excluding token definition files)
+        - Token reference count (--bb-* vars + bb-* Tailwind classes)
+        - Token drift % = hardcoded / (hardcoded + token refs) * 100
+        - Parallel token systems (e.g., --aiox-* competing with --bb-*)
+        - Top 10 most common hardcoded values
+      inputs:
+        consumer_apps: "{{step-1-resolve-consumers.consumer_apps_list}}"
+        ds_source: "{{step-1-resolve-consumers.ds_source_app}}"
+      outputs:
+        - token_drift_report
+        - drift_per_app
+        - parallel_token_systems
+      next: step-4-reuse-scan
+
+    - step: step-4-reuse-scan
+      id: step-4-reuse-scan
+      phase: 4
+      phase_name: Cross-App Component Reuse Scan
+      agent: brad-frost
+      action: reuse-scan
+      description: >
+        For each consumer app, measure:
+        - Which bb-* components are imported
+        - Which are NOT used (orphaned in that app)
+        - Reuse rate = used / available * 100
+        - Duplicate components (custom Button that should be bb-button)
+        - Import strategy (bb-* components vs shadcn/ui vs custom)
+      inputs:
+        consumer_apps: "{{step-1-resolve-consumers.consumer_apps_list}}"
+        ds_source: "{{step-1-resolve-consumers.ds_source_app}}"
+      outputs:
+        - reuse_report
+        - reuse_per_app
+        - orphaned_components
+        - duplicate_components
+      next: step-5-three-lenses
+
+    - step: step-5-three-lenses
+      id: step-5-three-lenses
+      phase: 5
+      phase_name: Three Lenses Assessment (Dave Malouf)
+      agent: dave-malouf
+      action: three-lenses-assessment
+      description: >
+        Using data from phases 2-4, assess the DS across the Three Lenses:
+        - Lens 1 (How We Work): atomic design, token pipeline, Storybook, handoff, CI gates, version control
+        - Lens 2 (How We Grow): documentation, contribution guide, naming conventions, onboarding
+        - Lens 3 (How We Thrive): adoption across apps, governance, community, multi-tenant
+        Each lens scored 1-5. Overall maturity level: 1 (Ad Hoc) to 5 (Optimized).
+      inputs:
+        health_report: "{{step-2-health-scan.health_report}}"
+        drift_report: "{{step-3-token-drift-scan.token_drift_report}}"
+        reuse_report: "{{step-4-reuse-scan.reuse_report}}"
+      outputs:
+        - three_lenses_report
+        - maturity_level
+        - maturity_score
+        - risk_register
+      next: step-6-metrics-stack
+
+    - step: step-6-metrics-stack
+      id: step-6-metrics-stack
+      phase: 6
+      phase_name: Define Metrics Stack (Output/Outcome/Impact)
+      agent: dave-malouf
+      action: metrics-stack
+      description: >
+        Based on Three Lenses assessment, define the metrics stack:
+        - Output metrics (what we produce): component count, story coverage, test coverage
+        - Outcome metrics (adoption): reuse rate, token drift, handoff rejection, time-to-component
+        - Impact metrics (business): feature velocity, visual consistency, onboarding time
+        Include baselines from phases 2-4 and targets.
+      inputs:
+        three_lenses: "{{step-5-three-lenses.three_lenses_report}}"
+        health_report: "{{step-2-health-scan.health_report}}"
+        drift_report: "{{step-3-token-drift-scan.token_drift_report}}"
+        reuse_report: "{{step-4-reuse-scan.reuse_report}}"
+      outputs:
+        - metrics_stack
+        - health_dashboard
+      next: step-7-generate-epic
+
+    - step: step-7-generate-epic
+      id: step-7-generate-epic
+      phase: 7
+      phase_name: Generate Remediation Epic Draft
+      agent: design-chief
+      action: generate-epic
+      description: >
+        Using all data from phases 1-6, generate an epic draft in docs/projects/aiox/epics/.
+        The epic contains:
+        - Stories for each P0/P1 finding (token drift elimination, CI gates, tests)
+        - Wave execution plan (parallel where possible)
+        - Success criteria with baselines and targets from metrics stack
+        - Dependency map between stories
+        Format follows existing epic pattern (see epic-workspace-sophistication as reference).
+      inputs:
+        three_lenses: "{{step-5-three-lenses.three_lenses_report}}"
+        metrics_stack: "{{step-6-metrics-stack.metrics_stack}}"
+        risk_register: "{{step-5-three-lenses.risk_register}}"
+        drift_report: "{{step-3-token-drift-scan.token_drift_report}}"
+        reuse_report: "{{step-4-reuse-scan.reuse_report}}"
+        health_report: "{{step-2-health-scan.health_report}}"
+      outputs:
+        - epic_draft
+        - epic_path
+      next: step-8-persist-report
+
+    - step: step-8-persist-report
+      id: step-8-persist-report
+      phase: 8
+      phase_name: Persist Audit Report
+      agent: design-chief
+      action: persist
+      description: >
+        Save all outputs to outputs/design/ops-audit/{date}/.
+        This ensures progressive output saving (never accumulate only in context).
+      outputs:
+        - audit_report_path
+      next: complete
+
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+metadata:
+  author: Dave Malouf (DesignOps) + Design Chief (Orchestration)
+  created_date: "2026-03-25"
+  last_modified: "2026-03-25"
+  tags:
+    - designops
+    - audit
+    - token-drift
+    - component-reuse
+    - three-lenses
+    - metrics-stack
+    - epic-generation
+
+inputs:
+  app_path:
+    type: string
+    description: Path to the DS source app (e.g., apps/aiox-design-system)
+    required: true
+    validation: Must be valid directory path containing a design system
+  project_name:
+    type: string
+    description: Project name for output organization
+    required: false
+    default: aiox-ds
+
+outputs:
+  audit_complete:
+    type: boolean
+    description: Full ops audit completed
+    source: step-8-persist-report.success
+  health_score:
+    type: number
+    description: DS health score (0-100)
+    source: step-2-health-scan.health_score
+  maturity_level:
+    type: string
+    description: "DesignOps maturity: Ad Hoc | Emerging | Defined | Managed | Optimized"
+    source: step-5-three-lenses.maturity_level
+  token_drift_avg:
+    type: number
+    description: Average token drift across all consumers (%)
+    source: step-3-token-drift-scan.drift_per_app
+  epic_path:
+    type: string
+    description: Path to generated remediation epic
+    source: step-7-generate-epic.epic_path
+  report_path:
+    type: string
+    description: Path to persisted audit report
+    source: step-8-persist-report.audit_report_path
+
+global_error_handling:
+  on_error: continue_with_partial
+  notification:
+    enabled: true
+    channels:
+      - console
+
+security:
+  authorization_required: false
+  audit_logging: true

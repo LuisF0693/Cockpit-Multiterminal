@@ -1,0 +1,319 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
+
+const resolver = require('./resolve-business-design-system.cjs');
+const runtimePaths = require('./runtime-paths.cjs');
+const { resolveSquadWorkspaceReadiness } = require('../../../workspace/scripts/resolve-squad-workspace-readiness.cjs');
+
+const ROOT = process.cwd();
+
+function resolveReadiness(params) {
+  return resolveSquadWorkspaceReadiness({
+    ...params,
+    squad: 'design-ops',
+  });
+}
+
+function fail(message) {
+  if (require.main === module) {
+    process.stderr.write(`ERROR: ${message}\n`);
+    process.exit(1);
+  }
+  throw new Error(message);
+}
+
+function normalizePath(targetPath) {
+  return targetPath.split(path.sep).join('/');
+}
+
+function toRelative(targetPath) {
+  const relative = path.relative(ROOT, targetPath);
+  return relative === '' ? '.' : normalizePath(relative);
+}
+
+function parseArgs(argv) {
+  const args = {
+    business: null,
+    app: null,
+    codebase: null,
+    task: null,
+    format: 'json',
+  };
+
+  for (const raw of argv) {
+    if (raw.startsWith('--business=')) {
+      args.business = raw.slice('--business='.length).trim() || null;
+      continue;
+    }
+    if (raw.startsWith('--bu=')) {
+      args.business = raw.slice('--bu='.length).trim() || null;
+      continue;
+    }
+    if (raw.startsWith('--app=')) {
+      args.app = raw.slice('--app='.length).trim() || null;
+      continue;
+    }
+    if (raw.startsWith('--codebase=')) {
+      args.codebase = raw.slice('--codebase='.length).trim() || null;
+      continue;
+    }
+    if (raw.startsWith('--task=')) {
+      args.task = raw.slice('--task='.length).trim() || null;
+      continue;
+    }
+    if (raw.startsWith('--format=')) {
+      args.format = raw.slice('--format='.length).trim() || 'json';
+    }
+  }
+
+  return args;
+}
+
+function readSessionContext() {
+  const sessionPath = runtimePaths.getDesignSessionContextPath();
+  if (!fs.existsSync(sessionPath)) {
+    fail(`Design session context not found: ${runtimePaths.toWorkspaceRelative(sessionPath)}. Run node squads/design-ops/scripts/set-active-context.cjs --business=<slug> or --app=<id>.`);
+  }
+
+  const payload = yaml.load(fs.readFileSync(sessionPath, 'utf8')) || {};
+  const active = payload.active_context || {};
+  const businessSlug = typeof active.business_slug === 'string' && active.business_slug.trim() !== '' ? active.business_slug.trim() : null;
+  if (!businessSlug) {
+    fail(`Invalid session context: missing active_context.business_slug in ${runtimePaths.toWorkspaceRelative(sessionPath)}`);
+  }
+
+  return {
+    sessionPath,
+    businessSlug,
+    appId: typeof active.app_id === 'string' && active.app_id.trim() !== '' ? active.app_id.trim() : null,
+    theme: typeof active.theme === 'string' && active.theme.trim() !== '' ? active.theme.trim() : null,
+  };
+}
+
+function ensureExists(targetPath, label) {
+  if (!fs.existsSync(targetPath)) {
+    fail(`${label} not found: ${toRelative(targetPath)}`);
+  }
+  return targetPath;
+}
+
+function pickApp(config, requestedAppId) {
+  const apps = Array.isArray(config.apps) ? config.apps : [];
+  if (requestedAppId) {
+    const app = apps.find((item) => item && item.id === requestedAppId);
+    if (!app) fail(`App "${requestedAppId}" not found in DS config`);
+    return app;
+  }
+  if (apps.length === 1) return apps[0];
+  return null;
+}
+
+function buildConfiguredContext(result, requestedAppId, taskId, themeOverride = null) {
+  const configPathAbs = ensureExists(path.join(ROOT, result.config_path), 'DS config');
+  const config = resolver.readYaml(configPathAbs);
+  const app = pickApp(config, requestedAppId);
+  const themeId = themeOverride || (app && typeof app.theme === 'string' ? app.theme : config.default_theme);
+  const theme = themeId && config.themes ? config.themes[themeId] || null : null;
+
+  if (themeId && !theme) {
+    fail(`Theme "${themeId}" not found in ${result.config_path}`);
+  }
+
+  const repoRootAbs = ensureExists(path.resolve(ROOT, config.source.repo_root), 'DS source.repo_root');
+  const dsRootAbs = ensureExists(path.resolve(repoRootAbs, config.source.ds_root), 'DS source.ds_root');
+
+  let appRootAbs = null;
+  let componentsRootAbs = null;
+  let componentDirs = {};
+  let tokenFiles = [];
+  let blueprintFiles = [];
+  let hooksDir = null;
+  let dataDir = null;
+  let appDir = null;
+
+  if (app) {
+    appRootAbs = ensureExists(path.resolve(repoRootAbs, app.root), 'app.root');
+    componentsRootAbs = ensureExists(path.resolve(appRootAbs, app.components_root), 'app.components_root');
+    componentDirs = Object.fromEntries(
+      Object.entries(app.component_dirs || {}).map(([key, value]) => [key, toRelative(path.resolve(componentsRootAbs, value))])
+    );
+    tokenFiles = (app.token_files || []).map((file) => toRelative(path.resolve(appRootAbs, file))).filter((p) => fs.existsSync(path.resolve(ROOT, p)));
+    blueprintFiles = (app.blueprint_files || []).map((file) => toRelative(path.resolve(appRootAbs, file))).filter((p) => fs.existsSync(path.resolve(ROOT, p)));
+    hooksDir = app.hooks_dir ? toRelative(path.resolve(appRootAbs, app.hooks_dir)) : null;
+    dataDir = app.data_dir ? toRelative(path.resolve(appRootAbs, app.data_dir)) : null;
+    appDir = app.app_dir ? toRelative(path.resolve(appRootAbs, app.app_dir)) : null;
+  }
+
+  const themeTokenFiles = [];
+  if (theme && theme.tokens) {
+    if (theme.tokens.primary) {
+      const primaryAbs = path.resolve(dsRootAbs, theme.tokens.primary);
+      if (fs.existsSync(primaryAbs)) themeTokenFiles.push(toRelative(primaryAbs));
+    }
+    for (const file of theme.tokens.files || []) {
+      const abs = path.resolve(dsRootAbs, file);
+      if (fs.existsSync(abs)) themeTokenFiles.push(toRelative(abs));
+    }
+  }
+
+  return {
+    task: taskId || null,
+    resolution_method: 'configured',
+    business_slug: result.business_slug,
+    status: result.status,
+    action: 'continue',
+    config_path: result.config_path,
+    design_system: {
+      id: config.id || null,
+      name: config.name || null,
+      source: {
+        repo_root_abs: toRelative(repoRootAbs),
+        ds_root_abs: toRelative(dsRootAbs),
+        type: config.source.type || null,
+      },
+      default_theme: config.default_theme || null,
+      theme_selected: themeId || null,
+      themes: Object.keys(config.themes || {}),
+    },
+    app: app
+      ? {
+          id: app.id || null,
+          root: app.root || null,
+          framework: app.framework || null,
+          ui_primitives: app.ui_primitives || null,
+        }
+      : null,
+    resolved_paths: {
+      ds_root: toRelative(dsRootAbs),
+      app_root: appRootAbs ? toRelative(appRootAbs) : null,
+      components_root: componentsRootAbs ? toRelative(componentsRootAbs) : null,
+      component_dirs: componentDirs,
+      token_files: tokenFiles,
+      theme_token_files: [...new Set(themeTokenFiles)],
+      blueprint_files: blueprintFiles,
+      hooks_dir: hooksDir,
+      data_dir: dataDir,
+      app_dir: appDir,
+    },
+  };
+}
+
+function buildOutput(args) {
+  let result;
+  let sessionContext = null;
+  let cooReadiness = null;
+  let businessForReadiness = args.business || null;
+  let appForReadiness = args.app || null;
+
+  if (args.business) {
+    cooReadiness = resolveReadiness({
+      business: args.business,
+      contextType: 'design_system',
+    });
+    result = resolver.buildBusinessResult(resolver.getWorkspaceConfig(), args.business);
+  } else if (args.app) {
+    cooReadiness = resolveReadiness({
+      app: args.app,
+      contextType: 'design_system',
+    });
+    result = resolver.resolveByApp(resolver.getWorkspaceConfig(), args.app);
+  } else {
+    sessionContext = readSessionContext();
+    businessForReadiness = sessionContext.businessSlug;
+    appForReadiness = sessionContext.appId;
+    cooReadiness = resolveReadiness({
+      business: businessForReadiness,
+      app: appForReadiness,
+      contextType: 'design_system',
+    });
+    result = sessionContext.appId
+      ? resolver.resolveByApp(resolver.getWorkspaceConfig(), sessionContext.appId)
+      : resolver.buildBusinessResult(resolver.getWorkspaceConfig(), sessionContext.businessSlug);
+  }
+
+  if (result.status === 'not_applicable') {
+    return {
+      task: args.task || null,
+      resolution_method: args.app ? 'app' : args.business ? 'business' : 'default_business',
+      business_slug: result.business_slug,
+      status: result.status,
+      action: 'skip',
+      config_path: result.config_path,
+      design_system: null,
+      message: 'Design System is not applicable for this BU.',
+      coo_readiness: {
+        owner: cooReadiness.owner,
+        status: cooReadiness.status,
+        reason: cooReadiness.reason,
+      },
+    };
+  }
+
+  if (result.status === 'not_configured') {
+    return {
+      task: args.task || null,
+      resolution_method: args.app ? 'app' : args.business ? 'business' : 'default_business',
+      business_slug: result.business_slug,
+      status: result.status,
+      action: 'fail_closed',
+      config_path: result.config_path,
+      design_system: null,
+      remediation: `Create ${result.config_path} or mark BU as not_applicable in workspace/_system/config.yaml.`,
+      coo_readiness: {
+        owner: cooReadiness.owner,
+        status: cooReadiness.status,
+        reason: cooReadiness.reason,
+      },
+    };
+  }
+
+  const context = buildConfiguredContext(
+    result,
+    args.app || (sessionContext ? sessionContext.appId : null),
+    args.task,
+    sessionContext ? sessionContext.theme : null
+  );
+
+  if (!args.business && !args.app && sessionContext) {
+    context.resolution_method = 'active_session';
+    context.session_context_path = runtimePaths.toWorkspaceRelative(sessionContext.sessionPath);
+  }
+
+  context.coo_readiness = {
+    owner: cooReadiness.owner,
+    status: cooReadiness.status,
+    reason: cooReadiness.reason,
+    canonical_config_paths: cooReadiness.canonical_config_paths,
+    app_id: appForReadiness,
+    business_slug: businessForReadiness,
+  };
+
+  return context;
+}
+
+function printOutput(output, format) {
+  if (format === 'yaml') {
+    process.stdout.write(yaml.dump(output, { lineWidth: 120, noRefs: true, sortKeys: false }));
+    return;
+  }
+  process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const output = buildOutput(args);
+  printOutput(output, args.format);
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  buildConfiguredContext,
+  buildOutput,
+  parseArgs,
+};

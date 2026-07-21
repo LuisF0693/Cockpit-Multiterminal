@@ -1,0 +1,644 @@
+# Motion Primitives Registry — Kinetic Design System
+#
+# Catalogs the 10 animation primitives, 7 compositions, and 5 choreographies
+# that form the building blocks of the motion layer.
+#
+# Source: docs/research/2026-03-21-kinetic-design-system/03-recommendations.md
+# Version: 1.0.0
+# Created: 2026-03-22
+
+registry_version: "1.0.0"
+description: >
+  Registry of motion primitives (atomic animations), compositions (combined primitives),
+  and choreographies (orchestrated multi-element sequences). Each entry defines the
+  CSS and Framer Motion implementation pattern, parameters, and accessibility notes.
+
+# =============================================================================
+# LAYER 2: PRIMITIVES (10 atomic animation effects)
+# =============================================================================
+primitives:
+  - id: fadeIn
+    name: Fade In
+    description: "Opacity transition from 0 to 1"
+    css_properties: ["opacity"]
+    params:
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    framer_pattern: |
+      { initial: { opacity: 0 }, animate: { opacity: 1 } }
+    reduced_motion:
+      strategy: "keep"
+      fallback: "No change needed — opacity-only transitions are safe for vestibular disorders"
+      rationale: "No spatial movement, no vestibular risk. Preserves orientation cue."
+    val_head_purpose: ["direct-attention", "orient"]
+
+  - id: fadeOut
+    name: Fade Out
+    description: "Opacity transition from 1 to 0"
+    css_properties: ["opacity"]
+    params:
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+    framer_pattern: |
+      { initial: { opacity: 1 }, exit: { opacity: 0 } }
+    reduced_motion:
+      strategy: "keep"
+      fallback: "No change needed — opacity-only transitions are safe for vestibular disorders"
+      rationale: "No spatial movement, no vestibular risk. Preserves exit orientation cue."
+    val_head_purpose: ["orient"]
+
+  - id: slideIn
+    name: Slide In
+    description: "Transform translateX/Y from offset to 0"
+    css_properties: ["transform"]
+    params:
+      direction: "up | down | left | right"
+      distance: "px value (default: 40px)"
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes slideIn {
+        from { transform: translateY(var(--slide-distance, 40px)); }
+        to { transform: translateY(0); }
+      }
+    linear_css_pattern:
+      description: "slideIn with physics-based spring easing via CSS linear()"
+      when: "easing is spring or bounce — provides realistic overshoot/bounce feel"
+      pattern: |
+        .slide-in-spring {
+          animation: slideIn var(--motion-duration-moderate) cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @supports (animation-timing-function: linear(0, 1)) {
+          .slide-in-spring {
+            animation-timing-function: var(--motion-easing-spring);
+            /* Resolves to linear() spring curve when token system outputs linear() */
+          }
+        }
+        .slide-in-bounce {
+          animation: slideIn var(--motion-duration-moderate) cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+        }
+        @supports (animation-timing-function: linear(0, 1)) {
+          .slide-in-bounce {
+            animation-timing-function: var(--motion-easing-bounce);
+          }
+        }
+    framer_pattern: |
+      { initial: { y: 40 }, animate: { y: 0 } }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "fadeIn with 100ms ease-out (remove transform, keep opacity transition)"
+      rationale: "Functional for navigation — reduce distance to 0, keep opacity cue"
+    val_head_purpose: ["orient", "direct-attention"]
+
+  - id: slideOut
+    name: Slide Out
+    description: "Transform from 0 to offset translateX/Y"
+    css_properties: ["transform"]
+    params:
+      direction: "up | down | left | right"
+      distance: "px value (default: 40px)"
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes slideOut {
+        from { transform: translateY(0); }
+        to { transform: translateY(var(--slide-distance, -40px)); }
+      }
+    linear_css_pattern:
+      description: "slideOut with physics-based spring easing via CSS linear()"
+      when: "easing is spring — exit with natural deceleration overshoot"
+      pattern: |
+        .slide-out-spring {
+          animation: slideOut var(--motion-duration-base) cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @supports (animation-timing-function: linear(0, 1)) {
+          .slide-out-spring {
+            animation-timing-function: var(--motion-easing-spring);
+          }
+        }
+    framer_pattern: |
+      { exit: { y: -40 } }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "fadeOut with 100ms ease-in (remove transform, keep opacity transition)"
+      rationale: "Functional for navigation — reduce distance to 0, keep opacity cue"
+    val_head_purpose: ["orient"]
+
+  - id: scaleIn
+    name: Scale In
+    description: "Transform scale from reduced to 1"
+    css_properties: ["transform"]
+    params:
+      from: "scale value (default: 0.8)"
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes scaleIn {
+        from { transform: scale(var(--scale-from, 0.8)); }
+        to { transform: scale(1); }
+      }
+    linear_css_pattern:
+      description: "scaleIn with physics-based spring easing via CSS linear()"
+      when: "easing is spring — provides elastic pop-in feel for modals, popovers, CTAs"
+      pattern: |
+        .scale-in-spring {
+          animation: scaleIn var(--motion-duration-moderate) cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @supports (animation-timing-function: linear(0, 1)) {
+          .scale-in-spring {
+            animation-timing-function: var(--motion-easing-spring);
+          }
+        }
+        .scale-in-bounce {
+          animation: scaleIn var(--motion-duration-moderate) cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+        }
+        @supports (animation-timing-function: linear(0, 1)) {
+          .scale-in-bounce {
+            animation-timing-function: var(--motion-easing-bounce);
+          }
+        }
+    framer_pattern: |
+      { initial: { scale: 0.8 }, animate: { scale: 1 } }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Scale range reduced to 0.95→1 with 100ms ease-out (minimal, low vestibular risk)"
+      rationale: "Subtle scale is low-risk — reduce range rather than remove entirely"
+    val_head_purpose: ["direct-attention", "feedback"]
+
+  - id: blur
+    name: Blur
+    description: "Filter blur from amount to 0 (reveal)"
+    css_properties: ["filter"]
+    params:
+      amount: "px blur value (default: 8px)"
+      duration: "{motion.duration.*}"
+    css_pattern: |
+      @keyframes blurReveal {
+        from { filter: blur(var(--blur-amount, 8px)); }
+        to { filter: blur(0); }
+      }
+    framer_pattern: |
+      { initial: { filter: 'blur(8px)' }, animate: { filter: 'blur(0px)' } }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Blur amount reduced to 4px with 100ms ease-out (less visual complexity)"
+      rationale: "Blur is focus-direction, not spatial motion — safe to reduce, not remove"
+    val_head_purpose: ["direct-attention"]
+
+  - id: rotate
+    name: Rotate
+    description: "Transform rotate by degrees"
+    css_properties: ["transform"]
+    params:
+      degrees: "rotation degrees"
+      duration: "{motion.duration.*}"
+      easing: "{motion.easing.*}"
+    css_pattern: |
+      @keyframes rotate {
+        from { transform: rotate(var(--rotate-from, 0deg)); }
+        to { transform: rotate(var(--rotate-to, 360deg)); }
+      }
+    framer_pattern: |
+      { animate: { rotate: 360 } }
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static position, no rotation. opacity: 1 instant."
+      rationale: "Decorative — rotation is high vestibular risk, especially in loops"
+    val_head_purpose: ["feedback", "brand"]
+
+  - id: clipReveal
+    name: Clip Reveal
+    description: "clip-path transition from clipped to fully visible"
+    css_properties: ["clip-path"]
+    params:
+      direction: "top | bottom | left | right | circle"
+      duration: "{motion.duration.*}"
+    css_pattern: |
+      @keyframes clipReveal {
+        from { clip-path: inset(0 0 100% 0); }
+        to { clip-path: inset(0); }
+      }
+    framer_pattern: |
+      { initial: { clipPath: 'inset(0 0 100% 0)' }, animate: { clipPath: 'inset(0)' } }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Replace with fadeIn 100ms ease-out (remove clip-path, keep opacity reveal)"
+      rationale: "Clip-path motion is moderate risk — replace with simpler opacity transition"
+    val_head_purpose: ["direct-attention", "brand"]
+
+  - id: colorShift
+    name: Color Shift
+    description: "Color or background-color transition"
+    css_properties: ["color", "background-color"]
+    params:
+      from: "color value"
+      to: "color value"
+      duration: "{motion.duration.*}"
+    css_pattern: |
+      .color-shift {
+        transition: color var(--motion-feedback-duration) var(--motion-feedback-easing),
+                    background-color var(--motion-feedback-duration) var(--motion-feedback-easing);
+      }
+    framer_pattern: |
+      { animate: { backgroundColor: '#target' } }
+    reduced_motion:
+      strategy: "keep"
+      fallback: "No change needed — color transitions involve no spatial movement"
+      rationale: "Color changes are safe. Preserves feedback and brand cues."
+    val_head_purpose: ["feedback", "brand"]
+
+  - id: parallax
+    name: Parallax
+    description: "Transform translateY driven by scroll position at reduced speed"
+    css_properties: ["transform"]
+    params:
+      speed: "parallax factor (0.1 to 0.9)"
+      direction: "vertical | horizontal"
+    css_pattern: |
+      .parallax {
+        animation: parallaxMove linear;
+        animation-timeline: scroll();
+      }
+      @keyframes parallaxMove {
+        from { transform: translateY(0); }
+        to { transform: translateY(calc(var(--parallax-speed, 0.5) * -100px)); }
+      }
+    framer_pattern: |
+      const { scrollYProgress } = useScroll();
+      const y = useTransform(scrollYProgress, [0, 1], [0, -200]);
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static position, no transform. Content visible at default position."
+      rationale: "Decorative — continuous scroll-driven motion is #1 vestibular trigger"
+    val_head_purpose: ["orient", "brand"]
+
+# =============================================================================
+# LAYER 3: COMPOSITIONS (combined primitives)
+# =============================================================================
+compositions:
+  - id: reveal
+    name: Reveal
+    description: "Section entrance combining fadeIn + slideIn + clipReveal"
+    primitives: [fadeIn, slideIn, clipReveal]
+    use_case: "Section entry on scroll"
+    semantic_token: "{motion.semantic.scroll-reveal}"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static — content visible immediately, no animation. opacity: 1, no clip-path, no transform."
+      rationale: "Scroll-triggered composition with spatial movement (slideIn + clipReveal). Remove entirely to avoid vestibular risk from combined motion."
+
+  - id: heroEntrance
+    name: Hero Entrance
+    description: "Hero section entrance: scaleIn + fadeIn + blur (sequenced)"
+    primitives: [scaleIn, fadeIn, blur]
+    use_case: "Hero section above-the-fold"
+    semantic_token: "{motion.semantic.hero}"
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "fadeIn only with 100ms ease-out. No scale, no blur. Content appears with simple opacity transition."
+      rationale: "Hero entrance is functional (orients user to primary content). Remove scale/blur to eliminate vestibular risk, keep fadeIn as safe orientation cue."
+
+  - id: parallaxLayer
+    name: Parallax Layer
+    description: "Parallax combined with fadeIn on scroll"
+    primitives: [parallax, fadeIn]
+    use_case: "Background/foreground layer depth"
+    semantic_token: "{motion.semantic.scroll-reveal}"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static position — no parallax transform, no animation. Content visible at default position, opacity: 1."
+      rationale: "Parallax is the #1 vestibular trigger. Continuous scroll-driven motion must be completely removed."
+
+  - id: magneticHover
+    name: Magnetic Hover
+    description: "Subtle scale + cursor-driven translate"
+    primitives: [scaleIn, parallax]
+    use_case: "Interactive buttons and CTAs"
+    semantic_token: "{motion.semantic.feedback}"
+    technique: "cursor-driven"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Disable cursor-driven translate entirely. Keep only subtle scale(1.02) on hover as static CSS transition."
+      rationale: "Cursor-following motion creates floating sensation — high vestibular risk. Scale-only hover is safe."
+
+  - id: tiltCard
+    name: Tilt Card
+    description: "3D rotate driven by cursor position + subtle scale"
+    primitives: [rotate, scaleIn]
+    use_case: "Card hover with 3D perspective"
+    semantic_token: "{motion.semantic.feedback}"
+    technique: "cursor-driven"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Disable 3D rotation and cursor tracking completely. Static card with no transform."
+      rationale: "3D rotation on two axes driven by cursor is high vestibular risk. No safe reduction possible — must remove entirely."
+
+  - id: textReveal
+    name: Text Reveal
+    description: "fadeIn + slideIn with stagger per char/word/line"
+    primitives: [fadeIn, slideIn]
+    use_case: "Title and headline reveals"
+    semantic_token: "{motion.semantic.enter}"
+    granularity: ["char", "word", "line"]
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "No stagger — all text appears simultaneously with fadeIn 150ms ease-out. No slideIn transform."
+      rationale: "Text reveal is functional (directs attention to headings). Remove stagger and slide, keep simultaneous fade as safe orientation cue."
+
+  - id: glassmorph
+    name: Glassmorphism
+    description: "Backdrop blur + fadeIn + colorShift for overlay effects"
+    primitives: [blur, fadeIn, colorShift]
+    use_case: "Overlays, modals with glass effect"
+    semantic_token: "{motion.semantic.enter}"
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Instant backdrop-filter: blur (no animation). fadeIn 100ms ease-out for overlay. No colorShift animation."
+      rationale: "Overlay entrance is functional (directs attention to modal). Keep instant blur + quick fade for orientation, remove animated transitions."
+
+  - id: skeleton-pulse
+    name: Skeleton Pulse
+    description: "Loading placeholder with pulsing opacity loop combining fadeIn + fadeOut"
+    primitives: [fadeIn, fadeOut]
+    use_case: "Skeleton loading states — content placeholder pulse"
+    semantic_token: "{motion.semantic.feedback}"
+    css_pattern: |
+      .skeleton-pulse {
+        --skeleton-bg: var(--color-skeleton, #e0e0e0);
+        background-color: var(--skeleton-bg);
+        animation: skeletonPulse var(--motion-duration-gentle, 1.5s) var(--motion-easing-standard, ease-in-out) infinite;
+      }
+      @keyframes skeletonPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton-pulse {
+          animation: none;
+          background-color: var(--skeleton-bg);
+          opacity: 1;
+        }
+      }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Static background-color — no animation. Solid skeleton placeholder visible without pulsing."
+      rationale: "Pulse is functional (communicates loading state) but looping opacity can cause discomfort. Static placeholder preserves loading affordance without motion."
+
+  - id: skeleton-shimmer
+    name: Skeleton Shimmer
+    description: "Loading placeholder with sliding gradient shimmer combining slideIn + colorShift"
+    primitives: [slideIn, colorShift]
+    use_case: "Skeleton loading states — content placeholder shimmer"
+    semantic_token: "{motion.semantic.feedback}"
+    css_pattern: |
+      .skeleton-shimmer {
+        --shimmer-base: var(--color-skeleton, #e0e0e0);
+        --shimmer-highlight: var(--color-skeleton-highlight, #f5f5f5);
+        background: linear-gradient(
+          90deg,
+          var(--shimmer-base) 25%,
+          var(--shimmer-highlight) 50%,
+          var(--shimmer-base) 75%
+        );
+        background-size: 200% 100%;
+        animation: skeletonShimmer var(--motion-duration-gentle, 1.5s) var(--motion-easing-standard, ease-in-out) infinite;
+      }
+      @keyframes skeletonShimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton-shimmer {
+          animation: none;
+          background: var(--shimmer-base);
+          background-size: 100% 100%;
+        }
+      }
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Static solid background-color — no animation, no gradient movement. Solid skeleton placeholder visible."
+      rationale: "Shimmer involves continuous spatial movement (gradient sliding). Static placeholder preserves loading affordance without vestibular risk from looping motion."
+
+# =============================================================================
+# LAYER 4: CHOREOGRAPHIES (orchestrated multi-element sequences)
+# =============================================================================
+choreographies:
+  - id: staggerGrid
+    name: Stagger Grid
+    description: "Grid items enter with escalating stagger delay"
+    technique: "Framer Motion staggerChildren + CSS animation-delay"
+    trigger: "viewport-entry"
+    stagger_token: "{motion.stagger.*}"
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "No stagger — all items appear simultaneously with fadeIn 150ms ease-out. stagger-delay: 0ms."
+      rationale: "Stagger is functional (reduces cognitive load by sequencing). In reduced mode, show all at once with simple fade to avoid prolonged motion."
+
+  - id: scrollTimeline
+    name: Scroll Timeline
+    description: "Sequence of effects bound to scroll position"
+    technique: "GSAP ScrollTrigger timeline with scrub"
+    trigger: "scroll-position"
+    lenis_pattern:
+      description: "Lenis smooth scroll + velocity data feeding GSAP ScrollTrigger timeline"
+      velocity_config:
+        lerp: 0.1
+        duration: 1.2
+        smoothWheel: true
+      integration: |
+        // Lenis provides smooth, normalized scroll that feeds ScrollTrigger
+        const lenis = new Lenis({ lerp: 0.1, duration: 1.2, smoothWheel: true, autoRaf: true })
+        lenis.on("scroll", ScrollTrigger.update)
+
+        // Velocity-driven timeline scrub intensity
+        lenis.on("scroll", ({ velocity }) => {
+          // Faster scroll → scrub responds proportionally
+          // Lenis normalizes scroll velocity across devices (trackpad, wheel, touch)
+        })
+
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: ".section", scrub: 1, pin: true }
+        })
+      benefits:
+        - "Smooth, predictable scroll velocity across all input devices"
+        - "Eliminates janky scroll-linked animation on trackpads"
+        - "Velocity data enables dynamic scrub sensitivity"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static — all content visible at default positions, no scroll-driven animation. Elements display in final state."
+      rationale: "Scroll-scrubbed timelines create continuous motion tied to scroll. High vestibular risk — must remove entirely."
+
+  - id: sectionSequence
+    name: Section Sequence
+    description: "Section 1 exits then Section 2 enters (choreographed)"
+    technique: "CSS scroll-driven + animation-range"
+    trigger: "scroll-position"
+    lenis_pattern:
+      description: "Lenis smooth scroll for CSS scroll-driven section sequences"
+      velocity_config:
+        lerp: 0.1
+        duration: 1.2
+        smoothWheel: true
+      integration: |
+        // Lenis smooths the scroll input that drives CSS animation-timeline: scroll()
+        // This prevents jittery section transitions on high-DPI trackpads
+        const lenis = new Lenis({ lerp: 0.1, duration: 1.2, smoothWheel: true, autoRaf: true })
+
+        // CSS handles the animation binding — Lenis only normalizes scroll behavior
+        // .section { animation-timeline: scroll(); animation-range: entry 0% cover 50%; }
+
+        // Velocity data for optional JS-driven enhancements
+        lenis.on("scroll", ({ velocity, progress }) => {
+          // progress: 0-1 document scroll position
+          // velocity: px/s for optional intensity scaling
+        })
+      benefits:
+        - "Consistent scroll feel across browsers for CSS scroll-driven animations"
+        - "Prevents scroll jank that disrupts animation-range timing"
+        - "Progress data enables synchronized JS effects alongside CSS scroll-driven"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static — both sections visible in final state, no scroll-driven choreography. Standard document flow."
+      rationale: "Scroll-driven section transitions involve spatial movement. Remove to prevent vestibular discomfort."
+
+  - id: heroToContent
+    name: Hero to Content
+    description: "Hero parallax out while content reveals below"
+    technique: "GSAP pin + scrub"
+    trigger: "scroll-position"
+    lenis_pattern:
+      description: "Lenis smooth scroll + velocity data for hero-to-content parallax transition"
+      velocity_config:
+        lerp: 0.08
+        duration: 1.4
+        smoothWheel: true
+      integration: |
+        // Lenis with slightly slower lerp for hero sections (more cinematic feel)
+        const lenis = new Lenis({ lerp: 0.08, duration: 1.4, smoothWheel: true, autoRaf: true })
+        lenis.on("scroll", ScrollTrigger.update)
+
+        // GSAP hero-to-content with Lenis-smoothed scroll
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: ".hero",
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+            pin: true
+          }
+        })
+        tl.to(".hero-title", { y: -100, opacity: 0 })
+          .to(".hero-bg", { yPercent: -30, scale: 1.1 }, "<")
+
+        // Velocity-based parallax intensity
+        lenis.on("scroll", ({ velocity }) => {
+          const intensity = Math.min(Math.abs(velocity) / 800, 1)
+          // Optional: modulate parallax speed based on scroll velocity
+        })
+      benefits:
+        - "Cinematic feel with slower lerp (0.08) for hero sections"
+        - "Eliminates scroll jank during pin + parallax transition"
+        - "Velocity data enables dynamic parallax intensity"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Static — no pin, no parallax. Hero and content in standard document flow. Content visible below hero immediately."
+      rationale: "Parallax + pin + scrub is high-complexity scroll-driven motion. Must remove entirely for vestibular safety."
+
+  - id: listReorder
+    name: List Reorder
+    description: "Items reposition with layout animation"
+    technique: "Framer Motion layoutId"
+    trigger: "state-change"
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Instant reposition — items snap to new positions with no animated transition. layout: false in Framer Motion."
+      rationale: "List reorder is functional (communicates state change). Reduce to instant swap to maintain context without spatial motion."
+
+# =============================================================================
+# LAYER 5: PAGE CHOREOGRAPHY (route transitions)
+# =============================================================================
+page_choreography:
+  - id: crossFade
+    name: Cross Fade
+    description: "Default page transition via View Transitions API"
+    technique: "View Transitions API (startViewTransition)"
+    browser_support: "90.54% (same-document)"
+    reduced_motion:
+      strategy: "reduce"
+      fallback: "Instant crossfade with 50ms opacity transition. No spatial movement — opacity-only swap."
+      rationale: "CrossFade is the safest page transition (opacity only). Reduce duration to near-instant but keep the visual continuity cue."
+
+  - id: sharedElement
+    name: Shared Element
+    description: "Shared element morph between views"
+    technique: "ViewTransition name + layoutId"
+    browser_support: "90.54%"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Instant page swap — no shared element morph. New page appears immediately without spatial transition."
+      rationale: "Shared element involves spatial movement (position + scale morph). Remove to prevent vestibular discomfort."
+
+  - id: directional
+    name: Directional
+    description: "Slide-in-forward/slide-in-back based on navigation direction"
+    technique: "View Transitions API with directional classes"
+    browser_support: "90.54%"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Instant page swap — no directional slide. New page appears immediately without spatial transition."
+      rationale: "Directional slide involves full-page spatial movement. Remove entirely — no safe reduction possible."
+
+  - id: morph
+    name: Morph
+    description: "SVG path morph between pages"
+    technique: "GSAP MorphSVGPlugin"
+    browser_support: "GSAP (all browsers)"
+    reduced_motion:
+      strategy: "remove"
+      fallback: "Instant page swap — no SVG morph. New page appears immediately without shape transition."
+      rationale: "SVG path morph is decorative and involves complex spatial transformation. Remove entirely."
+
+# =============================================================================
+# TECH STACK REFERENCE
+# =============================================================================
+tech_stack:
+  motion_tokens: "DTCG JSON + Style Dictionary v4"
+  css_animations: "CSS Scroll-driven (scroll(), view()) — 82.81% support"
+  react_animations: "Framer Motion 12.x (Motion)"
+  scroll_choreography: "GSAP ScrollTrigger"
+  smooth_scroll: "Lenis"
+  page_transitions: "View Transitions API — 90.54% support"
+  extraction: "Playwright + CDP Animation Domain"
+  interaction_recording: "Playwright before/after diff"
+  validation: "Playwright + video compare"
+
+# =============================================================================
+# IMPLEMENTATION PHASES
+# =============================================================================
+phases:
+  - phase: 1
+    name: "Motion Token System"
+    deliverable: "motion-tokens.json (DTCG) + CSS custom properties + reduced-motion"
+    task: "ds-motion-tokens"
+  - phase: 2
+    name: "Effect Primitives Library"
+    deliverable: "10 primitives CSS + Motion 12 dual, compositions catalog"
+    task: "ds-motion-primitives"
+  - phase: 3
+    name: "Motion Extraction Pipeline"
+    deliverable: "Playwright + CDP script to extract all animations from any URL"
+    task: "ds-motion-extraction"
+  - phase: 4
+    name: "Kinetic Replication Engine"
+    deliverable: "URL to extract to classify to generate code pipeline"
+    task: "future (depends on phases 1-3)"

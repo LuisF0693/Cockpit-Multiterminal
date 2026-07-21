@@ -1,0 +1,310 @@
+{
+  "schema": "bench-output-dash",
+  "generated_at": "{{GENERATED_AT_ISO_8601}}",
+  "source_files": [
+    "{{SOURCE_FILE_1}}",
+    "{{SOURCE_FILE_2}}"
+  ],
+  "benchmark": {
+    "slug": "{{BENCH_SLUG_FROM_FOLDER}}",
+    "title": "{{BENCH_TITLE_FULL}}",
+    "short_title": "{{BENCH_TITLE_SHORT}}",
+    "date": "{{BENCH_CREATED_AT}}",
+    "type": "{{BENCH_TYPE: product|codebase|technology|model|other}}",
+    "variant": "{{BENCH_VARIANT: 2-way|3-way|n-way}}",
+    "analyst": "spy/bench-analyst v3.1",
+    "method": "{{METHODOLOGY_SENTENCE}}",
+    "confidence_breakdown": "{{CONFIDENCE_BREAKDOWN: e.g. '5/9 High · 3/9 Medium · 1/9 Low'}}",
+    "status": "{{STATUS: draft|in_progress|completed|archived}}",
+    "schema_variant": "{{SCHEMA_VARIANT: bench-internal classification}}"
+  },
+  "players": [
+    {
+      "key": "{{PLAYER_KEY_SNAKE_CASE}}",
+      "name": "{{PLAYER_DISPLAY_NAME}}",
+      "category": "{{PLAYER_CATEGORY}}",
+      "type": "{{PLAYER_TYPE: e.g. 'OSS+Cloud', 'SaaS Enterprise'}}",
+      "license": "{{LICENSE}}",
+      "origin": "{{COUNTRY_OF_ORIGIN}}",
+      "anos": 0,
+      "version_evaluated": "{{VERSION_STRING}}",
+      "version_release_date": "{{ISO_DATE}}",
+      "vendor_url": "{{HTTPS_URL}}",
+      "repo_url": "{{HTTPS_URL_OR_OMIT}}",
+      "tech_score": 0,
+      "neutral_score": 0,
+      "meta": {
+        "color": "{{HEX_COLOR}}",
+        "letter": "{{ABBREV_1_2_CHARS}}",
+        "tag": "{{SHORT_TAG}}"
+      },
+      "stats": {}
+    }
+  ],
+  "summary": {
+    "winner": "{{WINNER_PLAYER_KEY_OR_mixed_OR_tie}}",
+    "coverage": "{{COVERAGE: complete|structured|derived|partial|missing}}",
+    "sources": 0,
+    "waves": 0,
+    "dimensions": 0,
+    "narrative": "{{EXECUTIVE_PARAGRAPH_1_3_SENTENCES}}",
+    "file_count": 0
+  },
+  "matrix": {
+    "players": [
+      "{{PLAYER_KEY_1}}",
+      "{{PLAYER_KEY_2}}"
+    ],
+    "dimensions": [
+      {
+        "id": "D1",
+        "label": "{{DIMENSION_FULL_LABEL}}",
+        "short": "{{DIMENSION_SHORT_LABEL}}",
+        "weight": 0.15
+      }
+    ],
+    "rows": [
+      {
+        "id": "D1",
+        "label": "{{DIMENSION_FULL_LABEL}}",
+        "weight": 0.15,
+        "cells": [
+          {
+            "player": "{{PLAYER_KEY_1}}",
+            "score": 0,
+            "confidence": "{{H|M|L|unknown}}",
+            "notes": "{{CELL_ANALYSIS_TEXT}}",
+            "source": "{{CITATION_URLS_PIPE_SEPARATED}}",
+            "score_evolution": [0, 0, 0],
+            "categorical_winner": false
+          }
+        ]
+      }
+    ],
+    "totals": [
+      {
+        "player": "{{PLAYER_KEY_1}}",
+        "score": 0
+      }
+    ],
+    "method": "weighted_sum"
+  },
+  "duels": [
+    {
+      "id": "{{PLAYER_A}}-vs-{{PLAYER_B}}",
+      "a": "{{PLAYER_A_KEY}}",
+      "b": "{{PLAYER_B_KEY}}",
+      "verdict": "{{DUEL_VERDICT_1_SENTENCE}}",
+      "winsA": ["D1", "D3"],
+      "winsB": ["D2", "D4"],
+      "ties": []
+    }
+  ],
+  "personas": [
+    {
+      "id": "{{PERSONA_KEY_SNAKE_CASE}}",
+      "label": "{{PERSONA_DISPLAY_LABEL}}",
+      "sub": "{{PERSONA_CONTEXT: e.g. '5-10 agents · ≤1k conv/mês'}}",
+      "weights": [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "totals": {
+        "{{PLAYER_KEY_1}}": 0,
+        "{{PLAYER_KEY_2}}": 0
+      },
+      "winner": "{{WINNER_KEY}}",
+      "runner": "{{RUNNER_UP_KEY}}",
+      "delta": 0,
+      "verdict": "{{PERSONA_VERDICT}}",
+      "tiebreaker": "{{TIEBREAKER_RATIONALE_OR_EMPTY}}"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "GAP-{{SUBJECT_KEY}}-01",
+      "title": "{{GAP_TITLE}}",
+      "subject": "{{PLAYER_KEY}}",
+      "priority": "{{P0|P1|P2}}",
+      "complexity": "{{LOW|MEDIUM|HIGH|VERY_HIGH}}",
+      "rationale": "{{WHY_THIS_GAP_MATTERS}}",
+      "dimension": "{{D1|D2|...}}"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S01",
+      "url": "{{HTTPS_URL}}",
+      "title": "{{SOURCE_TITLE}}",
+      "credibility": "{{H|M|L}}",
+      "subject": "{{PLAYER_KEY_OR_both}}"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "metadata.json",
+      "role": "metadata",
+      "format": "json",
+      "phase": "meta",
+      "size_kb": 0
+    },
+    {
+      "file": "scorecard.json",
+      "role": "scorecard",
+      "format": "json",
+      "phase": "scorecard",
+      "size_kb": 0
+    },
+    {
+      "file": "comparison-matrix.json",
+      "role": "comparison-matrix",
+      "format": "json",
+      "phase": "matrix",
+      "size_kb": 0
+    },
+    {
+      "file": "gap-analysis.json",
+      "role": "gap-analysis",
+      "format": "json",
+      "phase": "data",
+      "size_kb": 0
+    },
+    {
+      "file": "executive-report.md",
+      "role": "executive-report",
+      "format": "md",
+      "phase": "report",
+      "size_kb": 0
+    },
+    {
+      "file": "battle-card.md",
+      "role": "battle-card",
+      "format": "md",
+      "phase": "battle-card",
+      "size_kb": 0
+    }
+  ],
+  "readiness": {
+    "matrix": "complete",
+    "duels": "derived",
+    "personas": "missing",
+    "gaps": "complete",
+    "sources": "complete",
+    "tco": "missing",
+    "categorical": "missing",
+    "tiebreakers": "missing",
+    "cliffs": "missing",
+    "decision_tree": "missing",
+    "type_specific": "n_a",
+    "cells_sidecar": "missing",
+    "editors_note": "missing"
+  },
+  "inferred": {},
+  "categorical": {
+    "D7": {
+      "winner": "{{PLAYER_KEY}}",
+      "loser": "{{PLAYER_KEY_OPTIONAL}}",
+      "note": "{{1_SENTENCE_RATIONALE}}"
+    }
+  },
+  "tiebreakers": [
+    {
+      "id": "T1",
+      "q": "{{DECISION_QUESTION}}",
+      "yes": "{{ANSWER_IF_YES}}",
+      "no": "{{ANSWER_IF_NO}}"
+    }
+  ],
+  "cliffs": [
+    {
+      "player": "{{PLAYER_KEY}}",
+      "trigger": "{{CONDITION_THAT_BREAKS_PLAYER}}",
+      "impact": "{{WHAT_HAPPENS_AT_CLIFF}}"
+    }
+  ],
+  "decision_tree": [
+    {
+      "q": "{{HIGH_LEVEL_QUESTION}}",
+      "yes": "{{PATH_IF_YES}}",
+      "no": "{{PATH_IF_NO}}"
+    }
+  ],
+  "tco": {
+    "currency": "USD",
+    "unit": "USD/yr",
+    "scenarios": {
+      "smb": {
+        "label": "SMB · 5-10 agents · ≤1k conv/mo",
+        "rows": [
+          {
+            "player": "{{PLAYER_KEY}}",
+            "setup": "{{CONFIGURATION_LABEL}}",
+            "low": 0,
+            "high": 0,
+            "baseline": false
+          }
+        ]
+      },
+      "mid": {
+        "label": "Mid · 20 agents · 5k conv/mo",
+        "rows": []
+      },
+      "scale": {
+        "label": "Scale · 50 agents · 20k conv/mo",
+        "rows": []
+      }
+    }
+  },
+  "type_specific": {
+    "codebase": {
+      "coverage_stack": [
+        {
+          "combo": "{{COMBO_LABEL}}",
+          "coverage": 0,
+          "players": ["{{PLAYER_KEY_1}}"],
+          "synergy": 0,
+          "ideal": false
+        }
+      ],
+      "three_axis": {
+        "axes": ["{{AXIS_X}}", "{{AXIS_Y}}", "{{AXIS_Z}}"],
+        "points": [
+          {
+            "id": "{{PLAYER_KEY}}",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "label": "{{OPTIONAL_LABEL}}"
+          }
+        ]
+      },
+      "knowledge_iceberg": [
+        {
+          "id": "{{PLAYER_KEY}}",
+          "code": 0,
+          "yaml": 0,
+          "md": 0,
+          "total": 0,
+          "ratio": 0
+        }
+      ]
+    }
+  },
+  "editors_note": {
+    "title": "On reading this bench",
+    "byline": "AIOX Research · Bench desk",
+    "date": "{{DISPLAY_DATE}}",
+    "paragraphs": [
+      "{{EDITORIAL_PARAGRAPH_1}}",
+      "{{EDITORIAL_PARAGRAPH_2_OPTIONAL}}"
+    ]
+  },
+  "sidecars": {
+    "cells": "bench-cells.json",
+    "editors_note": "editors-note.json"
+  },
+  "player_meta": {
+    "{{PLAYER_KEY_1}}": {
+      "color": "{{HEX_COLOR}}",
+      "letter": "{{ABBREV}}",
+      "tag": "{{SHORT_TAG}}"
+    }
+  }
+}

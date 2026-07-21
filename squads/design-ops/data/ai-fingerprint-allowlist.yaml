@@ -1,0 +1,91 @@
+title: "AI-Fingerprint Allowlist — Override for REJECT_AI_SLOP Hard Gate"
+purpose: >
+  Whitelist mechanism to downgrade REJECT_AI_SLOP hard-gate (score > 60)
+  to advisory for legitimate intentional-aesthetic briefs (brutalism,
+  maximalist, editorial, experimental, art-direction-led campaigns).
+version: "1.0.0"
+authority: ".claude/rules/design-absolute-bans.md"
+created: "2026-05-19"
+roundtable_origin: "@architect C3 condition (2026-05-19 review)"
+consumed_by:
+  - squads/design-ops/tasks/ds-critical-eye-score.md (Step 10 hard gate)
+  - squads/design-ops/scripts/extract-from-url/run.cjs (Phase 2.5 fingerprint emission)
+
+# ── policy ───────────────────────────────────────────────────────────────────
+# How operators add overrides + behavior.
+
+policy:
+  rule: |
+    When a URL or brief is matched by an entry below, the hard-gate
+    REJECT_AI_SLOP transition is DOWNGRADED to a CONCERN-level finding.
+    The ai_slop_score is still recorded, the report still emitted, but
+    `ds-critical-eye-score.md` does NOT auto-reject the variant.
+  audit_trail_required: true
+  audit_log_path: outputs/design-ops/audit/ai-fingerprint-overrides.jsonl
+
+# ── allowlist_by_domain ──────────────────────────────────────────────────────
+# Domains that are intentionally maximalist / brutalist / experimental.
+# Matches against URL.host (ignoring www. prefix).
+
+allowlist_by_domain:
+  # Empty by default — operators add entries with rationale + approver.
+  # Schema:
+  #   - domain: example.com
+  #     rationale: "Brand is intentionally brutalist — purple gradients are the signature"
+  #     approver: "@founder OR @design-chief"
+  #     expires: "2026-12-31"
+  #     downgrade_to: "concern"  # OR: "warning" | "info"
+  []
+
+# ── allowlist_by_brief_id ────────────────────────────────────────────────────
+# Brief IDs (when extracted via /design-md is part of a tracked brief).
+
+allowlist_by_brief_id:
+  []
+
+# ── allowlist_by_intentional_aesthetic ───────────────────────────────────────
+# Flag set in briefing metadata. When briefing.intentional_aesthetic matches
+# one of these, score is recorded but gate is bypassed.
+
+allowlist_by_intentional_aesthetic:
+  - brutalism
+  - maximalism
+  - editorial_experimental
+  - art_direction_led
+  - swiss_typography     # tasteskill brutalist-skill variant
+  - anti_corporate
+  - punk_zine
+
+# ── override_evaluation_order ────────────────────────────────────────────────
+# Priority order when multiple allowlist entries could match.
+
+override_evaluation_order:
+  - 1: allowlist_by_brief_id        # most specific
+  - 2: allowlist_by_intentional_aesthetic
+  - 3: allowlist_by_domain
+  - 4: (no match) → hard-gate REJECT_AI_SLOP applies
+
+# ── operator_workflow ────────────────────────────────────────────────────────
+# How to add a legitimate override.
+
+operator_workflow: |
+  1. Run `/design-md https://intentional-maximalist-site.com`
+  2. See ai-fingerprint-report.json → ai_slop_score: 78 → REJECT_AI_SLOP
+  3. Verify with @design-chief or @founder that it's intentional
+  4. Add entry to allowlist_by_domain with rationale + approver + expires
+  5. Re-run `/design-md ...` — gate now emits "CONCERN" not "BLOCKER"
+  6. Audit log records the override decision
+
+  Alternative (preferred for brief-driven work):
+  1. Add `intentional_aesthetic: brutalism` to briefing metadata
+  2. Pipeline auto-bypasses gate based on intentional_aesthetic match
+
+# ── anti_patterns ────────────────────────────────────────────────────────────
+# What NOT to do with this allowlist.
+
+anti_patterns:
+  - "Adding a domain just because the score was high (without intent verification)"
+  - "Permanent overrides without `expires` date — they accumulate as 'override rot'"
+  - "Override without `approver` — must trace to a human decision"
+  - "Override `rationale` that just restates 'high score' — must justify INTENT"
+  - "Bypassing audit log emission — audit log is the accountability trail"

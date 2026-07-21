@@ -1,0 +1,294 @@
+# Bench Microdimension Taxonomy
+# Origin: STORY-153.4 (EPIC-153 DEEP-RESEARCH-GOLDIFY)
+# Plano técnico: docs/bench/deepresearch-absorption-benchmark/deep/proposed-technical-expansion-plan.md
+#
+# This taxonomy decomposes macro atoms (e.g. "Agentic Planning Control") into operational
+# microdimensions (e.g. "plan_explicit", "decomposition_strategy"). Used by decompose_microdims.py.
+#
+# Schema:
+#   axes[]: macro group (matches `comparison-matrix.json#groups`)
+#     id, label, target_dims (count for full Gold), microdims[]
+#       id (parent_id__suffix), label, question (YES/NO/PARTIAL), group, weight_share
+#
+# Coverage: 6 priority axes (per founder ask 2026-05-18: agentic, UX, sources, summarization).
+# Other 10 axes (Architecture, Implementation, etc) remain 3-dim default until follow-up story.
+# Minimum target: 60 microdims across all axes (this YAML defines ~75).
+
+version: "1.0.0"
+schema_version: "bench-microdim-taxonomy.v1"
+generated_for: "STORY-153.4"
+
+axes:
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: agentic_planning_control
+    label: "Agentic Planning Control"
+    target_dims: 15
+    weight_share: 0.15  # 15% of total bench weight
+    microdims:
+      - id: apc__plan_explicit
+        label: "Plan explicit before execution"
+        question: "Planner emits explicit plan before executing (not improvise step-by-step)?"
+      - id: apc__decomposition_strategy
+        label: "Decomposition strategy declared"
+        question: "Decomposition strategy is declared (BFS/DFS/parallel/hierarchical)?"
+      - id: apc__subquery_count_bounded
+        label: "Subquery count bounded"
+        question: "Min/max subqueries per wave is explicit (no infinite loop)?"
+      - id: apc__replanning_on_failure
+        label: "Replanning on wave failure"
+        question: "Auto-replans when wave fails or returns low coverage?"
+      - id: apc__replanning_on_contradiction
+        label: "Replanning on contradiction"
+        question: "Replans when sources contradict each other?"
+      - id: apc__plan_versioning
+        label: "Plan versioning persisted"
+        question: "Each plan version persisted (replay) or only final?"
+      - id: apc__user_steerable_plan
+        label: "User-steerable plan"
+        question: "User can edit/approve plan before execution?"
+      - id: apc__plan_visualization
+        label: "Plan visualization"
+        question: "Plan rendered visually (graph/tree/timeline)?"
+      - id: apc__cost_aware_planning
+        label: "Cost-aware planning"
+        question: "Planner considers estimated cost per step?"
+      - id: apc__time_aware_planning
+        label: "Time-aware planning"
+        question: "Planner respects time budget (e.g. 5min cap)?"
+      - id: apc__early_termination
+        label: "Early termination on coverage"
+        question: "Skill terminates early when coverage sufficient?"
+      - id: apc__plan_skeptical_branches
+        label: "Devil's-advocate branches"
+        question: "Planner generates skeptical/devil's-advocate branches?"
+      - id: apc__plan_grounded_in_taxonomy
+        label: "Plan grounded in domain taxonomy"
+        question: "Plan grounded in domain taxonomy (PICO, JTBD, etc.)?"
+      - id: apc__metaplanning
+        label: "Metaplanning explainability"
+        question: "Planner explains WHY chose each strategy?"
+      - id: apc__plan_amendable_mid_execution
+        label: "Plan amendable mid-execution"
+        question: "Plan editable during execution (not just pre-flight)?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: tool_runtime_integration
+    label: "Tool Runtime Integration"
+    target_dims: 14
+    weight_share: 0.13
+    microdims:
+      - id: tri__mcp_server_native
+        label: "MCP server exposed"
+        question: "Exposes MCP server consumable by Claude/Cursor/Cline?"
+      - id: tri__mcp_client_native
+        label: "MCP client native"
+        question: "Consumes MCP servers from third-parties natively?"
+      - id: tri__browser_automation
+        label: "Browser automation"
+        question: "Real browser automation (Playwright/Selenium/Puppeteer)?"
+      - id: tri__pdf_extraction
+        label: "PDF extraction"
+        question: "Extracts text/tables/figures from PDFs?"
+      - id: tri__youtube_transcription
+        label: "YouTube transcription"
+        question: "Transcribes YouTube natively?"
+      - id: tri__arxiv_api_native
+        label: "arXiv API native"
+        question: "arXiv API integrated?"
+      - id: tri__pubmed_api_native
+        label: "PubMed API native"
+        question: "PubMed API integrated?"
+      - id: tri__semantic_scholar_native
+        label: "Semantic Scholar native"
+        question: "Semantic Scholar API integrated?"
+      - id: tri__searxng_self_hosted
+        label: "SearXNG self-hosted"
+        question: "Supports SearXNG self-hosted (privacy)?"
+      - id: tri__google_scholar_scrape
+        label: "Google Scholar scraping"
+        question: "Google Scholar scraping with cautions?"
+      - id: tri__github_api_native
+        label: "GitHub API native"
+        question: "GitHub API for code search?"
+      - id: tri__hackernews_reddit_native
+        label: "HN/Reddit native"
+        question: "HN/Reddit for community signal?"
+      - id: tri__llm_provider_count
+        label: "LLM provider count"
+        question: "Number of LLM providers supported (BYOK)?"
+      - id: tri__function_calling_native
+        label: "Function calling native"
+        question: "Native function calling (not just ReAct prompt)?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: research_depth_synthesis
+    label: "Research Depth & Synthesis"
+    target_dims: 14
+    weight_share: 0.13
+    microdims:
+      - id: rds__avg_sources_per_run
+        label: "Avg sources per run"
+        question: "Average sources analyzed per run (e.g., GPT-R ~20, Kimi ~200+)?"
+      - id: rds__deep_read_protocol
+        label: "Deep read protocol"
+        question: "Reads FULL content (not just snippets)?"
+      - id: rds__source_diversity_enforcement
+        label: "Source diversity enforcement"
+        question: "Forces diversity (not just top-5 Google)?"
+      - id: rds__source_credibility_weighting
+        label: "Source credibility weighting"
+        question: "Credibility considered in synthesis weight?"
+      - id: rds__freshness_enforcement
+        label: "Freshness enforcement"
+        question: "Old sources penalized per temporal intent?"
+      - id: rds__cross_source_contradiction_detect
+        label: "Contradiction detection"
+        question: "Detects contradictions between sources and flags?"
+      - id: rds__multi_lingual_sources
+        label: "Multi-lingual sources"
+        question: "Accepts sources in multiple languages?"
+      - id: rds__summarization_strategy_declared
+        label: "Summarization strategy declared"
+        question: "Summarization strategy declared (extractive/abstractive/hybrid)?"
+      - id: rds__compression_ratio_bounded
+        label: "Compression ratio bounded"
+        question: "Compression ratio capped (no over-compress)?"
+      - id: rds__quote_preservation
+        label: "Quote preservation"
+        question: "Literal quotes preserved (no paraphrase passing as quote)?"
+      - id: rds__synthesis_preserves_disagreement
+        label: "Synthesis preserves disagreement"
+        question: "Synthesis preserves disagreement (no fake consensus)?"
+      - id: rds__wave_count_for_saturation
+        label: "Wave count for saturation"
+        question: "How many waves until info gain saturates?"
+      - id: rds__longform_report_native
+        label: "Longform report native"
+        question: "Generates coherent longform report (10+ pages)?"
+      - id: rds__cited_paragraph_density
+        label: "Citation density per paragraph"
+        question: "Citation density per paragraph (≥1 cite/§)?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: multi_agent_orchestration
+    label: "Multi-Agent Orchestration"
+    target_dims: 12
+    weight_share: 0.10
+    microdims:
+      - id: mao__role_specialization
+        label: "Role specialization"
+        question: "Sub-agents have distinct roles (Researcher/Editor/Reviewer)?"
+      - id: mao__true_parallel_spawn
+        label: "True parallel spawn"
+        question: "Sub-agents execute in real parallel (not sequential inline)?"
+      - id: mao__max_concurrent_bound
+        label: "Max concurrency bound"
+        question: "Max concurrency capped (e.g. max 3 per turn)?"
+      - id: mao__handoff_contract_explicit
+        label: "Handoff contract explicit"
+        question: "Handoff contract (schema in/out) explicit?"
+      - id: mao__message_passing_protocol
+        label: "Message passing protocol"
+        question: "Sub-agents pass data via clear protocol (MCP/JSON-schema)?"
+      - id: mao__failure_isolation
+        label: "Failure isolation"
+        question: "Failure of 1 sub-agent doesn't bring down others?"
+      - id: mao__lead_synthesizer_explicit
+        label: "Lead synthesizer explicit"
+        question: "Lead-agent synthesizes outputs from sub-agents?"
+      - id: mao__sub_agent_memory_isolation
+        label: "Sub-agent memory isolation"
+        question: "Each sub-agent has isolated memory (vs shared global)?"
+      - id: mao__lifecycle_observability
+        label: "Lifecycle observability"
+        question: "Sub-agent spawn/terminate logged in event stream?"
+      - id: mao__cross_session_team_persistence
+        label: "Team persistence cross-session"
+        question: "Teams persist between sessions (not recreated from scratch)?"
+      - id: mao__byzantine_tolerance
+        label: "Byzantine tolerance"
+        question: "Lead detects compromised/hallucinating sub-agent?"
+      - id: mao__sub_agent_cost_attribution
+        label: "Sub-agent cost attribution"
+        question: "Cost attributed per sub-agent (not just global)?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: evidence_fidelity_evaluation
+    label: "Evidence Fidelity"
+    target_dims: 10
+    weight_share: 0.10
+    microdims:
+      - id: efe__citation_verify_loop
+        label: "Citation verify loop"
+        question: "Verify loop with fix attempts bounded?"
+      - id: efe__citation_gate_veto
+        label: "Citation gate veto"
+        question: "Gate halts if verified_ratio < threshold?"
+      - id: efe__url_alive_check
+        label: "URL alive check"
+        question: "URL still open/accessible?"
+      - id: efe__quote_match_exact
+        label: "Quote exact match"
+        question: "Quote matches source content exactly?"
+      - id: efe__publication_date_check
+        label: "Publication date check"
+        question: "Publication date meets temporal intent minimum?"
+      - id: efe__author_attribution_explicit
+        label: "Author attribution explicit"
+        question: "Author named (not just 'source X')?"
+      - id: efe__contradiction_flagged
+        label: "Contradiction flagged"
+        question: "When 2 sources contradict, system flags?"
+      - id: efe__retraction_check
+        label: "Retraction check"
+        question: "Verifies if paper was retracted?"
+      - id: efe__primary_vs_secondary_classified
+        label: "Primary vs secondary classified"
+        question: "Distinguishes primary (paper) from secondary (blog citing paper)?"
+      - id: efe__archive_snapshot_taken
+        label: "Archive snapshot taken"
+        question: "Takes archive.org snapshot for immutability?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - id: ux_operator_control
+    label: "UX Operator Control"
+    target_dims: 10
+    weight_share: 0.09
+    microdims:
+      - id: uoc__live_streaming_output
+        label: "Live streaming output"
+        question: "Output streams in real-time (SSE/WebSocket)?"
+      - id: uoc__interrupt_mid_execution
+        label: "Interrupt mid-execution"
+        question: "User can interrupt mid-execution?"
+      - id: uoc__edit_plan_mid_execution
+        label: "Edit plan mid-execution"
+        question: "User edits plan without rebooting?"
+      - id: uoc__hitl_modes_granular
+        label: "HITL modes granular"
+        question: "Multiple HITL modes (yolo/interactive/pre-flight/full-auto)?"
+      - id: uoc__progress_visualization
+        label: "Progress visualization"
+        question: "Progress visualized (not just text logs)?"
+      - id: uoc__per_phase_approval
+        label: "Per-phase approval gates"
+        question: "Optional approval gates per phase?"
+      - id: uoc__cost_meter_live
+        label: "Cost meter live"
+        question: "Cost meter ($/tokens) live during run?"
+      - id: uoc__rollback_to_phase
+        label: "Rollback to phase"
+        question: "Rollback to previous phase without losing evidence?"
+      - id: uoc__natural_language_steering
+        label: "Natural language steering"
+        question: "User steers via natural language ('focus more on X')?"
+      - id: uoc__shareable_run_link
+        label: "Shareable run link"
+        question: "Shareable run link (URL state)?"
+
+# Pesos somam 100% — verificado em decompose_microdims.py
+# 6 axes × média ~12.5 dims = 75 microdims total
+# Outros 10 macro groups (Architecture, Implementation, etc) continuam 3-dim default
+weight_validation:
+  expected_total: 0.70  # 70% of bench weight comes from these 6 priority axes
+  remaining_axes: 0.30  # Other 10 axes share remaining 30%

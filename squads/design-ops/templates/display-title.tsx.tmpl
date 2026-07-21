@@ -1,0 +1,67 @@
+/**
+ * DisplayTitle — monumental SVG title that fills 100% of its container
+ * on a single line, regardless of word length or viewport width.
+ *
+ * USE WHEN: editorial "divider-page" surfaces with a single large word
+ * (POSICIONAMENTO, ARQUITETURA, ESSÊNCIA). If your title has multiple
+ * lines/<br/>, DO NOT use this — use an <h1>/<h2> with clamp font-size
+ * and `overflow-wrap: anywhere`.
+ *
+ * How it works:
+ *   - SVG `viewBox` defines aspect ratio; CSS `width="100%"` scales it.
+ *   - `textLength` + `lengthAdjust="spacingAndGlyphs"` forces glyphs to
+ *     span the full inline length — no wrap, no overflow, ever.
+ *   - Intrinsic width is calibrated from char count × ~0.56 em (avg for
+ *     a typical Grotesk uppercase), so short words aren't tiny and long
+ *     words don't need shrinking per-character.
+ *
+ * Replaces the forbidden pattern:
+ *   <h2 style={{ fontSize: "clamp(6rem, 14vw, 18rem)" }}>POSICIONAMENTO</h2>
+ * which breaks the viewport on narrow screens.
+ *
+ * Contract owner: squads/design-ops/rules/responsive-first-contract.md §3
+ */
+
+export function DisplayTitle({
+  text,
+  color = "currentColor",
+  fontFamily = "var(--font-display)",
+  fontWeight = 400,
+}: {
+  text: string;
+  color?: string;
+  fontFamily?: string;
+  fontWeight?: number;
+}) {
+  const fontSize = 100;   // SVG-local units; viewBox scaling controls real size
+  const perChar = 56;     // ≈0.56em for typical Grotesk caps; tune per face
+  const padding = 20;
+  const intrinsicWidth = Math.max(200, text.length * perChar + padding * 2);
+  const baseline = 78;    // ascender baseline inside a 100-unit cap-height
+
+  return (
+    <svg
+      role="img"
+      aria-label={text}
+      viewBox={`0 0 ${intrinsicWidth} ${fontSize}`}
+      preserveAspectRatio="xMidYMid meet"
+      width="100%"
+      style={{ display: "block", maxWidth: "100%", overflow: "visible" }}
+    >
+      <text
+        x="50%"
+        y={baseline}
+        fill={color}
+        textAnchor="middle"
+        fontFamily={fontFamily}
+        fontSize={fontSize}
+        fontWeight={fontWeight}
+        letterSpacing="-2"
+        textLength={intrinsicWidth - padding * 2}
+        lengthAdjust="spacingAndGlyphs"
+      >
+        {text}
+      </text>
+    </svg>
+  );
+}

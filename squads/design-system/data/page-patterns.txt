@@ -1,0 +1,61 @@
+# page-patterns.txt — AI-Ready Page Layout Pattern Reference
+# Story: STORY-119.32 | Intent: page | landing | dashboard
+
+## LandingPage
+pattern: hero + features + social-proof + cta
+components: HeroSection, FeatureGrid, TestimonialCarousel, CTASection
+example: |
+  <main>
+    <HeroSection headline="..." cta={<Button>Get Started</Button>} />
+    <FeatureGrid features={[...]} />
+    <CTASection />
+  </main>
+a11y: main landmark, skip-link to #main-content
+
+## DashboardLayout
+pattern: sidebar-nav + header + content-area + stats
+components: Sidebar, Header, StatsGrid, DataTable, Card
+example: |
+  <DashboardLayout>
+    <Sidebar nav={<NavMenu />} />
+    <main>
+      <StatsGrid metrics={[...]} />
+      <DataTable columns={...} data={...} />
+    </main>
+  </DashboardLayout>
+a11y: nav landmark, main landmark, aria-current on active nav item
+
+## AuthPage
+pattern: centered-card + form + social-login + links
+components: Card, Input, Button, Separator
+example: |
+  <div className="min-h-screen flex items-center justify-center">
+    <Card className="w-[400px]">
+      <CardHeader><CardTitle>Sign in</CardTitle></CardHeader>
+      <CardContent><LoginForm /></CardContent>
+    </Card>
+  </div>
+a11y: form labels, aria-describedby for errors, autocomplete attributes
+
+## ListDetailLayout
+pattern: list-panel + detail-panel (master-detail)
+components: ScrollArea, Card, Separator, Badge
+example: |
+  <div className="flex h-screen">
+    <aside className="w-64 border-r"><ItemList /></aside>
+    <main className="flex-1"><ItemDetail /></main>
+  </div>
+a11y: complementary + main landmarks, aria-selected on list items
+
+## SettingsPage
+pattern: sidebar-nav + section-groups + form
+components: Tabs, Card, Form, Input, Switch, Select
+example: |
+  <Settings>
+    <SettingsSidebar />
+    <SettingsContent>
+      <section><ProfileForm /></section>
+      <section><NotificationPrefs /></section>
+    </SettingsContent>
+  </Settings>
+a11y: tablist, form fieldsets with legends

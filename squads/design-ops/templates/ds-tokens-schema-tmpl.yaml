@@ -1,0 +1,28 @@
+---
+# Template — DS Tokens Schema
+# Owner squad: design-ops
+# Purpose: Define the canonical shape of design tokens the provider emits.
+# Lifecycle: draft → validated → approved
+
+id: TEMPLATE
+title: "DS Tokens Schema — <surface>"
+version: "1.0.0"
+status: draft
+emitted_by: design-ops
+consumed_by: []  # squads or apps that read these tokens
+
+tiers:
+  base:
+    description: "Primitive values — colors, spacing, typography, radii."
+    fields: []
+  semantic:
+    description: "Role-based tokens — background.subtle, text.primary, border.focus."
+    fields: []
+  component:
+    description: "Component-scoped tokens — button.primary.bg, card.radius."
+    fields: []
+
+validation_rules: []
+source_of_truth: "packages/tokens-base/tokens/"
+style_dictionary_config: ""
+notes: ""

@@ -1,0 +1,119 @@
+# E2E Contract — ds-test-minimal fixture
+# ========================================
+# Expected artifacts a full G0→G6 pipeline run over this synthetic Cobalt DS
+# must produce. Added 2026-04-19 (GAP-DS-009) from Redpine session playbook.
+#
+# Consumed by: CI integration test that runs the workflow against this fixture
+# and diffs the produced artifacts against these expectations.
+
+fixture: ds-test-minimal
+ds_name: "Cobalt (synthetic)"
+profile: lean
+
+# Expected files after complete G0→G6 run
+expected_files:
+  - path: "scripts/check-token-drift.mjs"
+    required: true
+    source: "squads/design-ops/templates/check-token-drift.mjs.tmpl"
+    validates:
+      - "file exists"
+      - "npm run check:drift executes"
+      - "exits 0 on fresh scaffold"
+
+  - path: "scripts/build-manifest.mjs"
+    required: true
+    source: "squads/design-ops/templates/build-manifest.mjs.tmpl"
+    validates:
+      - "file exists"
+      - "npm run build:manifest executes"
+      - "generates components.manifest.json"
+
+  - path: "src/design-system/components.map.json"
+    required: true
+    validates:
+      - "every component entry has `status` field"
+      - "every component entry has `a11y` field"
+      - "JSON parses"
+
+  - path: "src/design-system/components.manifest.json"
+    required: true
+    validates:
+      - "meta.counts.total matches components.map.json length"
+      - "meta.counts.ready + beta + experimental + deprecated sums to total"
+      - "every component has `import` path starting with @/"
+
+  - path: "src/design-system/exports/tokens.dtcg.json"
+    required: true
+    validates:
+      - "JSON parses"
+      - "has $schema field"
+      - "every leaf has $value and $type"
+      - "$type uses DTCG-valid values (color|dimension|cubicBezier|duration|fontFamily|number|shadow)"
+
+  - path: "src/app/globals.css"
+    required: true
+    validates:
+      - "contains `:is(*, :hover):focus-visible` rule"
+      - "contains `outline: 3px solid`"
+      - "contains `outline-offset: 3px`"
+      - "contains `transition: none` inside focus-visible rule"
+      - "contains `:focus:not(:focus-visible) { outline: none }`"
+
+  - path: "package.json"
+    required: true
+    validates:
+      - "scripts.check:drift exists"
+      - "scripts.build:tokens exists"
+      - "scripts.build:manifest exists"
+      - "designTokensLanguageServer block present with prefix + tokensFiles"
+
+# Drift audit — post-scaffold, must all pass
+drift_audit_baseline:
+  no_rounded_xl: expected_zero_occurrences
+  no_transition_all: expected_zero_occurrences
+  no_opacity_hover: expected_zero_occurrences
+  no_ring_alpha_focus: expected_zero_occurrences
+  no_weak_focus_outline: expected_zero_occurrences
+  no_raw_tailwind_shadow: expected_zero_occurrences
+
+# Token naming collision check (GAP-DS-007)
+token_naming_audit:
+  no_self_referencing_vars: true
+  semantic_distinct_prefix: true
+  rule: "grep exports/tokens.css for `--(\\w+): var\\(--\\1\\)` → must be empty"
+
+# Component contract
+component_invariants:
+  per_file:
+    - "No prop named `ref` in any Client Component"
+    - "cva variants present (if component has variants)"
+    - "data-slot attribute on root element"
+    - "Focus ring 3px red via global rule (no per-component override)"
+
+# Quality gate outcomes
+gates_expected:
+  G0_discovery: PASS
+  G1_scaffold: PASS
+  G2_tokens: PASS
+  G3_primitives: PASS
+  G4_routes: PASS
+  G5_qa: PASS
+  G6_polish: PASS
+
+# New gate — Continuous Drift Audit (GAP-DS-010)
+# Runs weekly against migrated DSs; reports drift count + a11y coverage + token adherence %
+G7_continuous_audit:
+  description: "Post-delivery audit gate; runs in CI on schedule."
+  checks:
+    - "npm run check:drift exit 0"
+    - "npm run build:manifest succeeds"
+    - "components with status=ready have a11y metadata coverage 100%"
+    - "drift count regression vs previous run: ≤ 0"
+  output: "outputs/design-ops/{target}/continuous-audit-{date}.yaml"
+
+# References
+references:
+  archetype: "squads/design-ops/data/ds-archetype.yaml#invariant.mandatory_outputs"
+  visual_gate: "squads/design-ops/checklists/visual-gate-lean.yaml#stack-discipline"
+  trope_guardrails: "squads/design-ops/checklists/dops-ai-trope-guardrails.yaml#token_naming_discipline,react_prop_contracts"
+  session_source: "Redpine session 2026-04-19 — see apps/redpine-ds/README.md + CHANGELOG"

@@ -1,0 +1,379 @@
+# Tech Research — Aggregate Pipeline Manifest (SINKRA-native v2.0.0)
+# Source of truth: phase → operator-mode → outputs → checkpoint mapping.
+# Pattern: aligned with squads/sinkra-squad/workflows/sinkra-pipeline.yaml
+# Consumed by: .claude/skills/tech-research/SKILL.md (process_mapping pointer)
+
+pipeline:
+  id: SP-TECH-RESEARCH
+  organism: ORG-TRR-001
+  mode: EXPLORAR
+  version: "2.0.0"
+  sinkra_version: "1.2"
+  description: |
+    Deep technical research pipeline with multi-wave search, coverage scoring,
+    multi-LLM cross-reference, and citation verification. 7 molecules, 11 atoms.
+
+execution_model:
+  pattern: inline_persona_fidelity
+  rationale: |
+    Persona-fidelity inline (not spawned subagents). The skill itself plays
+    each persona in main context, loading the phase workflow YAML + prompt
+    before executing. TeamCreate is used for visual task tracking only —
+    no Agent() subagent_type spawn is required.
+  visual_tracking:
+    team_name_pattern: "trr-{slug}"
+    task_create: true
+    task_update_per_phase: true
+
+learning_log:
+  rule: incremental-learning-log
+  path_pattern: ".aiox/learning/logs/tech-research/{slug}-{timestamp}.yaml"
+  initialize_at: P00c
+  update_at: per_phase
+  finalize_at: P5b
+  schema_version: "1.0"
+
+phases:
+
+  # ============ INITIALIZATION (team-lead, inline) ============
+  - id: P00
+    name: Parse Args + Initialize
+    persona: team-lead
+    execution: inline
+    inputs: [user_query, flags]
+    outputs:
+      - original_query
+      - inferred_flags
+      - output_dir
+      - start_epoch
+    next: P00b
+
+  - id: P00b
+    name: Create Team + Tasks
+    persona: team-lead
+    execution: inline
+    tools: [TeamCreate, TaskCreate]
+    outputs: [team_name, task_ids]
+    next: P00c
+
+  - id: P00c
+    name: Initialize Incremental Learning Log
+    persona: team-lead
+    execution: inline
+    rule_applied: incremental-learning-log
+    outputs:
+      - learning_log_yaml   # pre-populated with all phases as status:pending
+    next: P0
+
+  # ============ M1: AUTO-CLARIFY ============
+  - id: P0
+    name: Auto-Clarify
+    persona: research-decomposer (inline)
+    molecule: M1
+    workflow_ref: squads/research/workflows/tech-research/phase-0-auto-clarify.yaml
+    data_refs:
+      - squads/research/data/tech-research/auto-clarification.yaml
+    outputs:
+      - inferred_context     # SEED for P1: focus, technology, temporal_intent
+    next: P1
+
+  - id: P1
+    name: Strategic Brief Builder
+    persona: research-decomposer (inline)
+    execution: always        # no skip path — always builds the strategic brief
+    workflow_ref: squads/research/workflows/tech-research/phase-1-clarify.yaml
+    data_refs:
+      - squads/research/data/tech-research/auto-clarification.yaml
+    outputs:
+      - strategic_brief       # structured Deep Research brief (code block)
+      - clarifying_questions  # 2-3 questions, outside the code block
+    next: P1.5
+
+  # ============ M2: DECOMPOSE ============
+  - id: P1.5
+    name: Decompose Brief (2-3 sub-queries per SCOPE angle)
+    persona: research-decomposer (inline)
+    molecule: M2
+    workflow_ref: squads/research/workflows/tech-research/phase-1-5-decompose.yaml
+    prompt_ref: squads/research/prompts/tech-research/decompose.md
+    inputs:
+      - strategic_brief        # from P1; SCOPE angles → sub-queries
+    outputs:
+      - decomposition_result   # N sub-queries (2-3 per SCOPE angle, 5-18; PD mode 5-7)
+    next: P2
+
+  # ============ M3: GENERATE PROMPT ============
+  - id: P2
+    name: Generate Deep Research Prompt
+    persona: research-prompter (inline)
+    molecule: M3
+    workflow_ref: squads/research/workflows/tech-research/phase-2-generate-prompt.yaml
+    template_ref: squads/research/templates/tech-research/deep-research-prompt-template.md
+    outputs:
+      - research-prompt        # docs/research/{date}-{slug}/01-deep-research-prompt.md
+    next: P3
+
+  # ============ M4: EXECUTE RESEARCH (waves loop) ============
+  - id: P3
+    name: Execute Research Wave
+    persona: research-executor (inline)
+    molecule: M4
+    workflow_ref: squads/research/workflows/tech-research/phase-3-execute-research.yaml
+    data_refs:
+      - squads/research/data/tech-research/dependencies.yaml
+    prompt_refs:
+      - squads/research/prompts/tech-research/tool-strategy.md
+      - squads/research/prompts/tech-research/executor-matrix.md
+    outputs:
+      - search_results
+      - wave-{N}-progress.jsonl
+    loop: per_wave           # up to 3 waves
+    next: P3.2
+
+  - id: P3.2
+    name: Deep Read Top Sources (supplemental)
+    persona: research-executor (inline)
+    molecule: M4
+    execution: conditional   # only when snippets insufficient
+    workflow_ref: squads/research/workflows/tech-research/phase-3-2-deep-read.yaml
+    prompt_ref: squads/research/prompts/tech-research/page-extract.md
+    outputs:
+      - enriched_results
+    next: P3.5
+
+  - id: P3.5
+    name: Evaluate Coverage [COVERAGE_GATE]
+    persona: coverage-evaluator (inline)
+    molecule: M4
+    workflow_ref: squads/research/workflows/tech-research/phase-3-5-evaluate-coverage.yaml
+    prompt_ref: squads/research/prompts/tech-research/evaluate.md
+    checkpoint: COVERAGE_GATE
+    outputs:
+      - coverage_score
+      - coverage_breakdown
+      - source_quality
+      - remaining_gaps
+      - decision   # stop | continue | escalate-multi-llm
+    verdict_routing:
+      stop_continue: P3.6
+      stop_done: P4
+      continue: P3   # next wave (max 3 total)
+      veto: HALT     # COVERAGE_GATE VETO — escalate to user
+    next: P3.6
+
+  - id: P3.6
+    name: Compress Wave Summary
+    persona: coverage-evaluator (inline)
+    molecule: M4
+    workflow_ref: squads/research/workflows/tech-research/phase-3-6-compress-wave.yaml
+    outputs:
+      - wave-{N}-summary.md
+      - evolving_report.md       # updated cumulative state
+    next_when_continue: P3
+    next_when_stop: P3.7_or_P4
+
+  - id: P3.7
+    name: Playwright Multi-LLM Deep Research (escape valve)
+    persona: research-executor (inline)
+    molecule: M4
+    execution: conditional   # --deep flag OR coverage<70 after wave 2 OR manual trigger
+    workflow_ref: squads/research/workflows/tech-research/phase-3-7-playwright-deep-research.yaml
+    prompt_ref: squads/research/prompts/tech-research/playwright-deep-research.md
+    config_ref: .claude/skills/tech-research/config.yaml#playwright_deep_research
+    mcp_required:
+      - playwright (graceful degradation if absent)
+    outputs:
+      - llm-deep-research   # XX-llm-deep-research.md
+    next: P4
+
+  # ============ M5: SYNTHESIZE ============
+  - id: P4
+    name: Synthesize Findings + Extract Quick Wins
+    persona: research-synthesizer (inline)
+    molecule: M5
+    workflow_ref: squads/research/workflows/tech-research/phase-4-synthesize.yaml
+    inputs:
+      - wave_summaries
+      - llm_deep_research (if present)
+      - enriched_results
+    outputs:
+      - synthesis_draft
+      - quick-wins         # docs/research/{date}-{slug}/quick-wins.md (≥3 items OR gap block)
+    rules:
+      - quick_wins: "value=high ∧ effort ∈ {XS, S} ∧ time_to_value ≤ 1 week"
+      - preserve_disagreement: true   # never flatten contradictions
+    next: P4.5
+
+  # ============ M6: VERIFY CITATIONS [CITATION_GATE] ============
+  - id: P4.5
+    name: Verify Citation Integrity [CITATION_GATE]
+    persona: citation-verifier (inline)
+    molecule: M6
+    workflow_ref: squads/research/workflows/tech-research/phase-4-5-verify-citations.yaml
+    prompt_ref: squads/research/prompts/tech-research/verify-citations.md
+    checkpoint: CITATION_GATE
+    outputs:
+      - citation_integrity_report
+      - fixes_applied
+    verdict_routing:
+      approve: P5
+      review: P5_with_caveats   # document unsupported claims with explicit caveat
+      veto: P4_redo             # back to synthesis with fix queue (max 2 attempts)
+    next: P5
+
+  # ============ M7: DOCUMENT (split into 5.0 narrative + 5.1 extractors) ============
+  - id: P5.0
+    name: Write Narrative Atoms (hand-authored Markdown + YAML)
+    persona: research-documenter (inline)
+    molecule: M7
+    workflow_ref: squads/research/workflows/tech-research/phase-5-document.yaml
+    template_refs:
+      - squads/research/templates/tech-research/output-structure.md
+      - squads/research/templates/tech-research/output-structure.yaml
+    outputs:
+      - research-readme       # README.md
+      - original-query        # 00-query-original.md
+      - research-report       # 02-research-report.md
+      - recommendations       # 03-recommendations.md
+      - curiosity-queue       # curiosity_queue.yaml (schema: items: [{question,status,owner?}])
+      - metrics.yaml
+      - pipeline-state.yaml
+    next: P5.1
+
+  - id: P5.1
+    name: Run Extractor Atoms (apps/research rich render tier)
+    persona: research-documenter (inline)
+    molecule: M7
+    execution: deterministic_scripts
+    extractors:
+      - script: squads/research/scripts/tech-research/sources_extractor.py
+        emits: sources           # sources.yaml
+        consumed_by: [Evidências, Fontes]
+      - script: squads/research/scripts/tech-research/players_extractor.py
+        emits: players           # players.yaml
+        consumed_by: [Players]
+      - script: squads/research/scripts/tech-research/ux_patterns_extractor.py
+        emits: ux-patterns       # ux-patterns.yaml (empty_allowed)
+        consumed_by: [Map]
+      - script: squads/research/scripts/tech-research/comparison_matrix_extractor.py
+        emits: matrices          # matrices.yaml (empty_allowed)
+        consumed_by: [Map]
+      - script: squads/research/scripts/tech-research/logger.py
+        action: consolidate
+        emits: execution-log     # execution-log.jsonl (consolidates wave-*-progress.jsonl)
+        consumed_by: [Waves]
+      - script: squads/research/scripts/tech-research/research_graph.py
+        emits: research-graph    # research-graph.json
+        depends_on: [sources]    # must run AFTER sources_extractor
+        consumed_by: [Evidências, Map]
+    failure_mode: warn_and_continue   # extractor failure does NOT halt pipeline; downgrades render tier to `partial`
+    next: P5_validate
+
+  - id: P5_validate
+    name: Validate Output
+    persona: research-documenter (inline)
+    validator: squads/research/scripts/tech-research/output_validator.py
+    halt_on_invalid: true
+    next: P5b
+
+  - id: P5b
+    name: Finalize Learning Log + Suggest Next Command
+    persona: team-lead
+    execution: inline
+    rule_applied:
+      - incremental-learning-log   # mark outcome:completed, set timestamp_completed
+      - cli-next-command-flow      # suggest next logical command (skip if --yolo)
+    outputs:
+      - learning_log.outcome = completed
+      - next_command_suggestion
+    next: DONE
+
+  - id: HALT
+    name: Halt with Reason
+    persona: team-lead
+    execution: inline
+    triggers: [veto, user_abort, missing_required_file, no_results_after_fallback]
+    actions:
+      - learning_log.outcome = halted|failed|escalated
+      - learning_log.timestamp_completed = now
+      - emit halt_report to user with reason + remediation hint
+
+# ============ ARTIFACT INDEX ============
+# Mirrors config.yaml artifact_contracts[] for fast lookup.
+artifacts:
+  required_narrative:            # P5.0 — hand-authored
+    - research-readme            # P5.0
+    - original-query             # P5.0
+    - research-prompt            # P2
+    - research-report            # P5.0
+    - recommendations            # P5.0
+    - quick-wins                 # P4 (≥3 items OR documented gap block)
+    - curiosity-queue            # P5.0
+    - evolving-report            # P3 (updated each wave)
+    - wave-summary               # P3 (cardinality: many, 1 per wave)
+    - metrics                    # P5.0 — metrics.yaml
+    - pipeline-state             # P5.0 — pipeline-state.yaml
+    - learning-log               # P00c→P5b (incremental, OUT of output_dir → .aiox/learning/logs/)
+  required_extractors:           # P5.1 — apps/research rich render tier
+    - sources                    # sources.yaml
+    - players                    # players.yaml
+    - ux-patterns                # ux-patterns.yaml (empty_allowed)
+    - matrices                   # matrices.yaml (empty_allowed)
+    - execution-log              # execution-log.jsonl (consolidated)
+    - research-graph             # research-graph.json (depends on sources)
+  conditional:
+    - llm-deep-research          # P3.7 (only when triggered)
+
+# ============ CHECKPOINTS ============
+checkpoints:
+  - id: COVERAGE_GATE
+    phase: P3.5
+    veto_when: "coverage_score < 50 after max_waves=3"
+    review_when: "50 ≤ coverage_score < 70"
+    approve_when: "coverage_score ≥ 70"
+    escape_valve: P3.7
+  - id: CITATION_GATE
+    phase: P4.5
+    veto_when: "verified_citation_ratio < 0.85 after 2 fix attempts"
+    review_when: "verified_citation_ratio ≥ 0.85 AND unsupported_claim_count > 0"
+    approve_when: "verified_citation_ratio ≥ 0.85 AND unsupported_claim_count == 0"
+
+# ============ INVOKES ============
+invokes_downstream:
+  - skill: /research-chief
+    condition: "--product-discovery flag OR auto-clarify detects product_validation pattern"
+    purpose: "feeds atoms 3 (Villain OSINT) + 4 (WTP signals) of spy validate-product-idea molecule"
+
+invoked_by_upstream:
+  - skill: /research-chief
+    relationship: research helper for product-discovery Wave 0
+  - skill: /skill-creator
+    relationship: optional prior-art evidence
+  - skill: /aiox-architect
+    relationship: optional research-before-decision
+
+# ============ DOWNSTREAM RENDERERS ============
+# apps/research Research Observatory consumes the artifacts written under
+# docs/research/{date}-{slug}/ for visual exploration.
+downstream_renderers:
+  - target: apps/research/observatory/research
+    contract: apps/research/HANDOFF-research-compatibility.md
+    render_tiers:
+      rich:
+        when: "all required_narrative + all required_extractors present"
+        unlocked_tabs: [Doc, Map, Evidências, Waves, Fontes, Players, Ações, Perguntas]
+      partial:
+        when: "narrative present + some extractors missing (typically research-graph or sources)"
+        unlocked_tabs: [Doc, Map (partial), Waves, Ações, Perguntas]
+      legacy:
+        when: "only Markdown narrative — no extractor atoms"
+        unlocked_tabs: [Doc, Ações]
+    atom_to_tab:
+      Doc:        [research-readme, research-report, recommendations]
+      Map:        [metrics, pipeline-state, matrices, ux-patterns, curiosity-queue, research-graph]
+      Evidências: [sources, research-graph, metrics]
+      Waves:      [execution-log, wave-summary]
+      Fontes:     [sources]
+      Players:    [players]
+      Ações:      [recommendations, quick-wins, curiosity-queue]
+      Perguntas:  [curiosity-queue]

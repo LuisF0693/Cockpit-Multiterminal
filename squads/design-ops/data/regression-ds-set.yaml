@@ -1,0 +1,128 @@
+# Regression DS Set — design pipeline quality gate
+#
+# This file lists the canonical DS extracts used as regression baseline
+# for the design extraction pipeline. Changes to lib/render-contract.cjs,
+# lib/design-md.cjs, lib/extractors.cjs, or url-extract-prompt.txt MUST
+# regenerate render-contract.json for these slugs and verify no quality
+# regression vs the stored baseline.
+#
+# Authority: @design-chief (squad authority over scope + slug selection)
+# Baseline storage: outputs/design-ops/regression-matrix/baseline-{YYYYMMDD}.json
+# Validator: scripts/validate-ds-regression.cjs
+#
+# Selection criteria for the 10 canonical DSes:
+# - 1 dark-mode internal clone (aioxsquad)
+# - 1 light-mode internal clone (redpine)
+# - 1 BR fintech with full IDS token system (itau)
+# - 1 BR fintech without public token system (mercadolivre — primary-color regression case)
+# - 1 marketing-gradient archetype (stripe)
+# - 1 polaris-friendly archetype with dark mode (openai)
+# - 1 apple-glass archetype (linear)
+# - 1 shadcn-neutral archetype (nubank)
+# - 1 component-heavy site (vercel)
+# - 1 institutional voice (anthropic)
+#
+# Source: docs/sessions/2026-04/2026-04-29-roundtable-design-pipeline.md
+# Action ID: A4 (regression matrix governance)
+# Decision: D7 (registered 2026-04-29 by quick-win batch)
+
+schema_version: "1.0"
+last_updated: "2026-04-29"
+owner: "@design-chief"
+
+# DSes used as regression baseline. Order is irrelevant. Slugs MUST match
+# directory names under outputs/design-ops/url-extracts/.
+regression_set:
+  - slug: aioxsquad
+    url: https://brand.aioxsquad.ai/brandbook/guidelines
+    role: dark-mode-internal-clone
+    archetype_expected: shadcn-neutral
+    primary_color_expected: "#d1ff00"  # AIOX lime
+    score_floor: 90  # A grade
+
+  - slug: redpine
+    url: https://redpine.aioxsquad.ai/
+    role: light-mode-internal-clone
+    archetype_expected: apple-glass+polaris
+    score_floor: 85
+
+  - slug: itau
+    url: https://www.itau.com.br/
+    role: br-fintech-with-tokens
+    archetype_expected: polaris-friendly
+    primary_color_expected: "#FF6200"  # Itaú orange — NOT navy
+    score_floor: 85
+    notes: "Akamai WAF on assets — favicon dataUrl preserved as URL"
+
+  - slug: mercadolivre
+    url: https://www.mercadolivre.com.br/
+    role: br-no-public-tokens
+    archetype_expected: polaris-friendly
+    primary_color_expected: "#ffe600"  # Yellow brand identity — NOT blue UI
+    score_floor: 70
+    notes: "Primary-color regression case — pre-Phase-2 wrongly emitted blue. Phase 2 prompt must produce yellow."
+
+  - slug: stripe
+    url: https://stripe.com/
+    role: marketing-gradient
+    archetype_expected: marketing-gradient
+    primary_color_expected: "#635bff"  # Stripe purple
+    score_floor: 80
+    notes: "16-shadow elevation system; weight-300 typography signature"
+
+  - slug: openai
+    url: https://openai.com/
+    role: polaris-friendly-dark
+    archetype_expected: polaris-friendly
+    score_floor: 80
+    notes: "Dark mode default — verify surface < luminance 0.3"
+
+  - slug: linear
+    url: https://linear.app/
+    role: apple-glass
+    archetype_expected: apple-glass
+    score_floor: 80
+
+  - slug: nubank
+    url: https://nubank.com.br/
+    role: shadcn-neutral
+    archetype_expected: shadcn-neutral
+    primary_color_expected: "#820AD1"  # Nubank purple
+    score_floor: 80
+    notes: "Chakra UI emits 4000+ css-vars — high token density"
+
+  - slug: vercel
+    url: https://vercel.com/
+    role: component-heavy
+    archetype_expected: shadcn-neutral
+    score_floor: 80
+
+  - slug: anthropic
+    url: https://www.anthropic.com/
+    role: institutional
+    archetype_expected: polaris-friendly
+    primary_color_expected: "#d97757"  # Anthropic clay
+    score_floor: 80
+
+# Failure modes — when a regression is declared:
+gates:
+  break_threshold:
+    description: "A regression is declared when 2+ slugs in the set drop quality below their score_floor"
+    block_merge: true
+
+  per_slug_alert:
+    description: "Single-slug regressions emit a warning but do not block — investigate before next merge"
+    block_merge: false
+
+  primary_color_mismatch:
+    description: "If primary_color_expected is set and the new extract emits a different color, default validation emits a warning; strict brand validation blocks."
+    block_merge: false
+    strict_command: "node scripts/validate-ds-regression.cjs --strict-brand"
+    known_debt:
+      - mercadolivre
+      - stripe
+    rationale: "Brand identity is non-negotiable per design-chief F4 (hex_usage frequency != brand identity), but current baseline still carries ML/Stripe primary-color debt."
+
+  archetype_mismatch:
+    description: "Archetype detection drift — emit warning, allow with @design-chief approval"
+    block_merge: false

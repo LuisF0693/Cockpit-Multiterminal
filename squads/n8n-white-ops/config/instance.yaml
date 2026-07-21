@@ -1,0 +1,120 @@
+# ─────────────────────────────────────────────────────
+# Instance Configuration (whitelabel)
+# ─────────────────────────────────────────────────────
+# Este arquivo é a ÚNICA fonte de verdade para dados
+# que variam entre instâncias. Agents e tasks DEVEM
+# ler este arquivo em vez de usar valores hardcoded.
+# ─────────────────────────────────────────────────────
+
+# Conexão com a API (valores reais vêm das env vars)
+api:
+  url_var: N8N_API_URL
+  key_var: N8N_API_KEY
+  version: v1
+  auth_header: X-N8N-API-KEY
+
+# Time / Owners — tags usadas nos workflows para identificar responsável
+owners:
+  - tag: Sid
+    name: Sidney Fernandes
+  - tag: Klaus
+    name: Klaus Deor
+  - tag: Rogerio
+    name: Rogerio Travagin
+  - tag: Bruno
+    name: Bruno Gentil
+  - tag: Adavio
+    name: Adavio Tittoni
+  - tag: Fofonka
+    name: Gabriel Fofonka
+
+# Tags de criticidade aceitas
+criticality_tags:
+  - Critico
+  - Importante
+  - Experimental
+
+# Sistemas integrados — abreviações usadas na convenção de nomenclatura
+systems:
+  - abbr: SA
+    name: Super Agentes
+  - abbr: SUPA
+    name: Supabase
+  - abbr: HOTMART
+    name: Hotmart
+  - abbr: PAGTRUST
+    name: Pagtrust
+  - abbr: TMB
+    name: TMB (gateway pagamento)
+  - abbr: CLICKUP
+    name: ClickUp
+  - abbr: HUBSPOT
+    name: HubSpot
+  - abbr: EVOLUTION
+    name: Evolution API
+  - abbr: CHATWOOT
+    name: Chatwoot
+  - abbr: AI
+    name: Inteligência Artificial
+  - abbr: DL
+    name: Data Lake (BigQuery)
+  - abbr: DB
+    name: Database
+  - abbr: AC
+    name: Active Campaign
+  - abbr: SLACK
+    name: Slack
+  - abbr: NOTION
+    name: Notion
+  - abbr: CIRCLE
+    name: Circle (comunidade)
+  - abbr: CURSEDUCA
+    name: Curseduca (LMS)
+  - abbr: WHATSAPP
+    name: WhatsApp API
+  - abbr: GMAIL
+    name: Gmail
+  - abbr: N8N
+    name: n8n (self-reference)
+  - abbr: POSTGRES
+    name: PostgreSQL
+  - abbr: BQ
+    name: BigQuery
+  - abbr: CLICKMAX
+    name: ClickMax
+
+# Prefixos de tipo na convenção de nomenclatura
+type_prefixes:
+  - prefix: "[WH]"
+    meaning: Webhook (recebe dados em tempo real)
+  - prefix: "[SCH]"
+    meaning: Schedule (execução agendada)
+  - prefix: "[MANUAL]"
+    meaning: Execução manual
+  - prefix: "[WB]"
+    meaning: Webhook simples
+  - prefix: "[PG]"
+    meaning: Page/Form trigger
+  - prefix: "[BASE]"
+    meaning: Template base para cópia
+  - prefix: "[ERRO]"
+    meaning: Error Handler
+  - prefix: "[ACTIVE]"
+    meaning: Active Campaign trigger
+  - prefix: "[WKL]"
+    meaning: Sub-workflow (chamado por outro)
+
+# Integrações externas da instância
+integrations:
+  - service: Notion
+    usage: Database para inventário
+  - service: Slack
+    usage: Notificações de erro
+  - service: BigQuery
+    usage: Logs de erro
+  - service: Supabase
+    usage: Dados de alunos
+  - service: Active Campaign
+    usage: CRM
+  - service: Hotmart / PagTrust / TMB
+    usage: Pagamentos

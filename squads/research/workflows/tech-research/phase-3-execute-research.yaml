@@ -1,0 +1,206 @@
+workflow:
+  phases:
+    3_execute_research:
+      toc:
+        - "1. Pre-check MCP availability"
+        - "2. Determine search mode"
+        - "3. Detect special content types"
+        - "4. Load previous wave context"
+        - "5. Execute sub-queries"
+        - "6. Aggregate results"
+        - "7. Handle failures"
+        - "8. Emit wave checkpoint artifacts"
+      name: "Executar Pesquisa com Tool Strategy (v3.2 - runtime-honest Agent default)"
+      # MODEL TIER: MAIN MODEL by default; optional deep-researcher only when available.
+      description: |
+        Executa pesquisa com estratégia de ferramentas e checkpoints incrementais.
+        O modelo principal executa as sub-queries por padrão. Se o runtime expõe
+        `deep-researcher`, o agente pode usá-lo como otimização opcional; se não,
+        não promete dispatch. Cada sub-query concluída escreve uma linha em
+        wave-{N}-progress.jsonl para recuperação determinística após timeout.
+        Ver prompts/tool-strategy.md para hierarquia de ferramentas.
+        Ver prompts/executor-matrix.md para classificação de operações por modelo.
+      sources:
+        - Exa MCP (neural search, papers, GitHub - HIGH credibility)
+        - Context7 MCP (official library docs - HIGH credibility)
+        - ETL Service (YouTube transcripts, blog extraction - FREE)
+        - WebSearch native (fallback - always available)
+      execution: |
+        ## ORCHESTRATOR STEPS (MAIN MODEL - Opus/Sonnet)
+
+        1. PRE-CHECK MCP AVAILABILITY:
+           - Test Context7: mcp__context7__resolve-library-id("react", "test")
+             → If fails, set context7_available = false
+           - Test Exa: mcp__exa__web_search_exa("test query", 1)
+             → If 401/429/503, set exa_available = false
+           - Log availability for debugging
+
+        2. DETERMINE SEARCH MODE:
+           - IF decomposition_result is available AND decomposition_result.sub_queries exists:
+             → queries_to_search = decomposition_result.sub_queries
+           - IF decomposition_result is NOT available (backward compatibility):
+             → queries_to_search = [original_user_query]
+
+        3. DETECT SPECIAL CONTENT TYPES (per sub-query, before dispatch):
+
+           PRE-STEP: Use url_detector Worker for any URLs found in sub-queries:
+           ```bash
+           echo '["url1","url2"]' | python3 squads/research/scripts/tech-research/url_detector.py --stdin
+           ```
+           This classifies URLs as youtube/github/arxiv/blog/generic BEFORE LLM dispatch.
+           Use the classification to route each URL to the correct extraction method below.
+
+           a. YOUTUBE DETECTION (type == "youtube"):
+              - VideoId already extracted by url_detector (ids.id_0)
+              → Use: ETL extractYouTube (FREE, 100% success)
+              → CLI: node services/etl/bin/youtube-transcript.js {videoId}
+              → Tag as: source: youtube_transcript, credibility: HIGH (1.2x)
+
+           b. LIBRARY DETECTION (from inferred_context.domain):
+              - IF context7_available AND library detected:
+                → Use: mcp__context7__resolve-library-id + mcp__context7__query-docs
+                → Tag as: source: official_docs, credibility: HIGH (1.3x)
+              - FALLBACK: WebSearch with "site:{library}.dev docs"
+
+           c. ACADEMIC/PDF DETECTION (SCHOLARLY-FIRST routing — STORY-154.2):
+              - IF inferred_context.focus == "academic" OR
+                query matches regex: arxiv|pubmed|paper|study|trial|cohort|systematic review|meta-analysis|peer-reviewed:
+
+                PRIMARY — Scholarly adapter routing (PREFERRED over WebSearch for academic queries):
+                → Call: python3 squads/research/scripts/tech-research/scholarly_search.py --query "{query}" --adapters arxiv,pubmed,semantic-scholar --max-results 5
+                → Tag as: source: scholarly_adapter, credibility: HIGH (1.4x)
+                → If scholarly_search.py exits 0 and returns results: USE as primary source set
+                → If scholarly_search.py exits non-zero or returns empty: fall through to Exa
+
+                SECONDARY — Exa research paper fallback:
+              - IF exa_available AND (scholarly adapter returned < 3 results OR unavailable):
+                → Use: mcp__exa__research_paper_search(query, numResults=5)
+                → Tag as: source: academic_exa, credibility: HIGH (1.3x)
+              - FALLBACK: WebSearch with "site:arxiv.org OR site:scholar.google.com"
+
+              - FOR PDF URLs in results (*.pdf, arxiv.org/pdf/):
+                → Download: curl -sL "{url}" -o /tmp/research_{slug}.pdf
+                → Extract: PDFCollector.collect() (pdftotext primary, pdf-parse fallback)
+                → If scanned PDF (content < 50 chars): skip, note in gaps
+                → Tag as: source: pdf_extraction, credibility: HIGH (1.3x)
+
+           d. GITHUB DETECTION:
+              - IF query contains: github, repo, repository, code example
+              - IF exa_available:
+                → Use: mcp__exa__github_search(query, numResults=5)
+                → Tag as: source: github, credibility: HIGH (1.2x)
+              - FALLBACK: WebSearch with "site:github.com"
+
+           e. GENERAL TECHNICAL QUERIES:
+              - IF exa_available:
+                → Use: mcp__exa__web_search_exa(query, numResults=10)
+                → Tag as: source: exa_search, credibility: HIGH (1.2x)
+              - FALLBACK: WebSearch(query)
+                → Tag as: source: web_search, credibility: MEDIUM (1.0x)
+
+        4. LOAD PREVIOUS WAVE CONTEXT (wave 2+ only):
+           - IF this is wave 2 or later:
+             → Read wave-*-summary.md files from output directory
+             → These contain compressed findings from previous waves
+             → Use gaps_remaining from last wave summary to focus new queries
+             → DO NOT reload raw results from previous waves (they were compressed)
+           - IF this is wave 1: skip this step
+
+        5. EXECUTE SUB-QUERIES:
+           - Default execution is main-context Agent search. Do not promise Haiku
+             dispatch unless the `deep-researcher` subagent is actually available
+             in the current runtime.
+           - If the runtime exposes `deep-researcher`, dispatch sub-queries in
+             parallel and aggregate JSON responses.
+           - If it does not, execute sequentially in main context and record
+             `subagent_stats.fallback_sequential`.
+           - After EACH sub-query result set, append a JSONL checkpoint row to:
+             `wave-{N}-progress.jsonl`
+             Required row fields:
+             `{timestamp, wave, sub_query, tool_used, sources_count, status}`.
+           - On stream timeout or user `continue`, read the latest
+             `wave-{N}-progress.jsonl`, skip completed sub-queries, and resume
+             from the first missing sub-query.
+
+           WORKER PROMPT TEMPLATE:
+           ```
+           WORKER_MODE: true
+
+           Search for this specific sub-query and return structured findings.
+           Use your MEMORY.md knowledge to optimize search and skip bad sources.
+
+           QUERY: {sub_query}
+           CONTEXT: {inferred_context_json}
+           MCP AVAILABILITY: {exa_available: bool, context7_available: bool}
+
+           INSTRUCTIONS:
+           1. Consult your Source Quality Cache to know which domains are reliable
+           2. Search using the best available tool:
+              - If exa_available: use mcp__exa__web_search_exa(query, numResults=5)
+              - Else: use WebSearch(query)
+           3. From results, select top 2-3 most relevant URLs (skip LOW quality domains from memory)
+           4. Deep-read the top 1-2 results using ETL-first approach:
+              - YouTube URLs: Bash: node services/etl/bin/youtube-transcript.js {videoId} --format json
+              - PDF URLs (arxiv.org/pdf/, *.pdf): download with curl, extract with PDFCollector
+              - Blog/Article URLs: Bash: node services/etl/bin/fetch-page.js {url}
+                (exit code 1 = blocked domain, skip; exit 2-4 = fallback)
+              - Other URLs: Bash: node services/etl/bin/fetch-page.js {url}
+                (fallback: WebFetch only if fetch-page fails)
+           5. For long content (>5000 chars): use SemanticChunker to extract only relevant sections
+           6. Extract key findings from each read page
+           7. Score credibility using your cached source quality knowledge
+
+           RETURN FORMAT (JSON only, no other text):
+           {
+             "sub_query": "the original sub-query",
+             "sources": [
+               {"url": "...", "title": "...", "snippet": "...",
+                "credibility": "HIGH|MEDIUM|LOW", "tool_used": "..."}
+             ],
+             "key_findings": ["finding1", "finding2", "..."],
+             "extraction_stats": {
+               "youtube": 0, "blog_etl": 0, "pdf_etl": 0, "webfetch": 0, "exa": 0, "chunked": 0, "failed": 0
+             }
+           }
+
+           IMPORTANT: Do NOT update your MEMORY.md in worker mode.
+           Do NOT run full pipeline (decompose/synthesize/document). Just search and return.
+           ```
+
+           BACKWARD COMPATIBILITY:
+           If Task(subagent_type: "deep-researcher") fails, fall back to
+           sequential execution in main context and keep the progress JSONL
+           checkpoint current.
+
+        6. AGGREGATE RESULTS (MAIN MODEL):
+           - Collect all subagent responses
+           - Parse JSON output from each Task result
+           - Deduplicate by URL (keep highest credibility version)
+           - SCORE CREDIBILITY via Worker (instead of LLM scoring):
+             ```bash
+             echo '[{"url":"...","title":"...","pub_date":"..."}]' | python3 squads/research/scripts/tech-research/credibility_scorer.py --stdin
+             ```
+             Use the Worker's HIGH/MEDIUM/LOW + multiplier output for source quality.
+             This replaces LLM-based credibility assessment with deterministic regex patterns.
+           - Build unified search_results with tool attribution
+           - Combine extraction_stats across all subagents
+
+        7. HANDLE FAILURES:
+           - For each failed subagent (no response or invalid JSON):
+             → Log warning: "Subagent for sub-query '{query}' failed"
+             → Execute that sub-query sequentially in main context as fallback
+           - For each failed MCP call within subagents:
+             → Subagent should have already applied fallback chain
+           - RULE: At least 1 successful result (from any subagent) to proceed
+
+        8. Pass enriched_results to Phase 3.2 (if deep reads needed) or 3.5 (evaluate)
+        9. Ensure `wave-{N}-progress.jsonl` exists before Phase 3.5. Missing progress
+           checkpoint is a recoverability failure.
+      output: |
+        {
+          "search_results": [...],
+          "tools_used": {"exa": N, "context7": N, "etl": N, "websearch": N},
+          "mcp_availability": {"exa": bool, "context7": bool},
+          "credibility_breakdown": {"high": N, "medium": N, "low": N},
+          "subagent_stats": {"dispatched": N, "succeeded": N, "failed": N, "fallback_sequential": N}
+        }

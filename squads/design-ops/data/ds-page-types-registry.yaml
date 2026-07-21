@@ -1,0 +1,714 @@
+version: "2.0.0"
+created: "2026-03-20"
+language: "en"
+purpose: "Machine-readable registry of design-system page types. It tells AI which pages to create, which sections each page must contain, and which shadcn/ui primitives plus Tailwind patterns should be used."
+
+stack_contract:
+  styling: "Tailwind CSS v4"
+  primitives: "shadcn/ui"
+  charts: "Recharts through the local shadcn chart wrapper"
+  rule: "Use shadcn/ui primitive names and Tailwind pattern names only. Do not reference starter-specific component aliases in this registry."
+
+generation_rules:
+  - "Describe what each page must contain, not one fixed final layout."
+  - "A page may vary in tone, density, color strategy, and composition as long as the required sections and contracts are preserved."
+  - "When a page needs a richer block than raw shadcn primitives, use a composed block from composed_blocks."
+  - "If a page is data-heavy, prefer tabs, table, chart, scroll-area, and sticky sidebars before inventing custom widgets."
+  - "If a page is visual, prefer grid, gallery, frame, and editorial patterns before adding new component abstractions."
+
+tiers:
+  0: "Core foundations"
+  1: "Core component documentation"
+  2: "Advanced system patterns"
+  3: "Showcase and expression"
+
+variation_axes:
+  tone:
+    - "minimal"
+    - "premium"
+    - "bold"
+    - "cinematic"
+    - "editorial"
+    - "developer-focused"
+    - "corporate"
+    - "playful"
+  density:
+    - "compact"
+    - "balanced"
+    - "generous"
+  color_mode:
+    - "light"
+    - "dark"
+    - "adaptive"
+  chrome_style:
+    - "quiet"
+    - "productized"
+    - "magazine"
+    - "presentation"
+  demo_depth:
+    - "minimal"
+    - "standard"
+    - "deep"
+
+available_primitives:
+  shadcn_ui:
+    - "accordion"
+    - "avatar"
+    - "badge"
+    - "breadcrumb"
+    - "button"
+    - "card"
+    - "chart"
+    - "checkbox"
+    - "collapsible"
+    - "context-menu"
+    - "dialog"
+    - "dropdown-menu"
+    - "hover-card"
+    - "input"
+    - "label"
+    - "popover"
+    - "progress"
+    - "radio-group"
+    - "scroll-area"
+    - "select"
+    - "separator"
+    - "sheet"
+    - "skeleton"
+    - "slider"
+    - "switch"
+    - "table"
+    - "tabs"
+    - "textarea"
+    - "toggle"
+    - "toggle-group"
+    - "tooltip"
+  tailwind_patterns:
+    - "page-shell"
+    - "section-stack"
+    - "content-width-sm"
+    - "content-width-md"
+    - "content-width-lg"
+    - "responsive-grid-2"
+    - "responsive-grid-3"
+    - "responsive-grid-4"
+    - "token-swatch-grid"
+    - "comparison-grid"
+    - "stats-strip"
+    - "sticky-aside"
+    - "editorial-columns"
+    - "demo-stage"
+    - "gallery-grid"
+    - "masonry-grid"
+    - "toolbar-row"
+    - "step-rail"
+    - "side-by-side"
+    - "bento-grid"
+    - "marquee-strip"
+    - "tabbed-demo-surface"
+    - "scroll-snap-rail"
+
+composed_blocks:
+  page_hero:
+    purpose: "Standard page opener for a DS route."
+    built_from:
+      shadcn_ui: ["badge", "separator"]
+      tailwind_patterns: ["section-stack", "content-width-md"]
+    must_render: ["eyebrow", "page title", "one-paragraph summary"]
+  token_swatch:
+    purpose: "Reusable token display card for color, spacing, radius, or shadow."
+    built_from:
+      shadcn_ui: ["card", "badge", "tooltip"]
+      tailwind_patterns: ["token-swatch-grid"]
+    must_render: ["token name", "token value", "semantic role", "live preview"]
+  specimen_panel:
+    purpose: "Typography or icon specimen panel."
+    built_from:
+      shadcn_ui: ["card", "badge", "separator"]
+      tailwind_patterns: ["section-stack"]
+    must_render: ["preview", "metadata", "usage note"]
+  demo_card:
+    purpose: "Interactive component demo with code or usage notes."
+    built_from:
+      shadcn_ui: ["card", "tabs", "separator", "button"]
+      tailwind_patterns: ["demo-stage", "tabbed-demo-surface"]
+    must_render: ["live demo", "variant label", "usage note"]
+  state_matrix:
+    purpose: "Show default, hover, focus, disabled, loading, and error states."
+    built_from:
+      shadcn_ui: ["card", "badge", "tabs", "tooltip"]
+      tailwind_patterns: ["comparison-grid"]
+    must_render: ["state label", "preview", "state-specific note"]
+  metric_card:
+    purpose: "Compact status or coverage summary."
+    built_from:
+      shadcn_ui: ["card", "badge", "progress"]
+      tailwind_patterns: ["stats-strip"]
+    must_render: ["metric label", "metric value", "supporting caption"]
+  step_block:
+    purpose: "Ordered process or rule sequence."
+    built_from:
+      shadcn_ui: ["badge", "card", "separator"]
+      tailwind_patterns: ["step-rail"]
+    must_render: ["step number", "step title", "step description"]
+  data_demo:
+    purpose: "Table or chart showcase with filters."
+    built_from:
+      shadcn_ui: ["card", "tabs", "select", "button", "chart", "table"]
+      tailwind_patterns: ["toolbar-row", "demo-stage"]
+    must_render: ["control row", "live data surface", "interpretation note"]
+  slide_canvas:
+    purpose: "Presentation slide preview or narrative deck section."
+    built_from:
+      shadcn_ui: ["card", "tabs", "badge"]
+      tailwind_patterns: ["gallery-grid", "side-by-side"]
+    must_render: ["slide preview", "narrative role", "format note"]
+
+selection_presets:
+  mvp:
+    description: "Fast starter for a small but credible design system."
+    include: ["foundations", "typography", "color-tokens", "spacing-layout", "surfaces", "semantic-tokens", "buttons", "forms"]
+  standard:
+    description: "Balanced system for most product brands."
+    include: ["foundations", "typography", "color-tokens", "spacing-layout", "surfaces", "semantic-tokens", "components-overview", "buttons", "forms", "feedback", "states", "cards", "tables", "navigation", "motion"]
+  premium:
+    description: "Broader system with data display and expressive pages."
+    include: ["foundations", "typography", "color-tokens", "spacing-layout", "surfaces", "semantic-tokens", "token-export", "components-overview", "buttons", "forms", "feedback", "states", "cards", "tables", "lists", "charts", "navigation", "motion", "patterns", "effects", "templates"]
+  full:
+    description: "Full brandbook-grade system with utility, narrative, and showcase pages."
+    include: ["foundations", "typography", "color-tokens", "spacing-layout", "surfaces", "semantic-tokens", "token-export", "components-overview", "buttons", "forms", "feedback", "states", "cards", "tables", "lists", "charts", "navigation", "motion", "patterns", "effects", "icons", "logo", "templates", "lp-sections", "editorial", "moodboard", "seo", "slides"]
+
+page_types:
+  foundations:
+    tier: 0
+    label: "Foundations"
+    starter_routes: ["/brandbook/foundations"]
+    purpose: "Entry page that orients the system and links to every foundation layer."
+    inclusion_rule: "Always include in any multi-page design system."
+    required_sections:
+      - id: "page-hero"
+        composed_blocks: ["page_hero"]
+        shadcn_ui: ["badge", "separator"]
+        tailwind_patterns: ["section-stack", "content-width-md"]
+        must_render: ["eyebrow", "title", "summary", "system scope"]
+      - id: "foundation-grid"
+        shadcn_ui: ["card", "badge", "button"]
+        tailwind_patterns: ["responsive-grid-3"]
+        must_render: ["foundation cards", "short descriptions", "route links", "coverage cues"]
+      - id: "system-status"
+        composed_blocks: ["metric_card"]
+        shadcn_ui: ["card", "progress", "badge"]
+        tailwind_patterns: ["stats-strip"]
+        must_render: ["token count", "component count", "coverage summary"]
+
+  typography:
+    tier: 0
+    label: "Typography"
+    starter_routes: ["/brandbook/typography"]
+    purpose: "Document font families, type scale, hierarchy, and reading behavior."
+    inclusion_rule: "Always include in any design system."
+    required_sections:
+      - id: "font-families"
+        composed_blocks: ["specimen_panel"]
+        shadcn_ui: ["card", "badge", "separator"]
+        tailwind_patterns: ["responsive-grid-2"]
+        must_render: ["family specimen", "font family name", "fallback stack", "recommended use"]
+      - id: "type-scale"
+        shadcn_ui: ["card", "table", "badge"]
+        tailwind_patterns: ["section-stack", "content-width-lg"]
+        must_render: ["token name", "size", "line-height", "letter-spacing", "live preview"]
+      - id: "heading-hierarchy"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["section-stack"]
+        must_render: ["H1-H6 preview", "usage note", "hierarchy rationale"]
+      - id: "body-and-code"
+        shadcn_ui: ["card", "tabs", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["body copy sample", "small/caption sample", "code sample", "line length guidance"]
+
+  color-tokens:
+    tier: 0
+    label: "Color Tokens"
+    starter_routes: ["/brandbook/color-tokens"]
+    purpose: "Document palette, semantic mapping, surfaces, and contrast behavior."
+    inclusion_rule: "Always include in any design system."
+    required_sections:
+      - id: "accent-and-brand-palette"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge", "tooltip"]
+        tailwind_patterns: ["token-swatch-grid"]
+        must_render: ["brand colors", "token values", "semantic labels", "light/dark preview"]
+      - id: "neutral-scale"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "tooltip", "badge"]
+        tailwind_patterns: ["token-swatch-grid"]
+        must_render: ["neutral steps", "foreground/background preview", "value label"]
+      - id: "semantic-colors"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge", "tooltip"]
+        tailwind_patterns: ["responsive-grid-4"]
+        must_render: ["success", "warning", "error", "info", "usage note"]
+      - id: "contrast-check"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["foreground/background pairs", "contrast ratio", "pass/fail status"]
+
+  spacing-layout:
+    tier: 0
+    label: "Spacing & Layout"
+    starter_routes: ["/brandbook/spacing-layout", "/brandbook/spacing", "/brandbook/spacing-scale", "/brandbook/layering"]
+    purpose: "Document spacing scales, breakpoint logic, layout rails, and layering rules."
+    inclusion_rule: "Always include in any design system."
+    required_sections:
+      - id: "spacing-scale"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge", "separator"]
+        tailwind_patterns: ["section-stack"]
+        must_render: ["token name", "pixel/rem value", "visual bar", "usage note"]
+      - id: "layout-rails"
+        shadcn_ui: ["card", "tabs", "badge"]
+        tailwind_patterns: ["side-by-side", "demo-stage"]
+        must_render: ["container widths", "column behavior", "gutter strategy", "layout examples"]
+      - id: "breakpoints-and-layering"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["breakpoints", "intended device targets", "z-index or layering map"]
+
+  surfaces:
+    tier: 0
+    label: "Surfaces & Borders"
+    starter_routes: ["/brandbook/surfaces"]
+    purpose: "Show elevation, borders, corner radius, and surface hierarchy."
+    inclusion_rule: "Always include in any design system."
+    required_sections:
+      - id: "elevation-scale"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge"]
+        tailwind_patterns: ["responsive-grid-3"]
+        must_render: ["surface preview", "elevation token", "shadow value", "recommended usage"]
+      - id: "border-and-radius"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge", "tooltip"]
+        tailwind_patterns: ["responsive-grid-4"]
+        must_render: ["border strength", "radius scale", "preview tile"]
+      - id: "surface-hierarchy"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["background", "panel", "card", "overlay", "hierarchy guidance"]
+
+  semantic-tokens:
+    tier: 0
+    label: "Semantic Tokens"
+    starter_routes: ["/brandbook/semantic-tokens"]
+    purpose: "Explain semantic token roles independently from raw visual values."
+    inclusion_rule: "Include whenever semantic aliasing exists."
+    required_sections:
+      - id: "semantic-map"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["semantic token", "raw token source", "intended context", "theme mode behavior"]
+      - id: "surface-and-content-pairs"
+        composed_blocks: ["token_swatch"]
+        shadcn_ui: ["card", "badge", "tooltip"]
+        tailwind_patterns: ["comparison-grid"]
+        must_render: ["surface token", "text token", "pair preview", "accessibility note"]
+
+  token-export:
+    tier: 2
+    label: "Token Export"
+    starter_routes: ["/brandbook/token-export"]
+    purpose: "Expose exportable token structures for engineering handoff."
+    inclusion_rule: "Include when the design system has cross-tool or runtime handoff needs."
+    required_sections:
+      - id: "export-targets"
+        shadcn_ui: ["tabs", "card", "badge", "button"]
+        tailwind_patterns: ["tabbed-demo-surface"]
+        must_render: ["target formats", "copy/export actions", "format explanation"]
+      - id: "token-contract"
+        shadcn_ui: ["table", "scroll-area", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["token keys", "semantic grouping", "delivery notes"]
+
+  components-overview:
+    tier: 1
+    label: "Components"
+    starter_routes: ["/brandbook/components"]
+    purpose: "Overview page for the component catalog and grouping logic."
+    inclusion_rule: "Include whenever the system documents more than one component family."
+    required_sections:
+      - id: "catalog-hero"
+        composed_blocks: ["page_hero"]
+        shadcn_ui: ["badge", "separator"]
+        tailwind_patterns: ["section-stack", "content-width-md"]
+        must_render: ["title", "catalog scope", "component family count"]
+      - id: "component-family-grid"
+        shadcn_ui: ["card", "badge", "button"]
+        tailwind_patterns: ["responsive-grid-3"]
+        must_render: ["family card", "family description", "component count", "route or jump link"]
+      - id: "coverage-summary"
+        composed_blocks: ["metric_card"]
+        shadcn_ui: ["card", "progress", "badge"]
+        tailwind_patterns: ["stats-strip"]
+        must_render: ["coverage by family", "maturity status", "missing areas"]
+
+  buttons:
+    tier: 1
+    label: "Buttons"
+    starter_routes: ["/brandbook/buttons"]
+    purpose: "Document button variants, sizes, icon rules, grouping, and CTA hierarchy."
+    inclusion_rule: "Always include when the system is interactive."
+    required_sections:
+      - id: "variant-matrix"
+        composed_blocks: ["demo_card", "state_matrix"]
+        shadcn_ui: ["button", "card", "tabs", "badge", "tooltip"]
+        tailwind_patterns: ["comparison-grid", "demo-stage"]
+        must_render: ["all variants", "all sizes", "primary/secondary intent", "icon usage"]
+      - id: "state-coverage"
+        composed_blocks: ["state_matrix"]
+        shadcn_ui: ["card", "badge", "tabs", "tooltip"]
+        tailwind_patterns: ["comparison-grid"]
+        must_render: ["default", "hover", "focus", "disabled", "loading"]
+      - id: "button-groups-and-cta-rules"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["group examples", "CTA priority rules", "spacing rules"]
+
+  forms:
+    tier: 1
+    label: "Forms"
+    starter_routes: ["/brandbook/forms"]
+    purpose: "Document data entry primitives and composed form patterns."
+    inclusion_rule: "Always include in product-oriented systems."
+    required_sections:
+      - id: "field-primitives"
+        shadcn_ui: ["input", "textarea", "select", "checkbox", "radio-group", "switch", "label", "card", "tabs"]
+        tailwind_patterns: ["responsive-grid-2", "demo-stage"]
+        must_render: ["field demos", "labels", "helper text", "validation affordances"]
+      - id: "form-layout-patterns"
+        composed_blocks: ["step_block"]
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["side-by-side", "section-stack"]
+        must_render: ["single-column form", "two-column form", "dense settings layout"]
+      - id: "validation-and-submission"
+        shadcn_ui: ["button", "badge", "progress", "card"]
+        tailwind_patterns: ["section-stack"]
+        must_render: ["error pattern", "success pattern", "pending/loading pattern", "submit hierarchy"]
+
+  feedback:
+    tier: 1
+    label: "Feedback"
+    starter_routes: ["/brandbook/feedback", "/brandbook/loading"]
+    purpose: "Document user feedback and system response patterns."
+    inclusion_rule: "Include whenever the product exposes async or transactional flows."
+    required_sections:
+      - id: "inline-feedback"
+        shadcn_ui: ["badge", "card", "progress", "tooltip"]
+        tailwind_patterns: ["responsive-grid-3"]
+        must_render: ["success", "warning", "error", "informational feedback"]
+      - id: "loading-and-empty"
+        shadcn_ui: ["skeleton", "progress", "card", "button"]
+        tailwind_patterns: ["comparison-grid"]
+        must_render: ["skeleton state", "progress state", "empty state", "retry state"]
+      - id: "modal-and-blocking-feedback"
+        shadcn_ui: ["dialog", "sheet", "button", "card"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["modal feedback example", "sheet feedback example", "escape hatch rule"]
+
+  states:
+    tier: 1
+    label: "States"
+    starter_routes: ["/brandbook/states"]
+    purpose: "Make state coverage explicit across the system."
+    inclusion_rule: "Include whenever interaction states are not already embedded in every component page."
+    required_sections:
+      - id: "global-state-legend"
+        shadcn_ui: ["badge", "card", "separator"]
+        tailwind_patterns: ["stats-strip"]
+        must_render: ["state taxonomy", "meaning", "visual cue"]
+      - id: "component-state-matrix"
+        composed_blocks: ["state_matrix"]
+        shadcn_ui: ["tabs", "card", "badge", "tooltip"]
+        tailwind_patterns: ["comparison-grid"]
+        must_render: ["default", "hover", "focus", "active", "disabled", "selected", "loading", "error"]
+
+  cards:
+    tier: 1
+    label: "Cards"
+    starter_routes: ["/brandbook/cards"]
+    purpose: "Show card families, density, content hierarchy, and media behavior."
+    inclusion_rule: "Include whenever the product uses repeatable content containers."
+    required_sections:
+      - id: "card-family-gallery"
+        composed_blocks: ["demo_card"]
+        shadcn_ui: ["card", "badge", "tabs", "button", "avatar"]
+        tailwind_patterns: ["gallery-grid", "demo-stage"]
+        must_render: ["basic card", "feature card", "article card", "profile or team card"]
+      - id: "content-hierarchy-rules"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["header/body/footer rules", "media placement rules", "density guidance"]
+      - id: "state-and-layout-variants"
+        composed_blocks: ["state_matrix"]
+        shadcn_ui: ["card", "tabs", "badge"]
+        tailwind_patterns: ["comparison-grid"]
+        must_render: ["interactive card", "static card", "selected card", "disabled card"]
+
+  tables:
+    tier: 1
+    label: "Tables"
+    starter_routes: ["/brandbook/tables"]
+    purpose: "Document structured data tables, density, and row actions."
+    inclusion_rule: "Include whenever the product exposes tabular data."
+    required_sections:
+      - id: "table-foundation"
+        composed_blocks: ["data_demo"]
+        shadcn_ui: ["table", "card", "badge", "select", "button", "scroll-area"]
+        tailwind_patterns: ["demo-stage", "toolbar-row"]
+        must_render: ["column header row", "body rows", "sortable controls", "dense vs relaxed modes"]
+      - id: "row-actions-and-status"
+        shadcn_ui: ["dropdown-menu", "badge", "button", "tooltip", "table"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["row action menu", "selection state", "status badge", "empty rows behavior"]
+
+  lists:
+    tier: 1
+    label: "Lists"
+    starter_routes: ["/brandbook/lists"]
+    purpose: "Document list items, metadata density, and sequence patterns."
+    inclusion_rule: "Include when the system supports feeds, documents, or repeated content entries."
+    required_sections:
+      - id: "list-item-families"
+        shadcn_ui: ["card", "badge", "avatar", "separator", "button"]
+        tailwind_patterns: ["section-stack", "content-width-lg"]
+        must_render: ["simple list item", "media list item", "meta-rich list item", "actionable list item"]
+      - id: "selection-and-grouping"
+        shadcn_ui: ["checkbox", "badge", "tabs", "card"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["single-select pattern", "multi-select pattern", "group label pattern"]
+
+  charts:
+    tier: 2
+    label: "Charts"
+    starter_routes: ["/brandbook/charts"]
+    purpose: "Document data visualization primitives, controls, and narrative framing."
+    inclusion_rule: "Include when the product presents trends, breakdowns, or performance data."
+    required_sections:
+      - id: "chart-gallery"
+        composed_blocks: ["data_demo"]
+        shadcn_ui: ["chart", "card", "tabs", "select", "button", "tooltip", "badge"]
+        tailwind_patterns: ["responsive-grid-2", "demo-stage"]
+        must_render: ["line", "bar", "area", "pie or radial", "legend", "tooltip behavior"]
+      - id: "chart-usage-rules"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["when to use each chart", "color semantics", "annotation rules"]
+
+  navigation:
+    tier: 1
+    label: "Navigation"
+    starter_routes: ["/brandbook/navigation"]
+    purpose: "Document primary, secondary, local, and mobile navigation."
+    inclusion_rule: "Always include when the product has more than one major route."
+    required_sections:
+      - id: "global-nav"
+        shadcn_ui: ["button", "dropdown-menu", "sheet", "breadcrumb", "badge"]
+        tailwind_patterns: ["toolbar-row", "side-by-side"]
+        must_render: ["desktop nav", "mobile nav", "active state", "CTA slot"]
+      - id: "local-and-contextual-nav"
+        shadcn_ui: ["tabs", "toggle-group", "popover", "tooltip", "card"]
+        tailwind_patterns: ["sticky-aside", "content-width-lg"]
+        must_render: ["local tabs", "filter controls", "breadcrumb usage", "context actions"]
+
+  motion:
+    tier: 2
+    label: "Motion"
+    starter_routes: ["/brandbook/motion"]
+    purpose: "Document easing, duration, and interaction choreography."
+    inclusion_rule: "Include when motion is part of the system's brand or product UX."
+    required_sections:
+      - id: "timing-tokens"
+        shadcn_ui: ["card", "badge", "table"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["duration tokens", "easing tokens", "trigger contexts"]
+      - id: "motion-demos"
+        shadcn_ui: ["tabs", "card", "button", "badge"]
+        tailwind_patterns: ["demo-stage", "responsive-grid-2"]
+        must_render: ["enter motion", "exit motion", "hover motion", "page transition rule"]
+
+  patterns:
+    tier: 2
+    label: "Patterns"
+    starter_routes: ["/brandbook/patterns"]
+    purpose: "Document reusable visual pattern language outside core components."
+    inclusion_rule: "Include when the system has a visual identity beyond neutral product UI."
+    required_sections:
+      - id: "pattern-library"
+        shadcn_ui: ["card", "badge", "tabs"]
+        tailwind_patterns: ["gallery-grid"]
+        must_render: ["grid patterns", "line patterns", "texture motifs", "framing motifs"]
+      - id: "application-rules"
+        shadcn_ui: ["table", "card", "badge"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["where patterns can appear", "where they must not appear", "density guidance"]
+
+  effects:
+    tier: 2
+    label: "Effects"
+    starter_routes: ["/brandbook/effects"]
+    purpose: "Document blur, overlays, grain, glow, and other surface effects."
+    inclusion_rule: "Include when the visual language relies on atmospheric treatment."
+    required_sections:
+      - id: "effect-gallery"
+        shadcn_ui: ["card", "badge", "slider", "tabs"]
+        tailwind_patterns: ["gallery-grid", "demo-stage"]
+        must_render: ["effect preview", "intensity comparison", "layering note"]
+      - id: "performance-and-legibility"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["performance guidance", "accessibility note", "fallback rules"]
+
+  icons:
+    tier: 2
+    label: "Icons"
+    starter_routes: ["/brandbook/icons"]
+    purpose: "Document icon families, stroke logic, sizing, and usage."
+    inclusion_rule: "Include when icons are part of the product UI or brand language."
+    required_sections:
+      - id: "icon-grid"
+        shadcn_ui: ["card", "tooltip", "badge", "tabs", "button"]
+        tailwind_patterns: ["gallery-grid", "toolbar-row"]
+        must_render: ["icon gallery", "size options", "stroke or weight logic", "category filters"]
+      - id: "icon-usage-rules"
+        shadcn_ui: ["table", "card", "badge"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["with label", "standalone", "decorative vs semantic", "contrast rules"]
+
+  logo:
+    tier: 2
+    label: "Logo"
+    starter_routes: ["/brandbook/logo"]
+    purpose: "Document logo lockups, protected area, sizing, and misuse."
+    inclusion_rule: "Include when the system also functions as a brandbook."
+    required_sections:
+      - id: "logo-system"
+        composed_blocks: ["specimen_panel"]
+        shadcn_ui: ["card", "badge", "separator"]
+        tailwind_patterns: ["responsive-grid-2"]
+        must_render: ["primary lockup", "secondary lockup", "mark-only variant", "inverse variant"]
+      - id: "clear-space-and-sizing"
+        shadcn_ui: ["card", "table", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["clear space rule", "minimum size rule", "background examples"]
+      - id: "misuse"
+        shadcn_ui: ["card", "badge"]
+        tailwind_patterns: ["responsive-grid-3"]
+        must_render: ["stretch misuse", "low contrast misuse", "crowding misuse", "effect misuse"]
+
+  templates:
+    tier: 2
+    label: "Templates"
+    starter_routes: ["/brandbook/templates"]
+    purpose: "Document page shell archetypes available to the system."
+    inclusion_rule: "Include when the system ships with multiple page-level compositions."
+    required_sections:
+      - id: "template-gallery"
+        shadcn_ui: ["card", "tabs", "badge", "button"]
+        tailwind_patterns: ["gallery-grid", "demo-stage"]
+        must_render: ["template preview", "template name", "when to use", "layout personality"]
+      - id: "template-selection-guide"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["use case", "content density", "best template match"]
+
+  lp-sections:
+    tier: 3
+    label: "Landing Page Sections"
+    starter_routes: ["/brandbook/lp-sections"]
+    purpose: "Document reusable marketing sections built on the system."
+    inclusion_rule: "Include when the system supports marketing pages or launches."
+    required_sections:
+      - id: "hero-and-proof"
+        shadcn_ui: ["button", "badge", "card", "avatar", "tabs"]
+        tailwind_patterns: ["section-stack", "stats-strip", "side-by-side"]
+        must_render: ["hero section", "social proof", "primary CTA", "secondary CTA"]
+      - id: "conversion-sections"
+        shadcn_ui: ["card", "accordion", "button", "badge", "input"]
+        tailwind_patterns: ["responsive-grid-3", "section-stack"]
+        must_render: ["feature grid", "pricing", "FAQ", "final CTA"]
+
+  editorial:
+    tier: 3
+    label: "Editorial"
+    starter_routes: ["/brandbook/editorial", "/brandbook/guidelines", "/brandbook/culture", "/brandbook/movimento"]
+    purpose: "Document long-form narrative layouts and reading systems."
+    inclusion_rule: "Include when the brandbook contains narrative or manifesto content."
+    required_sections:
+      - id: "editorial-spreads"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["editorial-columns", "content-width-md"]
+        must_render: ["lead statement", "body prose", "pull quote or callout", "section divider"]
+      - id: "narrative-support"
+        shadcn_ui: ["card", "tabs", "badge"]
+        tailwind_patterns: ["side-by-side"]
+        must_render: ["evidence block", "timeline or sequence", "supporting visuals"]
+
+  moodboard:
+    tier: 3
+    label: "Moodboard"
+    starter_routes: ["/brandbook/moodboard"]
+    purpose: "Capture visual references, textures, and tone boards."
+    inclusion_rule: "Include when the system needs inspiration or art-direction pages."
+    required_sections:
+      - id: "reference-grid"
+        shadcn_ui: ["card", "badge", "dialog"]
+        tailwind_patterns: ["masonry-grid", "gallery-grid"]
+        must_render: ["image references", "tone labels", "selection rationale"]
+      - id: "direction-summary"
+        shadcn_ui: ["card", "separator", "badge"]
+        tailwind_patterns: ["content-width-md"]
+        must_render: ["direction keywords", "do more of", "avoid list"]
+
+  seo:
+    tier: 3
+    label: "SEO"
+    starter_routes: ["/brandbook/seo"]
+    purpose: "Document metadata and social preview surfaces for publishing."
+    inclusion_rule: "Include when the system supports content distribution or landing pages."
+    required_sections:
+      - id: "preview-matrix"
+        shadcn_ui: ["card", "tabs", "badge", "table"]
+        tailwind_patterns: ["side-by-side", "demo-stage"]
+        must_render: ["search preview", "social preview", "title rules", "description rules"]
+      - id: "asset-rules"
+        shadcn_ui: ["card", "badge", "separator"]
+        tailwind_patterns: ["content-width-md"]
+        must_render: ["image aspect ratio rules", "fallback behavior", "copy length guidance"]
+
+  slides:
+    tier: 3
+    label: "Slides"
+    starter_routes: ["/brandbook/showcase/slides"]
+    purpose: "Document presentation-friendly slides and narrative frames."
+    inclusion_rule: "Include when the brand needs internal or external presentation support."
+    required_sections:
+      - id: "slide-type-gallery"
+        composed_blocks: ["slide_canvas"]
+        shadcn_ui: ["card", "tabs", "badge"]
+        tailwind_patterns: ["gallery-grid", "demo-stage"]
+        must_render: ["title slide", "data slide", "quote slide", "closing slide"]
+      - id: "presentation-rules"
+        shadcn_ui: ["table", "badge", "card"]
+        tailwind_patterns: ["content-width-lg"]
+        must_render: ["aspect ratio rules", "density rules", "speaker-distance guidance"]
+
+workflow_usage:
+  selection_order:
+    - "Choose preset."
+    - "Apply variation axes."
+    - "Drop page types that violate scope or delivery budget."
+    - "For each chosen page type, render every required section."
+    - "Within each section, render all must_render elements using the declared primitive and pattern contract."
+  anti_lock_in_rules:
+    - "Do not clone the starter visual style unless the brief explicitly asks for it."
+    - "Do not introduce starter-specific component names into generated outputs."
+    - "You may compose new page layouts as long as the section contract remains intact."

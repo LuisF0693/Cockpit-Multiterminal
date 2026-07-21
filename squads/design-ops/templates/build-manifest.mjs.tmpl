@@ -1,0 +1,120 @@
+#!/usr/bin/env node
+/**
+ * build-manifest.mjs — SCAFFOLD TEMPLATE
+ * ========================================
+ * Dropped into `apps/{target}/scripts/build-manifest.mjs` by scaffold-ds.sh.
+ * Registered in package.json as `build:manifest`.
+ *
+ * Generates `src/design-system/components.manifest.json` — CEM-equivalent for React.
+ * Combines components.map.json (metadata: status, a11y, tokens, variants) with
+ * TypeScript signature heuristics scraped from src/components/ui/*.tsx.
+ *
+ * Consumable by: MCP servers, LLM-assisted editors, shadcn-style registry endpoints,
+ * documentation generators, CI drift validators.
+ *
+ * Origin: Redpine session 2026-04-19.
+ * Deterministic: same input → same output. Safe for CI regeneration.
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, "..");
+const MAP = path.join(ROOT, "src/design-system/components.map.json");
+const UI_DIR = path.join(ROOT, "src/components/ui");
+const OUT = path.join(ROOT, "src/design-system/components.manifest.json");
+const PKG = path.join(ROOT, "package.json");
+
+const pkg = JSON.parse(fs.readFileSync(PKG, "utf8"));
+const map = JSON.parse(fs.readFileSync(MAP, "utf8"));
+
+function scrapeExports(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  const src = fs.readFileSync(filePath, "utf8");
+  const exports = new Set();
+  for (const m of src.matchAll(/export\s+(?:function|const)\s+([A-Z][\w$]*)/g)) {
+    exports.add(m[1]);
+  }
+  for (const m of src.matchAll(/export\s*\{\s*([^}]+)\s*\}/g)) {
+    for (const name of m[1].split(",")) {
+      const clean = name.trim().split(/\s+as\s+/)[0];
+      if (/^[A-Z]/.test(clean)) exports.add(clean);
+    }
+  }
+  return [...exports].sort();
+}
+
+function scrapeSignature(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const src = fs.readFileSync(filePath, "utf8");
+  const signature = {};
+  const cvaMatch = src.match(/cva\(\s*["'`][^"'`]*["'`]\s*,\s*\{[\s\S]*?variants:\s*\{([\s\S]*?)\}\s*,\s*(?:defaultVariants|compoundVariants|\})/);
+  if (cvaMatch) {
+    const variantBlock = cvaMatch[1];
+    const variantNames = [];
+    for (const m of variantBlock.matchAll(/^\s*(\w+)\s*:\s*\{/gm)) {
+      variantNames.push(m[1]);
+    }
+    if (variantNames.length) signature.cvaVariants = variantNames;
+  }
+  const propsMatch = src.match(/React\.ComponentProps<\s*["'`]?([^"'`>]+)["'`]?\s*>/);
+  if (propsMatch) signature.baseElement = propsMatch[1];
+  return Object.keys(signature).length ? signature : null;
+}
+
+function buildManifest() {
+  const components = map.components.map((entry) => {
+    const filePath = path.join(ROOT, entry.file);
+    const exports = scrapeExports(filePath);
+    const signature = scrapeSignature(filePath);
+    return {
+      name: entry.name,
+      status: entry.status ?? "beta",
+      file: entry.file,
+      import: `@/${entry.file.replace(/^src\//, "").replace(/\.tsx$/, "")}`,
+      exports,
+      ...(entry.variants ? { variants: entry.variants } : {}),
+      ...(entry.sizes ? { sizes: entry.sizes } : {}),
+      ...(entry.tones ? { tones: entry.tones } : {}),
+      ...(entry.slots ? { slots: entry.slots } : {}),
+      ...(entry.props ? { props: entry.props } : {}),
+      ...(signature ? { signature } : {}),
+      ...(entry.a11y ? { a11y: entry.a11y } : {}),
+      tokens: entry.tokens ?? {},
+    };
+  });
+
+  return {
+    $schema: "https://design-ops.sinkra/schemas/components.manifest.v1.json",
+    meta: {
+      generator: "scripts/build-manifest.mjs",
+      generatedAt: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      dsName: map.meta.dsName,
+      dsVersion: map.meta.version,
+      packageName: pkg.name,
+      packageVersion: pkg.version,
+      statusLegend: map.meta.statusLegend ?? {},
+      counts: {
+        total: components.length,
+        ready: components.filter((c) => c.status === "ready").length,
+        beta: components.filter((c) => c.status === "beta").length,
+        experimental: components.filter((c) => c.status === "experimental").length,
+        deprecated: components.filter((c) => c.status === "deprecated").length,
+      },
+    },
+    components,
+  };
+}
+
+const missing = map.components.filter((c) => !fs.existsSync(path.join(ROOT, c.file)));
+if (missing.length) {
+  console.error(`✗ Referenced files missing: ${missing.map((c) => c.file).join(", ")}`);
+  process.exit(1);
+}
+
+const manifest = buildManifest();
+fs.writeFileSync(OUT, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+console.log(`✓ wrote ${path.relative(ROOT, OUT)} (${manifest.meta.counts.total} components)`);
+console.log(`  ready: ${manifest.meta.counts.ready}, beta: ${manifest.meta.counts.beta}`);

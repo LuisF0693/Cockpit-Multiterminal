@@ -1,0 +1,54 @@
+{
+  "fixture_id": "synthetic-ai-slop-site",
+  "purpose": "Regression test fixture for ai-fingerprint-detector. Mimics a real AI-generated SaaS landing page with all known AI tells.",
+  "expected_outcome": {
+    "ai_slop_score_min": 80,
+    "ai_slop_score_max": 100,
+    "recommendation": "rebrief-required",
+    "must_detect": [
+      "font_monoculture",
+      "ban_02_gradient_text",
+      "ban_01_side_stripe_borders",
+      "ban_08_pure_black_or_white",
+      "lila_purple_blue",
+      "animation_easing_bouncy",
+      "animation_layout_properties"
+    ]
+  },
+  "created": "2026-05-19",
+  "rt_origin": "RT-FIX-7 (@architect C5 — commit regression fixtures)",
+
+  "inputs": {
+    "fontFaces": [
+      { "family": "Inter" },
+      { "family": "Fraunces" },
+      { "family": "Plus Jakarta Sans" }
+    ],
+    "componentProps": [
+      { "selector": "h1.hero-title", "styles": "background-clip: text; background: linear-gradient(45deg, #663399, #4488ff);" },
+      { "selector": ".alert", "styles": "border-left: 4px solid #ff6b6b; padding: 1rem;" },
+      { "selector": ".layout", "styles": "grid-template-columns: 2fr 1fr 1fr;" },
+      { "selector": ".hero", "styles": "padding-left: 25vw; text-align: center;" },
+      { "selector": "h1", "styles": "text-align: center; font-size: 6rem;" }
+    ],
+    "tokens": {
+      "color": { "bg": "#000000", "surface": "#FFFFFF" },
+      "primary": "oklch(55% 0.18 270)",
+      "accent": "oklch(60% 0.20 285)",
+      "spacing": { "xs": "4px", "sm": "8px", "md": "12px" }
+    },
+    "motion": {
+      "transitions": [
+        { "id": "t1", "selector": "button:hover", "easing": "bounce" },
+        { "id": "t2", "primary": "transition: width 0.3s ease-out;" }
+      ],
+      "keyframes": {
+        "@keyframes pulse": "...",
+        "@keyframes float": "...",
+        "@keyframes shake": "..."
+      }
+    },
+    "register": "brand",
+    "sourceUrl": "https://example-ai-slop.com"
+  }
+}

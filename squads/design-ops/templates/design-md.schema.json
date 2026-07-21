@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sinkra.dev/schemas/design-md.schema.json",
+  "title": "DESIGN.md Frontmatter",
+  "description": "JSON Schema for the YAML frontmatter of a design.md scaffold per ADR-022 (alias-preserved 5-layer token contract). Reference: apps/design/src/data/designs/anthropic/design.md (gold standard, 256 values). Schema versioning is git-tracked; the file name carries no version suffix.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version",
+    "name",
+    "colors"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^2\\.\\d+$",
+      "description": "Schema version. v2.2 is the current canonical."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brand or design system display name."
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line summary of the visual atmosphere."
+    },
+    "defaultMode": {
+      "type": "string",
+      "enum": ["light", "dark"],
+      "description": "Which mode the brand renders by default. Falls back to 'light' if unspecified."
+    },
+    "supportsDark": {
+      "type": "boolean",
+      "description": "True when the brand ships dedicated dark-mode tokens. Required for dark: block to be consumed by renderers."
+    },
+    "archetype": {
+      "type": "string",
+      "description": "Free-form archetype label (e.g. 'Warm Editorial · Slate-on-Ivory'). Editorial choice."
+    },
+    "chips": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short bullets surfaced in gallery cards. Editorial."
+    },
+    "consumer_contract": {
+      "type": "object",
+      "description": "Hard-coded pipeline policy (priority_order, mode_rule, etc.) per ADR-022 — not extracted from CSS.",
+      "properties": {
+        "standalone": { "type": "boolean" },
+        "goal": { "type": "string" },
+        "priority_order": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mode_rule": { "type": "string" },
+        "font_rule": { "type": "string" },
+        "asset_rule": { "type": "string" },
+        "accessibility_rule": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "colors": {
+      "type": "object",
+      "description": "Layer 1 (shadcn slots) + Layer 5 (brand primitives) + Layer 4 aliases. Values are literal hex/rgb/hsl strings.",
+      "properties": {
+        "primary":              { "$ref": "#/$defs/colorValue" },
+        "primary-foreground":   { "$ref": "#/$defs/colorValue" },
+        "secondary":            { "$ref": "#/$defs/colorValue" },
+        "secondary-foreground": { "$ref": "#/$defs/colorValue" },
+        "background":           { "$ref": "#/$defs/colorValue" },
+        "foreground":           { "$ref": "#/$defs/colorValue" },
+        "muted":                { "$ref": "#/$defs/colorValue" },
+        "muted-foreground":     { "$ref": "#/$defs/colorValue" },
+        "accent":               { "$ref": "#/$defs/colorValue" },
+        "accent-foreground":    { "$ref": "#/$defs/colorValue" },
+        "destructive":          { "$ref": "#/$defs/colorValue" },
+        "destructive-foreground":{ "$ref": "#/$defs/colorValue" },
+        "border":               { "$ref": "#/$defs/colorValue" },
+        "input":                { "$ref": "#/$defs/colorValue" },
+        "ring":                 { "$ref": "#/$defs/colorValue" },
+        "card":                 { "$ref": "#/$defs/colorValue" },
+        "card-foreground":      { "$ref": "#/$defs/colorValue" },
+        "popover":              { "$ref": "#/$defs/colorValue" },
+        "popover-foreground":   { "$ref": "#/$defs/colorValue" }
+      },
+      "additionalProperties": true
+    },
+    "dark": {
+      "type": "object",
+      "description": "Layer 1 shadcn slots in dark mode. Mostly colors, but may include dark-mode-specific shadow / elevation overrides (handcrafted Anthropic ships dark.elevation-* keys with box-shadow strings). Schema accepts any string here.",
+      "additionalProperties": { "type": "string" }
+    },
+    "fonts": {
+      "type": "object",
+      "description": "Font family slots (sans, serif, mono, display). Each value is a CSS font-family stack.",
+      "additionalProperties": { "type": "string" }
+    },
+    "typography": {
+      "type": "object",
+      "description": "Typography roles (display, heading, body, caption, etc.) with fontFamily + fontSize + lineHeight + fontWeight + letterSpacing.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "fontFamily":    { "type": "string" },
+          "fontSize":      { "type": "string" },
+          "lineHeight":    { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "fontWeight":    { "oneOf": [{ "type": "string" }, { "type": "integer" }] },
+          "letterSpacing": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "textTransform": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "description": "Layer 3 Tailwind base spacing scale. Numeric stops or t-shirt aliases (xs, sm, md, lg, xl). Values may be bare lengths (12px / 1rem) or composite expressions (calc / max / min / clamp).",
+      "additionalProperties": {
+        "type": "string",
+        "anyOf": [
+          { "pattern": "^[0-9.]+(px|rem|em|vh|vw|%)$" },
+          { "pattern": "^(calc|max|min|clamp)\\(" },
+          { "pattern": "^var\\(--[\\w-]+(?:,\\s*[^)]+)?\\)$" }
+        ]
+      }
+    },
+    "rounded": {
+      "type": "object",
+      "description": "Border-radius scale. Numeric or named (none, sm, md, lg, xl, full, button, card, input).",
+      "additionalProperties": { "type": "string" }
+    },
+    "shadows": {
+      "type": "object",
+      "description": "Box-shadow scale. Filtered to elevation shadows (no focus rings, no all-transparent).",
+      "additionalProperties": { "type": "string" }
+    },
+    "shadows_inset": {
+      "type": "object",
+      "description": "Inset shadows used as hairline borders (Linear/Anthropic pattern). Optional — emitted only when distinct from elevation shadows.",
+      "additionalProperties": { "type": "string" }
+    },
+    "motion": {
+      "type": "object",
+      "description": "Layer 2 Fluentui canonical scale. 8 durations + 7 easings + role aliases.",
+      "additionalProperties": { "type": "string" }
+    },
+    "elevation": {
+      "type": "object",
+      "description": "M3-style elevation tiers (flat, raised, floating, overlay, modal). Each value is a box-shadow string.",
+      "additionalProperties": { "type": "string" }
+    },
+    "components": {
+      "type": "object",
+      "description": "Component recipes (button-primary, card, input-text, badge, nav-header, etc.). Layer 1 contract.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "atomic_layer": {
+            "type": ["string", "null"],
+            "enum": ["atom", "molecule", "organism", "layout", "page", "pattern", null]
+          },
+          "atomic_layer_gap": {
+            "type": "string",
+            "pattern": "^extraction_gap\\(.+\\)$"
+          },
+          "atomic_layer_reasoning": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "pattern_tokens": {
+      "type": "object",
+      "description": "Cross-component pattern tokens such as motion, focus, elevation, and z-index scale. Values must be extracted/aliased evidence or explicit extraction gaps.",
+      "properties": {
+        "motion": { "type": ["object", "null"], "additionalProperties": { "type": "string" } },
+        "motion_gap": { "type": "string", "pattern": "^extraction_gap\\(.+\\)$" },
+        "focus": { "type": ["object", "null"], "additionalProperties": { "type": "string" } },
+        "focus_gap": { "type": "string", "pattern": "^extraction_gap\\(.+\\)$" },
+        "elevation": { "type": ["object", "null"], "additionalProperties": { "type": "string" } },
+        "elevation_gap": { "type": "string", "pattern": "^extraction_gap\\(.+\\)$" },
+        "z_index_scale": {
+          "type": ["object", "null"],
+          "additionalProperties": { "type": ["string", "number"] }
+        },
+        "z_index_scale_gap": { "type": "string", "pattern": "^extraction_gap\\(.+\\)$" }
+      },
+      "additionalProperties": true
+    },
+    "preview_tokens": {
+      "type": "object",
+      "description": "Convenience tokens for renderer preview surfaces (surface_bg, surface_fg, etc.)."
+    },
+    "brand_primitives": {
+      "type": "object",
+      "description": "Layer 5 brand-specific primitives (case-eyebrow, motion-press, hairline-color, etc.). No shadcn equivalent — editorial."
+    },
+    "aliases": {
+      "type": "object",
+      "description": "Layer 4 deprecated aliases mapped to canonical Layer 1/2/3 targets. 18 invariant + 23 role-coupled per ADR-022 v2."
+    },
+    "assets": {
+      "type": "object",
+      "description": "Brand identity assets extracted from the source page: logo (svg-inline or URL), favicon, og-image, apple-touch-icon, theme-color, manifest URL. Optional — emitted only when extraction yielded any signal.",
+      "properties": {
+        "logo":             { "type": "object", "additionalProperties": true },
+        "favicon":          { "type": "object", "additionalProperties": true },
+        "og_image":         { "type": "string" },
+        "apple_touch_icon": { "type": "string" },
+        "theme_color":      { "type": "string" },
+        "manifest_url":     { "type": "string" },
+        "twitter_image":    { "type": "string" },
+        "twitter_card":     { "type": "string" },
+        "twitter_creator":  { "type": "string" },
+        "canonical_url":    { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "showcase": {
+      "type": "object",
+      "description": "Hero block + voice signals consumed by the gallery card renderer.",
+      "properties": {
+        "headline":     { "type": "string" },
+        "headlineHtml": { "type": "string" },
+        "kicker":       { "type": "string" },
+        "lead":         { "type": "string" },
+        "ctas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "href":  { "type": "string" },
+              "variant": { "type": "string", "enum": ["primary", "secondary", "ghost"] }
+            },
+            "additionalProperties": true
+          }
+        },
+        "layout": { "type": "string", "enum": ["split", "centered", "stacked", "default"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "colorValue": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{3,8}$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(rgb|rgba|hsl|hsla)\\([^)]+\\)$"
+        },
+        {
+          "type": "string",
+          "pattern": "^var\\(--[a-zA-Z][\\w-]*(?:,\\s*[^)]+)?\\)$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(transparent|currentColor|inherit|initial|unset)$"
+        }
+      ],
+      "description": "Literal CSS color: #hex, rgb(), hsl(), var(--token), or a CSS keyword."
+    }
+  }
+}

@@ -1,0 +1,108 @@
+---
+# Template — Design Brief Intake
+# Owner squad: design-ops
+# Purpose: Structured elicitation before any Explore/Build cycle.
+#          Absorbed from agenmod/claw-design questions_v2 pattern.
+# Lifecycle: draft -> validated -> approved
+# Consumed by: wf-provider-enrichment-from-external, ds-build-component, design-chief
+
+id: TEMPLATE
+artifact_id: design-brief-intake
+title: "Design Brief — <surface or component>"
+version: "1.0.0"
+status: draft
+emitted_by: design-chief
+consumed_by: []
+
+# =============================================================================
+# SECTION 1 — Context (WHO, WHAT, WHY)
+# =============================================================================
+context:
+  business_slug: ""                 # aiox | allfluence | academia-lendaria | bilhon | shared-products
+  surface_type: ""                  # component | page | deck | dashboard | flow | email
+  surface_name: ""                  # Button, CheckoutPage, Q4DeckPitch, etc.
+  deliverable_kind: ""              # production | exploration | spike
+  timeline: ""                      # hours | days | weeks
+  priority: ""                      # P0 | P1 | P2
+
+# =============================================================================
+# SECTION 2 — Brief (REQUIRED)
+# =============================================================================
+brief:
+  problem_statement: ""             # 1-2 sentences. What is broken or missing?
+  success_criteria: []              # 3-5 measurable outcomes
+  out_of_scope: []                  # Explicit non-goals
+  known_constraints: []             # Brand, legal, platform, perf, a11y
+  existing_references: []           # File paths, URLs, screenshots
+
+# =============================================================================
+# SECTION 3 — Contracts (WORKSPACE-FIRST)
+# =============================================================================
+contracts:
+  tokens_source: "workspace/businesses/{business}/L2-tactical/design/tokens.yaml"
+  foundations_source: "workspace/businesses/{business}/L2-tactical/design/foundations.yaml"
+  components_contract: "workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml"
+  motion_primitives: "workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml"
+  ds_core: "@sinkra/ds-core"
+  tokens_base: "@sinkra/tokens-base"
+
+# =============================================================================
+# SECTION 4 — Audience & Context of Use
+# =============================================================================
+audience:
+  primary_user: ""                  # persona or role
+  device_mix: []                    # desktop | mobile | tablet | projector | print
+  locale: []                        # pt-BR, en-US, etc.
+  accessibility_floor: "WCAG AA"    # WCAG AA | AAA | custom
+  reduced_motion_required: true
+  dark_mode_required: true
+
+# =============================================================================
+# SECTION 5 — Exploration Directive (DIVERGENT BEFORE CONVERGENT)
+# =============================================================================
+exploration:
+  variants_required: 3              # minimum N variants before convergence
+  variant_axes:
+    - match_existing_system         # baseline — stays inside DS grammar
+    - novel_direction               # breaks a convention with justification
+    - constraint_first              # optimizes for one hard constraint (speed, density, a11y)
+  exclude_patterns: []              # anti-patterns to avoid (e.g. "no hero carousel")
+  ai_trope_guardrails_ref: "squads/design-ops/checklists/dops-ai-trope-guardrails.yaml"
+
+# =============================================================================
+# SECTION 6 — Verification Plan (POST-BUILD)
+# =============================================================================
+verification:
+  console_errors_expected: 0
+  a11y_check: true
+  contrast_check: true
+  responsive_targets:               # viewport sizes that MUST render cleanly
+    - 360                           # mobile S
+    - 768                           # tablet
+    - 1280                          # desktop
+  fixed_size_mode: ""               # deck | video | none
+  letterbox_required: false
+
+# =============================================================================
+# SECTION 7 — Handoff
+# =============================================================================
+handoff:
+  next_consumer: ""                 # design-pages | design-app | slides-creator | direct-publish
+  artifact_paths: []                # where final artifacts live
+  review_required: true
+  reviewer: "design-chief"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+meta:
+  created_by: ""
+  created_at: ""
+  last_updated_at: ""
+  source_heuristic: "claw-design:questions_v2"
+  validation_rules:
+    - brief.problem_statement is non-empty
+    - brief.success_criteria has at least 3 items
+    - contracts.tokens_source resolves to an existing file
+    - exploration.variants_required >= 2
+    - audience.device_mix is non-empty

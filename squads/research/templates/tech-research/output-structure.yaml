@@ -1,0 +1,67 @@
+output_structure:
+  folder_pattern: "docs/research/{date}-{slug}"
+  follow_up_rule: |
+    For follow-up queries on the SAME topic:
+    - DO NOT create a new folder
+    - Save additional files as 04-*, 05-*, 06-*, etc. in the EXISTING folder
+    - UPDATE the README.md to include new files
+    - Maintain continuity of the research thread
+  files:
+    - name: "README.md"
+      content: "Índice + TL;DR (updated with each follow-up)"
+    - name: "00-query-original.md"
+      content: "Pergunta original + clarificações"
+    - name: "01-deep-research-prompt.md"
+      content: "Prompt estruturado gerado"
+    - name: "02-research-report.md"
+      content: "Relatório completo da pesquisa"
+    - name: "03-recommendations.md"
+      content: "Recomendações e próximos passos (SEM código de produção)"
+    - name: "quick-wins.md"
+      content: |
+        Quick Wins ROI-first — alto valor + S/XS effort + time-to-value <= 1 semana.
+        Mínimo 3 itens ou seção `## Quick Wins Não Encontrados` com justificativa.
+        Cada QW cita evidência em 02-research-report.md e mapeia a target do hub
+        (squad|app|skill|agent|runner|rule|workflow|adr|doc).
+    - name: "curiosity_queue.yaml"
+      content: "Perguntas abertas, lacunas resolvidas/descartadas e próximos caminhos de investigação"
+    - name: "evolving_report.md"
+      content: "Estado Markoviano operacional atualizado após cada wave"
+    - name: "execution-log.jsonl"
+      content: "Log mínimo em JSONL com eventos por fase"
+    - name: "research-contract.json"
+      content: "Contrato local de inteligência: research_kind, decision_context, taxonomy, rubric_model, evidence_model e stop_rules"
+    - name: "04-*.md, 05-*.md, ..."
+      content: "Follow-up research files (numbered sequentially)"
+  required_metadata:
+    readme:
+      - workflow_version
+      - runtime_contract
+      - coverage_score
+      - coverage_breakdown
+      - integrity_score
+      - citation_verified
+      - stop_reason
+      - rubrics
+      - waves
+      - sources
+    metrics_yaml:
+      - workflow_version
+      - runtime_contract
+      - coverage_score
+      - integrity_score
+      - citation_verified
+      - stop_reason
+      - rubrics
+      - waves
+      - sources
+    pipeline_state_yaml:
+      - pipeline_id
+      - status
+      - workflow_version
+      - coverage_score
+      - stop_reason
+  conditional_sections:
+    comparison_or_category_query:
+      required_in_report:
+        - scope_declaration

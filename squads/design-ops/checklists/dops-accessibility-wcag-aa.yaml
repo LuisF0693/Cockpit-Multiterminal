@@ -1,0 +1,57 @@
+id: dops-accessibility-wcag-aa
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-and-consumers
+origin: squads/design-system/checklists/ds-accessibility-wcag-checklist.md
+
+categories:
+  perceivable:
+    required_checks:
+      - text_contrast_normal_min_4_5
+      - text_contrast_large_min_3
+      - ui_controls_contrast_min_3
+      - no_color_only_signal
+      - informative_images_have_alt
+      - decorative_images_alt_empty
+      - icon_buttons_have_aria_label
+  operable:
+    required_checks:
+      - keyboard_access_for_all_interactives
+      - logical_tab_order
+      - visible_focus_indicator
+      - no_keyboard_trap
+      - landmarks_present
+      - heading_hierarchy_valid
+  understandable:
+    required_checks:
+      - form_inputs_have_labels
+      - label_and_input_association
+      - required_fields_announced
+      - clear_error_messages
+      - loading_state_announced
+      - success_and_error_roles_defined
+  robust:
+    required_checks:
+      - valid_aria_only
+      - correct_aria_roles
+      - aria_expanded_for_disclosure
+      - aria_live_for_dynamic_regions
+      - semantic_html_valid
+      - proper_html_nesting
+
+edge_cases:
+  touch_target_min_size_px: 44
+  reduced_motion_required: true
+  forced_colors_supported: true
+  zoom_200_percent_without_breaking: true
+  voice_control_name_matches_label: true
+
+scoring:
+  total_items: 35
+  pass_threshold_percent: 80
+  conditional_threshold_percent: 60
+
+validation:
+  required_for_in_review: true
+  gate: qa

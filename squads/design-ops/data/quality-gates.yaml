@@ -1,0 +1,56 @@
+quality_gates:
+  version: "1.0.0"
+  squad: design-ops
+  mode: workspace-first
+  source_of_truth: workspace/businesses/{business}/L2-tactical/design/
+  checklist_refs:
+    - squads/design-ops/checklists/ds-core-accessibility-minimum.yaml
+    - squads/design-ops/checklists/dops-accessibility-wcag-aa.yaml
+    - squads/design-ops/checklists/dops-component-quality.yaml
+    - squads/design-ops/checklists/dops-a11y-release-gate.yaml
+
+  thresholds:
+    contract_validation_pass_min: 1
+    yaml_validation_pass_min: 1
+    token_coverage_min: 0.95
+    motion_coverage_min: 1
+    accessibility_core_min: 1
+    source_traceability_min: 1
+    dtcg_structure_validity_min: 1
+
+  gates:
+    DOPS-GATE-001:
+      phase: contracts
+      threshold: 1
+      rule: "validate_workspace_contracts_strict == 1"
+      veto: true
+    DOPS-GATE-002:
+      phase: yaml
+      threshold: 1
+      rule: "yaml_changed_validation_pass == 1"
+      veto: true
+    DOPS-GATE-003:
+      phase: tokens
+      threshold: 0.95
+      rule: "token_coverage >= 0.95"
+      veto: true
+    DOPS-GATE-004:
+      phase: accessibility
+      threshold: 1
+      rule: "core_accessibility_checklist_pass == 1"
+      veto: true
+    DOPS-GATE-005:
+      phase: governance
+      threshold: 1
+      rule: "source_traceability_complete == 1"
+      veto: true
+    DOPS-GATE-006:
+      phase: dtcg
+      threshold: 1
+      rule: "dtcg_structure_valid == 1"
+      veto: false
+    DOPS-GATE-007:
+      phase: motion
+      threshold: 1
+      rule: "motion_coverage == 1"
+      veto: true

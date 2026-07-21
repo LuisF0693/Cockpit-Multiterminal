@@ -1,0 +1,221 @@
+id: dops-post-build-verification
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: artifact-runtime-verification
+origin: "Wave C.1 — verifier checklist per ADR-018 D2 (checklist-based, no sub-agent)"
+
+# Post-build verification checklist for artifacts produced by the
+# artifact-creation capability. Executed by design-chief as Phase 07 of
+# /design-artifact-cycle. NOT an authority surface — this is a quality gate.
+#
+# Reconciles HEUR-CLAW-066 ("Do NOT proactively screenshot to check your work")
+# vs Phase 07 render policy: see "Render Policy" section below.
+
+# =============================================================================
+# RENDER POLICY (RECONCILES HEUR-CLAW-066 vs Phase 07)
+# =============================================================================
+render_policy:
+  rule: "Verifier renders, agent does NOT"
+  rationale: >-
+    HEUR-CLAW-066 says agent should not proactively screenshot to check its
+    work; rely on the forked verifier. Phase 07 mandates rendering at every
+    declared viewport. Resolution: the VERIFIER (this checklist + future
+    runtime) executes the renders. The agent (design-chief during Phase 07)
+    invokes the verifier and reads its report — does NOT render directly.
+  agent_action: "Invoke verifier; read report; surface failures to user"
+  verifier_action: "Render at every viewport; capture screenshots; assert per checklist"
+  verifier_runtime_status: "Wave C.1 — checklist with manual + script execution; future Wave D may promote to forked subagent"
+
+# =============================================================================
+# QUALITY DIMENSIONS
+# =============================================================================
+quality_dimensions:
+
+  console_health:
+    required_checks:
+      - zero_console_errors
+      - zero_uncaught_exceptions
+      - zero_404_on_assets
+      - zero_csp_violations
+      - zero_cors_errors
+    failure_severity: BLOCKER
+
+  responsive_render:
+    required_checks:
+      - renders_at_360px_no_horizontal_scroll
+      - renders_at_768px_no_horizontal_scroll
+      - renders_at_1280px_no_horizontal_scroll
+      - all_brief_target_viewports_render_clean
+      - no_overflow_at_any_target_viewport
+      - text_remains_readable_at_smallest_viewport
+    failure_severity: BLOCKER
+
+  accessibility_floor:
+    required_checks:
+      - wcag_aa_pass
+      - contrast_ratio_min_4_5_body_text
+      - contrast_ratio_min_3_for_large_text
+      - all_interactive_elements_keyboard_reachable
+      - focus_visible_present_on_all_interactive
+      - aria_labels_on_unlabeled_interactive_elements
+      - landmark_regions_present
+      - heading_hierarchy_valid
+    failure_severity: BLOCKER
+
+  ds_fidelity:
+    reference: squads/design-ops/rules/design-system-fidelity.md
+    required_checks:
+      - r1_no_token_values_from_memory
+      - r2_exact_hex_values_only
+      - r3_prior_art_consulted_per_ids_gate
+      - r4_brief_materialized_before_build
+      - r5_visual_vocabulary_matches_existing
+      - r6_consistency_model_correct_per_kind
+      - r7_no_oklch_invention_outside_gates
+      - r8_inlined_values_match_ds_context_at_creation_time
+    failure_severity: HIGH
+
+  ai_trope_compliance:
+    reference: squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    required_checks:
+      - color_constraints_pass
+      - typography_constraints_pass
+      - sizing_minimums_pass
+      - iconography_pass
+      - imagery_pass
+      - motion_interaction_pass
+      - layout_pass
+      - responsive_scaling_pass
+      - copyright_compliance_pass
+    failure_severity: HIGH
+
+  workspace_contracts:
+    required_checks:
+      - tokens_resolve
+      - foundations_resolve
+      - component_contracts_resolve_when_required
+      - motion_primitives_resolve_when_required
+      - no_legacy_workspace_dialect_paths_in_artifact
+    failure_severity: BLOCKER
+
+  build_integrity:
+    required_checks:
+      - lint_passes
+      - typecheck_passes
+      - yaml_validates
+      - no_circular_imports
+    failure_severity: BLOCKER
+
+  security_baseline:
+    reference: squads/design-ops/rules/self-contained-artifact-security.md
+    applies_to: [html_prototype, deck, pdf]
+    required_checks:
+      - sri_hashes_on_all_cdn_scripts
+      - no_eval_or_new_function
+      - no_document_write
+      - user_input_sanitized
+      - canvas_images_have_crossorigin
+      - window_localstorage_keys_namespaced
+      - csp_compatible
+    failure_severity: BLOCKER
+
+  file_governance:
+    reference: squads/design-ops/data/artifact-file-governance.yaml
+    required_checks:
+      - within_size_limits_per_kind
+      - filename_follows_convention
+      - asset_registered_with_required_fields
+      - no_prohibited_patterns
+    failure_severity: MEDIUM
+
+  speaker_notes_compliance:
+    applies_to: [deck]
+    conditional_check: "only when speaker notes were explicitly requested"
+    required_checks:
+      - speaker_notes_only_when_requested
+      - notes_in_canonical_script_tag
+      - slide_indices_1_indexed
+      - notes_format_conversational_script
+    failure_severity: MEDIUM
+
+  tweak_protocol_conformance:
+    applies_to: [tweakable artifacts]
+    conditional_check: "only when artifact uses tweak protocol"
+    reference: squads/design-ops/data/tweak-protocol-spec.yaml
+    required_checks:
+      - listener_registered_before_announcement
+      - tweak_defaults_block_present_exactly_once
+      - tweak_defaults_is_strict_json
+      - editmode_markers_intact
+      - postmessage_event_types_match_spec
+    failure_severity: BLOCKER
+
+  exports_validation:
+    applies_to: [pdf, pptx]
+    conditional_check: "only when artifact has export deliverable"
+    required_checks:
+      - export_renders_without_truncation
+      - exported_text_searchable_when_native_shapes
+      - exported_fonts_render_correctly
+      - exported_dimensions_match_target
+    failure_severity: HIGH
+
+# =============================================================================
+# SCORING
+# =============================================================================
+scoring:
+  total_dimensions: 12
+  weighting:
+    BLOCKER_dimensions: 3.0  # security, console, responsive, ws-contracts, build, tweak
+    HIGH_dimensions: 2.0     # ds-fidelity, ai-trope, exports
+    MEDIUM_dimensions: 1.0   # file-governance, speaker-notes
+  pass_threshold_score: 80  # of 100
+  concerns_threshold_score: 70
+
+  verdict_resolution:
+    PASS: "score >= 80 AND zero BLOCKER violations"
+    CONCERNS: "score 70-79 OR BLOCKER count == 0 with HIGH violations addressable"
+    FAIL: "score < 70 OR any BLOCKER violation"
+
+# =============================================================================
+# EXECUTION
+# =============================================================================
+execution:
+  invoked_by: design-chief
+  phase: "07 VERIFY of /design-artifact-cycle"
+  blocks_handoff: true
+  rerun_on_iteration: true
+
+  output:
+    persists_to: outputs/design-ops/{business}/artifacts/{artifact_slug}/verification-report.md
+    score_card_to: outputs/design-ops/{business}/artifacts/{artifact_slug}/score-card.yaml
+
+  loopback:
+    on_BLOCKER: "return to Phase 06 ITERATE OR Phase 04 BUILD if architectural"
+    on_HIGH_only: "return to Phase 06 ITERATE"
+    on_MEDIUM_only: "advise; user may waive with explicit acknowledgement"
+
+# =============================================================================
+# WIRING TO VALIDATE:SQUAD-STRUCTURE
+# =============================================================================
+validate_squad_structure_integration:
+  required_artifact_for_capability: true
+  fail_closed_when_missing: true
+  validator_check: "squads/design-ops/checklists/dops-post-build-verification.yaml MUST exist"
+
+# =============================================================================
+# RELATED
+# =============================================================================
+related:
+  - squads/design-ops/rules/design-exploration-cycle.md
+  - squads/design-ops/rules/design-system-fidelity.md
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+  - squads/design-ops/checklists/dops-component-quality.yaml
+  - squads/design-ops/data/artifact-file-governance.yaml
+  - squads/design-ops/data/tweak-protocol-spec.yaml
+  - squads/design-ops/data/primitives-interface.yaml
+  - .claude/skills/design-artifact-cycle/SKILL.md
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

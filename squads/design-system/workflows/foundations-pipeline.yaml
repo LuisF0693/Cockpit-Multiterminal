@@ -1,0 +1,545 @@
+workflow:
+  id: foundations-pipeline
+  name: Design System Foundations Pipeline
+  description: |
+    Pipeline sequencial para adaptar shadcn/UI default para o design system do produto. Figma e a fonte de verdade. Cada fase tem QA gate bloqueante.
+  version: 1.0.0
+  type: sequential
+  sequence:
+    - step: validate_input
+      id: step-0-validate-input
+      phase: 0
+      phase_name: "Step 0 — Input Validation Gate"
+      agent: Claude (moderator)
+      action: validate-capture-input
+      script: squads/design-system/scripts/design-system/validate-capture-input.cjs
+      params:
+        bu: "{business_slug}"
+        source: "{source_type}"
+      blocking: true
+      notes: |
+        Validates: bu slug exists, FIGMA_API_KEY set, creates design folder if missing.
+        Exit 1 = pipeline stops immediately.
+      next: step-0-5-validate-prints-tokens
+    - step: validate_prints_tokens
+      id: step-0-5-validate-prints-tokens
+      phase: 0
+      phase_name: "Step 0.5 — Human validation gate for prints-sourced tokens"
+      agent: Claude (moderator)
+      action: validate-prints-tokens
+      script: squads/design-system/scripts/design-system/validate-capture-input.cjs
+      params:
+        bu: "{business_slug}"
+        validate_prints: true
+      condition: "source == prints"
+      blocking: true
+      human_gate: true
+      notes: |
+        HALT: tokens-from-prints.json generated. Human must review and update
+        all PENDING_VALIDATION values before pipeline continues.
+        Run: node validate-capture-input.cjs --bu={slug} --validate-prints
+        This step is SKIPPED when source != prints.
+      next: step-1-ingest-tokens
+    - step: step-1-ingest-tokens
+      id: step-1-ingest-tokens
+      phase: 1
+      phase_name: Ingest Figma Tokens
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f1-ingest-figma-tokens-md
+      outputs:
+        - normalized_tokens
+      next: step-2-map-tokens
+    - step: step-2-map-tokens
+      id: step-2-map-tokens
+      phase: 2
+      phase_name: Map Tokens to shadcn CSS Variables
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f1-map-tokens-to-shadcn-md
+      outputs:
+        - token_mapping
+      next: step-3-apply-foundations
+    - step: step-3-apply-foundations
+      id: step-3-apply-foundations
+      phase: 3
+      phase_name: Apply Foundations to globals.css
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f1-apply-foundations-md
+      outputs:
+        - globals_css
+      next: step-3b-generate-tokens-runtime
+    - step: generate_tokens_runtime
+      id: step-3b-generate-tokens-runtime
+      phase: 3
+      phase_name: "Step 3b — Generate tokens-runtime.json for agent context"
+      agent: Claude (moderator)
+      action: generate-tokens-runtime
+      script: squads/design-system/scripts/design-system/generate-tokens-runtime.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: false
+      notes: |
+        Generates tokens-runtime.json optimized for LLM context injection.
+        Falls back to SINKRA defaults if brand tokens not yet extracted.
+      next: step-4-qa-foundations
+    - step: step-4-qa-foundations
+      id: step-4-qa-foundations
+      phase: 4
+      phase_name: QA Gate — Foundations
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f1-qa-foundations-md
+      next: step-5-ingest-components
+    - step: step-5-ingest-components
+      id: step-5-ingest-components
+      phase: 5
+      phase_name: Ingest Base Component Specs from Figma
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f2-ingest-base-components-md
+      outputs:
+        - component_specs
+      next: step-6-adapt-components
+    - step: step-6-adapt-components
+      id: step-6-adapt-components
+      phase: 6
+      phase_name: Adapt shadcn Base Components
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f2-adapt-shadcn-components-md
+      outputs:
+        - adapted_components
+      next: step-7-qa-base-components
+    - step: step-7-qa-base-components
+      id: step-7-qa-base-components
+      phase: 7
+      phase_name: QA Gate — Base Components
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f2-qa-base-components-md
+      next: step-8-derive-components
+    - step: step-8-derive-components
+      id: step-8-derive-components
+      phase: 8
+      phase_name: Derive Remaining Components
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f3-derive-components-md
+      outputs:
+        - all_components
+      next: step-9-qa-final
+    - step: step-9-qa-final
+      id: step-9-qa-final
+      phase: 9
+      phase_name: QA Gate — Final (All Components)
+      agent: ds-foundations-lead
+      action: squads-design-tasks-f3-qa-derived-components-md
+    - step: generate_ai_metadata
+      id: step-10-generate-ai-metadata
+      phase: 4
+      phase_name: "Step 10 — Generate AI metadata per brand"
+      agent: ds-foundations-lead
+      action: squads-design-tasks-ds-generate-ai-metadata-md
+      script: squads/design-system/scripts/design-system/generate-ai-metadata.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: false
+      outputs:
+        - component_index_json
+      next: step-11-validate-ai-readiness
+    - step: validate_ai_readiness
+      id: step-11-validate-ai-readiness
+      phase: 4
+      phase_name: "Step 11 — Validate AI readiness (gate: score >= 90)"
+      agent: ds-foundations-lead
+      action: squads-design-tasks-ds-validate-ai-readiness-md
+      script: squads/design-system/scripts/design-system/validate-ai-readiness.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: true
+      gate:
+        min_score: 90
+        on_fail: "HALT — AI readiness below 90%. Check gaps and re-run."
+    - step: generate_storybook
+      id: step-12-generate-storybook
+      phase: 5
+      phase_name: "Step 12 — Generate Storybook stories"
+      agent: Claude (moderator)
+      action: generate-storybook-stories
+      script: squads/design-system/scripts/design-system/generate-storybook-stories.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: false
+      on_warning: "Storybook generation failed — stories not available but DS is complete"
+      next: step-13-critical-eye-score
+    - step: critical_eye_score
+      id: step-13-critical-eye-score
+      phase: 6
+      phase_name: "Step 13 — Critical Eye scoring"
+      agent: Claude (moderator)
+      action: run-critical-eye
+      script: squads/design-system/scripts/design-system/run-critical-eye.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: true
+      gate:
+        min_score: 80
+        blocker_if: "accessibility_score == 0"
+        on_warning: "Score 70-79: list top issues"
+        on_fail: "Score < 70 or a11y=0: HALT pipeline"
+      notes: |
+        Critical Eye evaluates 5 dimensions: Breadth (25), Quality (30),
+        Consistency (20), Maturity (15), Simplicity (10). accessibility=0
+        is absolute blocker regardless of total score.
+      next: step-14-critical-eye-report
+    - step: critical_eye_report
+      id: step-14-critical-eye-report
+      phase: 6
+      phase_name: "Step 14 — Critical Eye report generation"
+      agent: Claude (moderator)
+      action: critical-eye-report-review
+      notes: |
+        Report generated at workspace/businesses/{bu}/L2-tactical/design/critical-eye-report.yaml
+        by Step 13 script. This step reviews the report for completeness.
+      next: step-15-critical-eye-gate
+    - step: critical_eye_gate
+      id: step-15-critical-eye-gate
+      phase: 6
+      phase_name: "Step 15 — Critical Eye exit gate"
+      agent: Claude (moderator)
+      action: critical-eye-gate
+      blocking: true
+      gate:
+        pass_condition: "score >= 80 AND no blockers"
+        on_pass: "Pipeline COMPLETE — design system capture validated"
+        on_fail: "HALT — review critical-eye-report.yaml for remediation"
+      notes: |
+        Final gate. If score >= 80 and no blockers, pipeline declares COMPLETE.
+        If score 70-79, lists top issues as warning. If < 70 or a11y blocker, HALT.
+    - step: index_embeddings
+      id: step-16-index-embeddings
+      phase: 7
+      phase_name: "Step 16 — Index DS embeddings in Supabase pgvector"
+      agent: Claude (moderator)
+      action: index-ds-embeddings
+      script: services/design-embeddings/index-ds-embeddings.cjs
+      params:
+        bu: "{business_slug}"
+      blocking: false
+      notes: |
+        Indexes all components as embeddings for RAG-based retrieval.
+        Non-blocking: DS delivery proceeds even if Supabase unavailable.
+        Requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + OPENAI_API_KEY.
+      next: complete
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+metadata:
+  author: Foundations Lead
+  created_date: "2026-02-21"
+  last_modified: "2026-02-21"
+  tags:
+    - design-system
+    - foundations
+    - tokens
+    - shadcn
+    - figma
+inputs:
+  figma_tokens:
+    type: string
+    description: Raw token input from Figma (CSS, JSON, or manual text)
+    required: true
+  figma_components:
+    type: string
+    description: Component specs from Figma Dev Mode (CSS + screenshots)
+    required: false
+steps:
+  - id: step_0_validate_input
+    name: "Step 0 — Input Validation Gate"
+    phase: 0
+    type: gate
+    agent: Claude (moderator)
+    task: null
+    script: squads/design-system/scripts/design-system/validate-capture-input.cjs
+    inputs:
+      bu: "{{business_slug}}"
+      source: "{{source_type}}"
+    blocking: true
+    error_handling:
+      strategy: abort
+    notes: |
+      Validates: bu slug exists, FIGMA_API_KEY set, creates design folder if missing.
+      Exit 1 = pipeline stops immediately. No prior phase outputs needed.
+  - id: step_0_5_validate_prints_tokens
+    name: "Step 0.5 — Human validation gate for prints-sourced tokens"
+    phase: 0
+    type: gate
+    agent: Claude (moderator)
+    script: squads/design-system/scripts/design-system/validate-capture-input.cjs
+    inputs:
+      bu: "{{business_slug}}"
+      validate_prints: true
+    condition: "source_type == 'prints'"
+    blocking: true
+    human_gate: true
+    error_handling:
+      strategy: abort
+    notes: |
+      HALT: tokens-from-prints.json generated by ingest-from-prints.cjs.
+      Human must review and update all PENDING_VALIDATION values before pipeline continues.
+      Run: node validate-capture-input.cjs --bu={slug} --validate-prints
+      This step is SKIPPED when source_type != 'prints'.
+  - id: step_1_ingest_tokens
+    name: Ingest Figma Tokens
+    phase: 1
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f1-ingest-figma-tokens.md
+    inputs:
+      raw_input: "{{figma_tokens}}"
+    outputs:
+      normalized_tokens: squads/design-system/data/tokens-normalized.json
+    error_handling:
+      strategy: fail
+  - id: step_2_map_tokens
+    name: Map Tokens to shadcn CSS Variables
+    phase: 1
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f1-map-tokens-to-shadcn.md
+    inputs:
+      normalized_tokens: "{{step_1_ingest_tokens.normalized_tokens}}"
+    outputs:
+      token_mapping: squads/design-system/data/token-mapping-reference.md
+    error_handling:
+      strategy: fail
+  - id: step_3_apply_foundations
+    name: Apply Foundations to globals.css
+    phase: 1
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f1-apply-foundations.md
+    inputs:
+      token_mapping: "{{step_2_map_tokens.token_mapping}}"
+    outputs:
+      globals_css: src/app/globals.css
+    error_handling:
+      strategy: fail
+  - id: step_3b_generate_tokens_runtime
+    name: "Generate tokens-runtime.json for agent context"
+    phase: 1
+    type: script
+    agent: Claude (moderator)
+    script: squads/design-system/scripts/design-system/generate-tokens-runtime.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    outputs:
+      tokens_runtime: "workspace/businesses/{{business_slug}}/L2-tactical/design/tokens-runtime.json"
+    blocking: false
+    error_handling:
+      strategy: fail
+    notes: |
+      Generates tokens-runtime.json optimized for LLM context injection.
+      Falls back to SINKRA defaults if brand tokens not yet extracted.
+  - id: step_4_qa_foundations
+    name: QA Gate — Foundations
+    phase: 1
+    type: gate
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f1-qa-foundations.md
+    blocking: true
+    checklist: squads/design-system/checklists/token-mapping-checklist.md
+    verdicts:
+      PASS: Proceed to Phase 2
+      FAIL: Return to step_3 with fixes
+    error_handling:
+      strategy: fail
+  - id: step_5_ingest_components
+    name: Ingest Base Component Specs from Figma
+    phase: 2
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f2-ingest-base-components.md
+    inputs:
+      figma_specs: "{{figma_components}}"
+    outputs:
+      component_specs: squads/design-system/data/component-specs.json
+    error_handling:
+      strategy: fail
+  - id: step_6_adapt_components
+    name: Adapt shadcn Base Components
+    phase: 2
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f2-adapt-shadcn-components.md
+    inputs:
+      component_specs: "{{step_5_ingest_components.component_specs}}"
+      token_mapping: "{{step_2_map_tokens.token_mapping}}"
+    outputs:
+      adapted_components: components/ui/
+    error_handling:
+      strategy: fail
+  - id: step_7_qa_base_components
+    name: QA Gate — Base Components
+    phase: 2
+    type: gate
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f2-qa-base-components.md
+    blocking: true
+    checklist: squads/design-system/checklists/component-adaptation-checklist.md
+    verdicts:
+      PASS: Proceed to Phase 3
+      FAIL: Return to step_6 with fixes
+    error_handling:
+      strategy: fail
+  - id: step_8_derive_components
+    name: Derive Remaining Components
+    phase: 3
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f3-derive-components.md
+    inputs:
+      adapted_components: "{{step_6_adapt_components.adapted_components}}"
+      token_mapping: "{{step_2_map_tokens.token_mapping}}"
+    outputs:
+      all_components: components/ui/
+    error_handling:
+      strategy: fail
+  - id: step_9_qa_final
+    name: QA Gate — Final (All Components)
+    phase: 3
+    type: gate
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/f3-qa-derived-components.md
+    blocking: true
+    checklist: squads/design-system/checklists/component-adaptation-checklist.md
+    verdicts:
+      PASS: Pipeline complete
+      FAIL: Return to step_8 with fixes
+    error_handling:
+      strategy: fail
+  - id: step_10_generate_ai_metadata
+    name: "Step 10 — Generate AI metadata per brand"
+    phase: 4
+    type: agent
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/ds-generate-ai-metadata.md
+    script: squads/design-system/scripts/design-system/generate-ai-metadata.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    outputs:
+      component_index: "workspace/businesses/{{business_slug}}/L2-tactical/design/component-index.json"
+    error_handling:
+      strategy: fail
+  - id: step_11_validate_ai_readiness
+    name: "Step 11 — Validate AI readiness (gate: score >= 90)"
+    phase: 4
+    type: gate
+    agent: ds-foundations-lead
+    task: squads/design-system/tasks/ds-validate-ai-readiness.md
+    script: squads/design-system/scripts/design-system/validate-ai-readiness.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    blocking: true
+    gate:
+      min_score: 90
+      on_fail: "HALT — AI readiness below 90%. Check gaps and re-run."
+    error_handling:
+      strategy: abort
+  - id: step_12_generate_storybook
+    name: "Step 12 — Generate Storybook stories"
+    phase: 5
+    type: script
+    agent: Claude (moderator)
+    script: squads/design-system/scripts/design-system/generate-storybook-stories.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    outputs:
+      storybook_stories: "workspace/businesses/{{business_slug}}/L2-tactical/design/storybook/"
+    blocking: false
+    error_handling:
+      strategy: warn
+    notes: |
+      Generates CSF3 Storybook stories from component-index.json.
+      Non-blocking: DS pipeline is complete even if stories fail.
+  - id: step_13_critical_eye_score
+    name: "Step 13 — Critical Eye scoring"
+    phase: 6
+    type: script
+    agent: Claude (moderator)
+    script: squads/design-system/scripts/design-system/run-critical-eye.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    outputs:
+      critical_eye_report: "workspace/businesses/{{business_slug}}/L2-tactical/design/critical-eye-report.yaml"
+    blocking: true
+    gate:
+      min_score: 80
+      blocker_if: "accessibility_score == 0"
+      on_warning: "Score 70-79: list top issues"
+      on_fail: "Score < 70 or a11y=0: HALT pipeline"
+    error_handling:
+      strategy: abort
+    notes: |
+      Critical Eye evaluates 5 dimensions: Breadth (25), Quality (30),
+      Consistency (20), Maturity (15), Simplicity (10). accessibility=0
+      is absolute blocker regardless of total score.
+  - id: step_14_critical_eye_report
+    name: "Step 14 — Critical Eye report review"
+    phase: 6
+    type: gate
+    agent: Claude (moderator)
+    inputs:
+      report: "{{step_13_critical_eye_score.critical_eye_report}}"
+    blocking: false
+    error_handling:
+      strategy: warn
+    notes: |
+      Reviews the generated critical-eye-report.yaml for completeness.
+      Report stored per brand at workspace/businesses/{bu}/L2-tactical/design/.
+  - id: step_15_critical_eye_gate
+    name: "Step 15 — Critical Eye exit gate"
+    phase: 6
+    type: gate
+    agent: Claude (moderator)
+    blocking: true
+    gate:
+      pass_condition: "score >= 80 AND no blockers"
+      on_pass: "Pipeline COMPLETE — design system capture validated"
+      on_fail: "HALT — review critical-eye-report.yaml for remediation"
+    error_handling:
+      strategy: abort
+    notes: |
+      Final gate. If score >= 80 and no blockers, pipeline declares COMPLETE.
+      If score 70-79, lists top issues as warning. If < 70 or a11y blocker, HALT.
+  - id: step_16_index_embeddings
+    name: "Step 16 — Index DS embeddings in Supabase pgvector"
+    phase: 7
+    type: script
+    agent: Claude (moderator)
+    script: services/design-embeddings/index-ds-embeddings.cjs
+    inputs:
+      bu: "{{business_slug}}"
+    blocking: false
+    error_handling:
+      strategy: warn
+    notes: |
+      Indexes all components as embeddings for RAG-based retrieval.
+      Non-blocking: DS delivery proceeds even if Supabase unavailable.
+      Requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + OPENAI_API_KEY.
+outputs:
+  pipeline_complete:
+    type: boolean
+    description: All 3 phases passed QA gates
+    source: step_9_qa_final.success
+  token_mapping:
+    type: string
+    description: Token mapping reference document
+    source: step_2_map_tokens.token_mapping
+  modified_files:
+    type: array
+    description: All files modified during the pipeline
+    source: aggregated
+global_error_handling:
+  on_error: abort
+  notification:
+    enabled: true
+    channels:
+      - console
+security:
+  authorization_required: false
+  audit_logging: true

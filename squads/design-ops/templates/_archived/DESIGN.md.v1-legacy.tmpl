@@ -1,0 +1,266 @@
+---
+# DESIGN.md template for apps/{APP_SLUG}/DESIGN.md or
+# workspace/businesses/{BIZ}/L2-tactical/design/DESIGN.md
+#
+# Conforms to Google DESIGN.md spec (alpha) + Sinkra-Hub `## Implementation` extension.
+# Validate with: npx @google/design.md lint DESIGN.md
+#
+# Placeholders (replace before commit):
+#   {DS_NAME}            — human-readable DS name (e.g. "Redpine DS")
+#   {ONE_LINE_SUMMARY}   — one-sentence brand positioning
+#   {APP_OR_BUSINESS}    — "app" or "business"
+#   {SOT_PATH}           — path to tokens source (e.g. src/design-system/tokens.json)
+#   {STACK_FRAMEWORK}    — Next.js 16 / Vite 5 / SvelteKit / etc.
+#   {TAILWIND_VERSION}   — 3.x / 4.x
+#   {TAILWIND_CONFIG}    — tailwind.config.ts / src/app/globals.css (@theme inline)
+#   {SHADCN_BASE_COLOR}  — slate / stone / gray / zinc / neutral
+#   {REGEN_CMD}          — e.g. npm run build:tokens
+#
+# Each color/typography/component entry is a placeholder to be filled from real
+# token sources. Consumer behavior: unknown tokens are accepted with a warning;
+# duplicate section headings are rejected; missing sections are permitted.
+
+version: alpha
+name: {DS_NAME}
+description: >
+  {ONE_LINE_SUMMARY}. Canonical token source: {SOT_PATH}. This is the
+  authoritative DS artifact for {APP_OR_BUSINESS}; code generation reads this
+  file first.
+
+colors:
+  # Primary palette (REQUIRED slots — fill from brand source)
+  primary: "#000000"              # REPLACE — signature accent hex
+  secondary: "#000000"             # REPLACE — body text / dark surface
+  tertiary: "#000000"              # REPLACE — structural neutral
+  neutral: "#FFFFFF"               # REPLACE — page background
+  surface: "#FFFFFF"               # REPLACE — elevated card surface
+  on-primary: "#FFFFFF"            # REPLACE — fg on primary
+  on-secondary: "#FFFFFF"          # REPLACE — fg on secondary
+  on-surface: "#000000"            # REPLACE — fg on surface
+
+  # Extended palette (add named tokens as the brand requires — valid hex values
+  # are accepted by the linter with a warning if unreferenced by any component)
+
+  # Semantic feedback (recommend triplets: default / deep / wash for AA-safe pairs)
+  success: "#2E6F55"
+  success-deep: "#1E4A39"
+  success-wash: "#E3EFE9"
+  warning: "#A66A1F"
+  warning-deep: "#6B4312"
+  warning-wash: "#F8EEDD"
+  info: "#2A4E6E"
+  info-deep: "#17304A"
+  info-wash: "#E0E9F0"
+  danger: "#B43232"
+  danger-deep: "#892323"
+  danger-wash: "#F8EBEB"
+
+typography:
+  # Minimum set: at least one display, one body, one label/eyebrow
+  h1:
+    fontFamily: system-ui          # REPLACE with brand face
+    fontSize: 40px
+    fontWeight: 600
+    lineHeight: 1.1
+    letterSpacing: -0.015em
+  body:
+    fontFamily: system-ui          # REPLACE with brand face
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0em
+  caption:
+    fontFamily: system-ui
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: 0em
+  eyebrow:
+    fontFamily: system-ui
+    fontSize: 12px
+    fontWeight: 500
+    lineHeight: 1.2
+    letterSpacing: 0.10em
+  mono:
+    fontFamily: ui-monospace
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0em
+
+spacing:
+  "0": 0px
+  "1": 4px
+  "2": 8px
+  "3": 12px
+  "4": 16px
+  "6": 24px
+  "8": 32px
+  "10": 40px
+  "12": 48px
+  "16": 64px
+  "24": 96px
+  "32": 128px
+
+rounded:
+  none: 0px
+  sm: 4px
+  md: 8px
+  lg: 12px
+  full: 9999px
+
+components:
+  # Minimum surface set — expand to cover the real component inventory
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+  button-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.secondary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 8px
+  button-destructive:
+    backgroundColor: "{colors.danger-deep}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: 12px
+
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.md}"
+    padding: 24px
+
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.on-surface}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+    padding: 12px
+  input-invalid:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger-deep}"
+
+  alert-info:
+    backgroundColor: "{colors.info-wash}"
+    textColor: "{colors.info-deep}"
+    rounded: "{rounded.md}"
+    padding: 16px
+  alert-success:
+    backgroundColor: "{colors.success-wash}"
+    textColor: "{colors.success-deep}"
+    rounded: "{rounded.md}"
+    padding: 16px
+  alert-warning:
+    backgroundColor: "{colors.warning-wash}"
+    textColor: "{colors.warning-deep}"
+    rounded: "{rounded.md}"
+    padding: 16px
+  alert-danger:
+    backgroundColor: "{colors.danger-wash}"
+    textColor: "{colors.danger-deep}"
+    rounded: "{rounded.md}"
+    padding: 16px
+
+  badge-default:
+    backgroundColor: "{colors.tertiary}"
+    textColor: "{colors.on-surface}"
+    typography: "{typography.caption}"
+    rounded: "{rounded.full}"
+    padding: 4px
+---
+
+# {DS_NAME}
+
+## Overview
+
+Replace this paragraph with the brand positioning in two or three sentences. Describe tone, target audience, and the emotional response the UI should evoke. This is the foundational context for any stylistic decision when a specific rule or token isn't explicitly defined.
+
+## Colors
+
+Describe the color strategy. For each primary slot:
+- **Primary (#______):** what it is, what it signals, where it's allowed.
+- **Secondary (#______):** role in the hierarchy.
+- **Tertiary (#______):** structural use.
+- **Neutral (#______):** canvas / page surface.
+
+Describe ramps (ink ramp, neutral ramp, accent ramps) and the feedback triplet convention. State hard rules like "exactly one primary action per screen" or "no gradient fills of the signature."
+
+## Typography
+
+Describe the type strategy. Faces, weights, and the register of each (display / body / meta). State the scale and the clamps (if fluid). State the discipline — never mix more than N weights per screen, cap measure at X px, etc.
+
+## Layout
+
+Describe the grid system (columns, gutters, max content width), spacing scale, container strategy, and any signature layout idioms (palette attributes, grid overlays, editorial spreads).
+
+## Elevation & Depth
+
+Describe how visual hierarchy is conveyed. Shadows or hairlines? Tonal layers? Glassmorphism? What's allowed, what's forbidden, what's reserved for transient surfaces only.
+
+## Shapes
+
+Describe the radius strategy, which radii pair with which surfaces, and what's forbidden. Icon system (family + stroke + sizing convention). Emoji policy.
+
+## Components
+
+Describe each component family in prose — variants, states, accessibility defaults, typography per slot. Reference `currentColor` inheritance and semantic token discipline (e.g., "components consume Tailwind utilities, utilities reference semantic vars, semantic vars alias primitives").
+
+## Do's and Don'ts
+
+**Do:**
+- Do use [primary] for exactly one action per screen
+- Do cap body text at [measure]
+- Do use hairlines for separation; shadows only for transient surfaces
+- Do maintain WCAG AA contrast using the wash + deep pair for tinted alerts
+
+**Don't:**
+- Don't use emoji
+- Don't mix rounded and sharp corners in the same composition
+- Don't gradient-fill the signature
+- Don't let color alone carry semantic meaning
+
+## Implementation
+
+**Stack:** {STACK_FRAMEWORK}
+
+**Token source of truth:** `{SOT_PATH}`
+**Regenerate:** `{REGEN_CMD}` (if applicable)
+
+**Tailwind config:** `{TAILWIND_CONFIG}` (version {TAILWIND_VERSION})
+
+**shadcn config:** `components.json`
+- baseColor: {SHADCN_BASE_COLOR}
+- cssVariables: true
+- prefix: "" (no utility prefix)
+- aliases: `@/components`, `@/components/ui`, `@/lib/utils`
+
+**Token → utility mapping (canonical layers):**
+
+| DESIGN.md token | Primitive CSS var | Semantic CSS var | Tailwind utility |
+|---|---|---|---|
+| primary | `--[brand-prefix]-primary` | `--primary` | `bg-primary` / `text-primary` |
+| surface | `--[brand-prefix]-surface` | `--background` / `--card` | `bg-background` / `bg-card` |
+| secondary | `--[brand-prefix]-ink` | `--foreground` | `text-foreground` |
+| tertiary | `--[brand-prefix]-border` | `--border` | `border-border` |
+
+**Layer discipline:**
+
+1. **Layer 1 — Primitives.** Raw token values (`--rp-red`, `--rp-ink`). Defined from DESIGN.md `colors:` block.
+2. **Layer 2 — Semantic aliases.** Role-based vars (`--bg`, `--fg`, `--accent`). Every component consumes these, never primitives directly.
+3. **Layer 3 — Tailwind utilities / shadcn slots.** `bg-primary`, `text-foreground`, `border-border`. Components reference Layer 3; never skip to Layer 1.
+
+**Component source:** `src/components/ui/*.tsx` (or app equivalent). Kebab-case filenames, PascalCase exports.
+
+**Regenerate artifacts:** After any edit to this DESIGN.md, run `{REGEN_CMD}` (if applicable) and confirm `npx @google/design.md lint DESIGN.md` reports 0 errors.

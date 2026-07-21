@@ -1,0 +1,596 @@
+template_name: "Design Tokens Schema (Hydrated Defaults)"
+template_version: "1.0.0"
+output_format: "yaml"
+destination: "workspace/businesses/{biz}/L2-tactical/design/tokens.yaml"
+description: |
+  Hydrated DTCG token schema with justified default values for sinkra-hub
+  business onboarding. Cross-validated against 8 reference DS:
+  Polaris, Carbon, Primer, Mantine, ChakraUI, shadcn/ui, Ant Design,
+  HeroUI. Replaces empty placeholder template (`tokens-schema-tmpl.yaml`).
+
+# =============================================================================
+# Justification Matrix — How defaults were chosen
+# =============================================================================
+# spacing      : 5-step (xs/sm/md/lg/xl) — Mantine + HeroUI + Polaris narrowed
+# font_sizes   : 8-step (xs..4xl) — Tailwind/Primer/Chakra majority
+# font_weights : 4-step (regular/medium/semibold/bold) — Mantine + shadcn
+# radius       : 7-step (none..full) — Chakra/shadcn balanced
+# durations    : 3-step (fast/base/slow) — pragmatic median; Chakra 7-step is overkill
+# breakpoints  : 5-step (mobile..ultrawide) — modern web 2026; Tailwind v4 compat
+# z-index      : 6-step (dropdown..tooltip) — Primer ascending pattern
+# color_space  : oklch — shadcn 2024+ standard, perceptually uniform
+# theming      : data-attribute (data-theme="dark") + .dark class — shadcn pattern
+# =============================================================================
+
+metadata:
+  version: "1.0.0"
+  generated_by: "design-ops"
+  generated_at: "{{timestamp}}"
+  dtcg_spec: "2025.10"
+  color_space: "oklch"
+  source_ds_references:
+    - polaris-tokens (Shopify) — 2026-04
+    - carbon (IBM) — 2026-04
+    - primer-primitives (GitHub) — 2026-04
+    - mantine — 2026-04
+    - chakra-ui (Panda preset) — 2026-04
+    - shadcn-ui (Tailwind v4 + oklch) — 2026-04
+    - ant-design (seed tokens) — 2026-04
+    - heroui — 2026-04
+  hydration_strategy: "median-justified"
+  coverage: "{{coverage_percentage}}%"
+  business_slug: "{{biz}}"
+
+layers:
+  # ============================================================================
+  # LAYER 1: CORE / PRIMITIVES — raw values, descriptive names
+  # Reference: shadcn (oklch values), Mantine (5-step scales), Primer (size scale)
+  # ============================================================================
+  core:
+    color:
+      "$type": "color"
+      "$description": "Raw color primitives — never used directly by components"
+
+      # Neutrals — 11 steps for grayscale precision
+      # Source: shadcn oklch + Mantine 10-step gray
+      neutral-0:
+        "$value": "oklch(1 0 0)"  # #ffffff
+        "$description": "Pure white — base canvas"
+      neutral-50:
+        "$value": "oklch(0.985 0 0)"  # ~#fafafa
+        "$description": "Lightest neutral — subtle backgrounds"
+      neutral-100:
+        "$value": "oklch(0.97 0 0)"   # ~#f4f4f5
+      neutral-200:
+        "$value": "oklch(0.922 0 0)"  # ~#e4e4e7 — common border
+      neutral-300:
+        "$value": "oklch(0.85 0 0)"   # ~#d4d4d8
+      neutral-400:
+        "$value": "oklch(0.708 0 0)"  # ~#a1a1aa — disabled fg
+      neutral-500:
+        "$value": "oklch(0.556 0 0)"  # ~#71717a — muted fg
+      neutral-600:
+        "$value": "oklch(0.4 0 0)"    # ~#52525b
+      neutral-700:
+        "$value": "oklch(0.3 0 0)"    # ~#3f3f46
+      neutral-800:
+        "$value": "oklch(0.205 0 0)"  # ~#27272a — primary surface dark
+      neutral-900:
+        "$value": "oklch(0.145 0 0)"  # ~#18181b — pure dark canvas
+      neutral-1000:
+        "$value": "oklch(0 0 0)"      # #000000 — pure black
+
+      # Brand accent slots — defaults are shadcn-neutral, OVERRIDE per business
+      accent-primary:
+        "$value": "oklch(0.205 0 0)"   # ~#27272a (neutral-800) — shadcn default
+        "$description": |
+          Primary brand hue. Default is shadcn-neutral (near-black) for safe fallback.
+          OVERRIDE per business in workspace/businesses/{biz}/L2-tactical/design/tokens.yaml.
+          Examples: AIOS lime "oklch(0.85 0.18 130)", Bilhon orange "oklch(0.7 0.18 50)".
+      accent-secondary:
+        "$value": "oklch(0.97 0 0)"    # ~#f4f4f5 (neutral-100) — shadcn default
+        "$description": |
+          Supporting brand hue. Default is neutral-100 (subtle surface accent).
+          OVERRIDE per business; commonly used for tags, secondary buttons, soft callouts.
+
+      # Semantic accents — DTCG-style, sourced from Ant + Tailwind
+      accent-success:
+        "$value": "oklch(0.696 0.17 162.48)"  # green ~#10b981
+      accent-warning:
+        "$value": "oklch(0.769 0.188 70.08)"  # amber ~#f59e0b
+      accent-error:
+        "$value": "oklch(0.577 0.245 27.325)" # red ~#dc2626
+      accent-info:
+        "$value": "oklch(0.6 0.118 184.704)"  # cyan ~#0891b2
+
+    spacing:
+      "$type": "dimension"
+      "$description": "5-step named scale + 4px base unit (Tailwind compat)"
+      # Source: Mantine + HeroUI majority pattern; Polaris uses similar named system
+      base-unit:
+        "$value": "0.25rem"  # 4px — Tailwind base
+        "$description": "Atomic unit; multiply for raw access"
+      none:
+        "$value": "0"
+      xs:
+        "$value": "0.5rem"   # 8px  — Polaris extra-tight
+      sm:
+        "$value": "0.75rem"  # 12px — Polaris base-tight
+      md:
+        "$value": "1rem"     # 16px — Polaris base
+      lg:
+        "$value": "1.5rem"   # 24px — between Polaris loose/extra-loose
+      xl:
+        "$value": "2rem"     # 32px — Polaris extra-loose
+      "2xl":
+        "$value": "3rem"     # 48px
+      "3xl":
+        "$value": "4rem"     # 64px
+
+    typography:
+      "$type": "typography"
+      font-base:
+        "$value":
+          family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+        "$description": "System font stack — Polaris/Ant/Mantine consensus"
+      font-heading:
+        "$value":
+          family: "{core.typography.font-base}"
+        "$description": |
+          Heading font. Default = same as font-base (single-family system).
+          OVERRIDE per business if brand uses dedicated display typeface
+          (e.g., AIOX uses Geist, Bilhon uses Recoleta).
+      font-mono:
+        "$value":
+          family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+        "$description": "Mono stack — Mantine consensus"
+
+      sizes:
+        "$type": "dimension"
+        "$description": "8-step scale; xs..4xl. Source: Tailwind/Primer/Chakra alignment"
+        xs:
+          "$value": "0.75rem"   # 12px
+          "$description": "Captions, badges, dense UI"
+        sm:
+          "$value": "0.875rem"  # 14px
+          "$description": "Default body for dense layouts"
+        base:
+          "$value": "1rem"      # 16px
+          "$description": "Default body — accessibility minimum"
+        lg:
+          "$value": "1.125rem"  # 18px
+          "$description": "Large body, small headings"
+        xl:
+          "$value": "1.25rem"   # 20px
+          "$description": "Subheadings"
+        "2xl":
+          "$value": "1.5rem"    # 24px — h3 typical
+        "3xl":
+          "$value": "1.875rem"  # 30px — h2 typical
+        "4xl":
+          "$value": "2.25rem"   # 36px — h1 typical
+
+      weights:
+        "$type": "number"
+        "$description": "4-step scale — Mantine median; shadcn-compat"
+        regular:
+          "$value": 400
+        medium:
+          "$value": 500
+        semibold:
+          "$value": 600
+        bold:
+          "$value": 700
+
+      line-height:
+        "$type": "number"
+        tight:
+          "$value": 1.25
+          "$description": "Headings; Mantine xs equivalent"
+        normal:
+          "$value": 1.5
+          "$description": "Default body — accessibility recommendation"
+        relaxed:
+          "$value": 1.75
+          "$description": "Long-form reading; Mantine xl equivalent"
+
+      letter-spacing:
+        "$type": "dimension"
+        tight:
+          "$value": "-0.025em"
+        normal:
+          "$value": "0"
+        wide:
+          "$value": "0.025em"
+
+    radius:
+      "$type": "dimension"
+      "$description": "7-step Chakra/shadcn alignment"
+      none:
+        "$value": "0"
+      sm:
+        "$value": "0.25rem"  # 4px — Mantine sm
+      base:
+        "$value": "0.375rem" # 6px — Chakra md (default radius)
+      md:
+        "$value": "0.5rem"   # 8px — Mantine md
+      lg:
+        "$value": "0.75rem"  # 12px — Chakra xl
+      xl:
+        "$value": "1rem"     # 16px — Mantine lg
+      "2xl":
+        "$value": "1.5rem"   # 24px
+      full:
+        "$value": "9999px"
+        "$description": "Pills, avatars, fully rounded"
+
+    shadow:
+      "$type": "shadow"
+      "$description": "5-step elevation; Tailwind/Mantine consensus"
+      none:
+        "$value": "none"
+      sm:
+        "$value": "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+        "$description": "Subtle separation — input focus, hover"
+      base:
+        "$value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
+        "$description": "Cards at rest"
+      md:
+        "$value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+        "$description": "Dropdowns, popovers"
+      lg:
+        "$value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+        "$description": "Modals, dialogs"
+      xl:
+        "$value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
+        "$description": "Notifications, toasts"
+
+    duration:
+      "$type": "duration"
+      "$description": "3-step pragmatic; Chakra 7-step is overkill for sinkra apps"
+      instant:
+        "$value": "0ms"
+      fast:
+        "$value": "150ms"
+        "$description": "Hover, focus, micro-interactions"
+      base:
+        "$value": "250ms"
+        "$description": "Most transitions — Mantine consensus"
+      slow:
+        "$value": "350ms"
+        "$description": "Modals, page transitions"
+
+    easing:
+      "$type": "cubic-bezier"
+      linear:
+        "$value": "linear"
+      in:
+        "$value": "cubic-bezier(0.4, 0, 1, 1)"
+      out:
+        "$value": "cubic-bezier(0, 0, 0.2, 1)"
+        "$description": "Default — Material/Mantine standard"
+      in-out:
+        "$value": "cubic-bezier(0.4, 0, 0.2, 1)"
+
+    breakpoint:
+      "$type": "dimension"
+      "$description": "5-step modern web 2026; Tailwind v4 + shadcn alignment"
+      mobile:
+        "$value": "640px"     # sm — Tailwind
+      tablet:
+        "$value": "768px"     # md — Tailwind
+      desktop:
+        "$value": "1024px"    # lg — Tailwind
+      wide:
+        "$value": "1280px"    # xl — Tailwind
+      ultrawide:
+        "$value": "1536px"    # 2xl — Tailwind
+
+    z-index:
+      "$type": "number"
+      "$description": "Ascending; Primer 100-step pattern collapsed to 6 layers"
+      base:
+        "$value": 0
+      dropdown:
+        "$value": 1000
+      sticky:
+        "$value": 1100
+      fixed:
+        "$value": 1200
+      modal-backdrop:
+        "$value": 1300
+      modal:
+        "$value": 1300
+      popover:
+        "$value": 1400
+      tooltip:
+        "$value": 1500
+
+  # ============================================================================
+  # LAYER 2: SEMANTIC — meaning-driven aliases
+  # Reference: shadcn semantic mapping (--background → --color-background)
+  # ============================================================================
+  semantic:
+    color:
+      "$type": "color"
+      "$description": "Light theme defaults; dark variant in :root[data-theme=dark]"
+
+      # Surfaces
+      background:
+        "$value": "{core.color.neutral-0}"
+        "$description": "Page canvas"
+      foreground:
+        "$value": "{core.color.neutral-900}"
+        "$description": "Primary text on background"
+      surface:
+        "$value": "{core.color.neutral-50}"
+        "$description": "Cards, raised surfaces"
+      surface-foreground:
+        "$value": "{core.color.neutral-900}"
+
+      # Brand
+      primary:
+        "$value": "{core.color.accent-primary}"
+      primary-foreground:
+        "$value": "{core.color.neutral-0}"
+        "$description": "Text on primary — assumes dark primary"
+      secondary:
+        "$value": "{core.color.neutral-100}"
+      secondary-foreground:
+        "$value": "{core.color.neutral-900}"
+
+      # States
+      muted:
+        "$value": "{core.color.neutral-100}"
+      muted-foreground:
+        "$value": "{core.color.neutral-500}"
+      accent:
+        "$value": "{core.color.neutral-100}"
+      accent-foreground:
+        "$value": "{core.color.neutral-900}"
+      destructive:
+        "$value": "{core.color.accent-error}"
+      destructive-foreground:
+        "$value": "{core.color.neutral-0}"
+
+      # Borders & inputs
+      border:
+        "$value": "{core.color.neutral-200}"
+      input:
+        "$value": "{core.color.neutral-200}"
+      ring:
+        "$value": "{core.color.neutral-400}"
+        "$description": "Focus ring color — WCAG 2.4.7"
+
+      # Semantic states
+      success:
+        "$value": "{core.color.accent-success}"
+      success-foreground:
+        "$value": "{core.color.neutral-0}"
+      warning:
+        "$value": "{core.color.accent-warning}"
+      warning-foreground:
+        "$value": "{core.color.neutral-900}"
+      error:
+        "$value": "{core.color.accent-error}"
+      error-foreground:
+        "$value": "{core.color.neutral-0}"
+      info:
+        "$value": "{core.color.accent-info}"
+      info-foreground:
+        "$value": "{core.color.neutral-0}"
+
+    spacing:
+      "$type": "dimension"
+      "$description": "Inset/stack/gap aliases. Apps use these, not core.spacing"
+      inset-xs:
+        "$value": "{core.spacing.xs}"
+      inset-sm:
+        "$value": "{core.spacing.sm}"
+      inset-md:
+        "$value": "{core.spacing.md}"
+      inset-lg:
+        "$value": "{core.spacing.lg}"
+      inset-xl:
+        "$value": "{core.spacing.xl}"
+      stack-tight:
+        "$value": "{core.spacing.sm}"
+      stack-normal:
+        "$value": "{core.spacing.md}"
+      stack-loose:
+        "$value": "{core.spacing.lg}"
+
+    typography:
+      "$type": "typography"
+      body:
+        "$value":
+          family: "{core.typography.font-base}"
+          size: "{core.typography.sizes.base}"
+          lineHeight: "{core.typography.line-height.normal}"
+          weight: "{core.typography.weights.regular}"
+      body-strong:
+        "$value":
+          family: "{core.typography.font-base}"
+          size: "{core.typography.sizes.base}"
+          lineHeight: "{core.typography.line-height.normal}"
+          weight: "{core.typography.weights.semibold}"
+      heading-1:
+        "$value":
+          family: "{core.typography.font-heading}"
+          size: "{core.typography.sizes.4xl}"
+          lineHeight: "{core.typography.line-height.tight}"
+          weight: "{core.typography.weights.bold}"
+      heading-2:
+        "$value":
+          family: "{core.typography.font-heading}"
+          size: "{core.typography.sizes.3xl}"
+          lineHeight: "{core.typography.line-height.tight}"
+          weight: "{core.typography.weights.bold}"
+      heading-3:
+        "$value":
+          family: "{core.typography.font-heading}"
+          size: "{core.typography.sizes.2xl}"
+          lineHeight: "{core.typography.line-height.tight}"
+          weight: "{core.typography.weights.semibold}"
+      caption:
+        "$value":
+          family: "{core.typography.font-base}"
+          size: "{core.typography.sizes.sm}"
+          lineHeight: "{core.typography.line-height.normal}"
+          weight: "{core.typography.weights.regular}"
+      code:
+        "$value":
+          family: "{core.typography.font-mono}"
+          size: "{core.typography.sizes.sm}"
+          lineHeight: "{core.typography.line-height.normal}"
+          weight: "{core.typography.weights.regular}"
+
+    motion:
+      "$type": "duration"
+      micro:
+        "$value": "{core.duration.fast}"
+        "$description": "Hover, focus, button press"
+      transition:
+        "$value": "{core.duration.base}"
+        "$description": "Default state changes"
+      enter:
+        "$value": "{core.duration.slow}"
+        "$description": "Modals, drawers, page transitions"
+
+  # ============================================================================
+  # LAYER 3: COMPONENT — slot-specific overrides
+  # Reference: Primer functional tokens; Carbon component tokens
+  # Only ESSENTIAL slots; component-specific theming via shadcn-style class
+  # ============================================================================
+  component:
+    button:
+      "$type": "object"
+      "$description": "Button slots. shadcn-compat: text/bg/border/ring."
+      primary:
+        background:
+          "$value": "{semantic.color.primary}"
+        background-hover:
+          "$value": "{semantic.color.primary}"
+          "$description": "Apps may filter via opacity-90"
+        text:
+          "$value": "{semantic.color.primary-foreground}"
+        border-radius:
+          "$value": "{core.radius.md}"
+        padding-inline:
+          "$value": "{core.spacing.md}"
+        padding-block:
+          "$value": "{core.spacing.sm}"
+        font-weight:
+          "$value": "{core.typography.weights.medium}"
+      secondary:
+        background:
+          "$value": "{semantic.color.secondary}"
+        text:
+          "$value": "{semantic.color.secondary-foreground}"
+        border:
+          "$value": "{semantic.color.border}"
+      ghost:
+        background:
+          "$value": "transparent"
+        text:
+          "$value": "{semantic.color.foreground}"
+        background-hover:
+          "$value": "{semantic.color.muted}"
+      destructive:
+        background:
+          "$value": "{semantic.color.destructive}"
+        text:
+          "$value": "{semantic.color.destructive-foreground}"
+
+    input:
+      "$type": "object"
+      background:
+        "$value": "{semantic.color.background}"
+      text:
+        "$value": "{semantic.color.foreground}"
+      placeholder:
+        "$value": "{semantic.color.muted-foreground}"
+      border:
+        "$value": "{semantic.color.input}"
+      border-focus:
+        "$value": "{semantic.color.ring}"
+      border-radius:
+        "$value": "{core.radius.md}"
+      padding-inline:
+        "$value": "{core.spacing.sm}"
+      padding-block:
+        "$value": "{core.spacing.sm}"
+
+    card:
+      "$type": "object"
+      background:
+        "$value": "{semantic.color.surface}"
+      foreground:
+        "$value": "{semantic.color.surface-foreground}"
+      border:
+        "$value": "{semantic.color.border}"
+      border-radius:
+        "$value": "{core.radius.lg}"
+      padding:
+        "$value": "{core.spacing.lg}"
+      shadow:
+        "$value": "{core.shadow.base}"
+
+# =============================================================================
+# THEME OVERRIDES
+# Pattern: shadcn data-attribute (data-theme=dark) + .dark class
+# Applies ONLY to semantic layer; core layer is theme-invariant
+# =============================================================================
+themes:
+  dark:
+    "$description": "Dark mode overrides — applied via [data-theme=dark] or .dark class"
+    semantic:
+      color:
+        background:
+          "$value": "{core.color.neutral-900}"
+        foreground:
+          "$value": "{core.color.neutral-50}"
+        surface:
+          "$value": "{core.color.neutral-800}"
+        surface-foreground:
+          "$value": "{core.color.neutral-50}"
+        muted:
+          "$value": "{core.color.neutral-700}"
+        muted-foreground:
+          "$value": "{core.color.neutral-400}"
+        accent:
+          "$value": "{core.color.neutral-700}"
+        accent-foreground:
+          "$value": "{core.color.neutral-50}"
+        secondary:
+          "$value": "{core.color.neutral-800}"
+        secondary-foreground:
+          "$value": "{core.color.neutral-50}"
+        border:
+          "$value": "oklch(1 0 0 / 10%)"
+          "$description": "Translucent border — shadcn pattern for dark"
+        input:
+          "$value": "oklch(1 0 0 / 15%)"
+        ring:
+          "$value": "{core.color.neutral-500}"
+
+# =============================================================================
+# EXPORTS — Style Dictionary outputs
+# =============================================================================
+exports:
+  yaml: tokens.yaml
+  json: tokens.json
+  dtcg: tokens.dtcg.json        # W3C DTCG strict format
+  css: tokens.css                # raw :root CSS vars
+  tailwind_v4: globals.css       # @theme inline mapping
+  scss: tokens.scss
+  ts: tokens.ts                  # TS object for runtime consumption
+
+# =============================================================================
+# CONSUMERS
+# Apps that use this schema. Updated when business onboards.
+# =============================================================================
+consumers:
+  - apps/redpine-ds      # if biz=allfluence
+  - apps/aiox-brandbook  # if biz=aiox
+  - apps/anthropic-ds

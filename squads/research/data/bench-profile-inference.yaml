@@ -1,0 +1,52 @@
+# Bench Profile Inference Keywords + Thresholds
+# Origin: STORY-153.1 (EPIC-153 DEEP-RESEARCH-GOLDIFY)
+# Consumed by: squads/research/scripts/tech-research/infer_bench_profile.py
+#
+# This is BENCH-PROFILE inference (gold_absorption vs standard).
+# NOT research-type inference (tech/bench/market/product/mapping).
+# For research-type see: squads/research/scripts/tech-research/research_profile.py
+#
+# Schema version: 1.0.0
+
+version: "1.0.0"
+
+# Keywords that force profile=gold_absorption regardless of player count
+# Match is case-insensitive substring against the query string
+gold_keywords:
+  - "absorption"
+  - "landscape"
+  - " vs "       # word-bounded "vs" (avoid matching "versus" or "visual")
+  - " vs."
+  - "open-source"
+  - "open source"
+  - "n-way"
+  - "9-way"
+  - "10-way"
+  - "compare X with Y"
+  - "compare X to Y"
+  - "compare X and Y"
+  - "vs each other"
+  - "top open-source"
+
+# Case sensitivity for keyword matching
+case_sensitive: false
+
+# Numeric thresholds
+thresholds:
+  # Minimum number of players to auto-fire gold_absorption profile
+  min_players_for_gold: 5
+
+# Override semantics (documented in SKILL.md)
+override_semantics:
+  description: |
+    --standard:  force profile=standard even if auto-inference would give gold
+    --gold:      force profile=gold_absorption even if auto-inference would give standard
+    --standard + --gold simultaneous:  INVALID — script HALTs with exit 3
+  conflict_resolution: halt_on_both_flags
+
+# Documentation references
+references:
+  rule: ".claude/rules/research-bench-gold.md"  # Rule 1 — Profile Auto-Inference
+  skill: ".claude/skills/research-bench/SKILL.md"  # Lines 369-377 (gold_absorption documentation)
+  story: "docs/stories/epic-153/STORY-153.1-AUTO-FIRE-GOLD-ABSORPTION-PROFILE.md"
+  post_mortem: "docs/bench/deepresearch-absorption-benchmark/skill-gap-analysis-tech-research.md"

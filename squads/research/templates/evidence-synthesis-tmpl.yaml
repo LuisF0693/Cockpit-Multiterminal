@@ -1,0 +1,37 @@
+---
+_meta:
+  artifact_id: evidence-synthesis
+  version: "1.0.0"
+  lifecycle_states: [draft, validated, approved]
+  owner_squad: spy
+
+# Evidence Synthesis Template
+research_question: "{research_question}"
+synthesis_date: "{synthesis_date}"
+
+methodology:
+  review_type: "{review_type}"
+  search_strategy: "{search_strategy}"
+  inclusion_criteria: "{inclusion_criteria}"
+  exclusion_criteria: "{exclusion_criteria}"
+
+sources:
+  total_identified: 0
+  included_after_screening: 0
+  evidence_items: []
+
+synthesis:
+  key_themes: []
+  convergent_findings: []
+  divergent_findings: []
+  evidence_gaps: []
+
+quality_metrics:
+  ppv_score: 0.0
+  bias_flags: []
+  grade_assessment: "{grade_level}"
+
+conclusions:
+  summary: "{synthesis_summary}"
+  confidence_level: "{confidence_level}"
+  actionable_insights: []

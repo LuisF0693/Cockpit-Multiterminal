@@ -1,0 +1,34 @@
+meta:
+  version: "1.0.0"
+  squad: design-ops
+  source_of_truth: workspace
+  source_path_template: workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+
+registry_policy:
+  owner: design-ops
+  approver: design-chief
+  change_control: pull_request_required
+  canonical_rule: never_override_workspace_contracts
+  review_sla_hours: 24
+
+families:
+  - id: color
+    description: Tokens de cor semântica e de marca
+  - id: typography
+    description: Famílias, pesos e escalas tipográficas
+  - id: spacing
+    description: Escala de espaçamento e ritmo
+  - id: radius
+    description: Raios e arredondamentos
+  - id: shadow
+    description: Elevação e brilho
+  - id: motion
+    description: Durações, curvas e presets
+  - id: data-viz
+    description: Charts e mapas
+
+required_contract_links:
+  - workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+  - workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+  - workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+  - workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml

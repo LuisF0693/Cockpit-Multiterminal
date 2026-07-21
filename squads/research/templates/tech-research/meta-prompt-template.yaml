@@ -1,0 +1,28 @@
+meta_prompt_template: |
+  TÓPICO: "{refined_topic}"
+
+  CONTEXTO: {context_description}
+
+  ESCOPO:
+  1. IMPLEMENTAÇÕES EXISTENTES: {scope_1}
+  2. TÉCNICAS E PADRÕES: {scope_2}
+  3. MELHORES PRÁTICAS: {scope_3}
+  4. RISCOS E MITIGAÇÕES: {scope_4}
+  5. BENCHMARKS E MÉTRICAS: {scope_5}
+
+  REQUISITOS:
+  - {requirement_1}
+  - {requirement_2}
+  - {requirement_3}
+
+  FONTES A PESQUISAR:
+  - GitHub: issues, repos, gists relacionados
+  - Blogs técnicos: dev.to, medium, pessoais
+  - Documentação oficial
+  - Stack Overflow e fóruns
+
+  RESULTADOS ESPERADOS:
+  1. Lista de técnicas/soluções rankeadas
+  2. Código de referência (se aplicável)
+  3. Mapa de decisão: quando usar o quê
+  4. Próximos passos práticos

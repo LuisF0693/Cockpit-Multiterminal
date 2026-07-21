@@ -1,0 +1,183 @@
+id: starter-components-catalog
+version: "1.0.0"
+status: active_contract_forward_declared
+owner: design-ops
+scope: provider-contract
+origin: "agenmod/claw-design — copy_starter_component tool (2026-04-18)"
+
+# Forward-declared catalog of starter components absorbed from the claw-design
+# prompt. The IMPLEMENTATIONS live under Wave C (artifact-creation capability)
+# per ADR-018 — this file defines the CONTRACT each starter must honor.
+#
+# Why forward-declare? Consumers (slides-creator, design-app) can start
+# designing against these contracts now, without waiting for Wave C to ship.
+# When Wave C implements each starter, it MUST honor this spec.
+
+forward_declaration_notice:
+  runtime_status: pending_wave_c
+  adr: "docs/adrs/ADR-018-design-ops-artifact-creation-capability.md"
+  rationale: >-
+    Provider scope owns CONTRACTS (registry, metadata). The starter runtime
+    implementations expand charter (see ADR-018). This catalog is the
+    provider-side contract — implementations land in Wave C.
+
+# =============================================================================
+# STARTERS
+# =============================================================================
+starters:
+
+  deck_stage:
+    id: deck_stage
+    filename: deck_stage.js
+    kind: slide_deck_shell
+    element_type: "web component"
+    responsibilities:
+      - "Auto-scale deck viewport via transform: scale() with letterboxing"
+      - "Keyboard navigation (see deck-contracts-spec.yaml#deck_shell#keyboard_contract)"
+      - "Slide-count overlay (e.g. 3 / 12)"
+      - "speaker-notes postMessage protocol"
+      - "localStorage playback persistence"
+      - "print-to-PDF compatibility"
+    binds_to:
+      - squads/design-ops/data/deck-contracts-spec.yaml
+      - squads/design-ops/data/deliverable-kinds-registry.yaml#deck
+    typical_viewport: "1920x1080 (16:9) or 1920x1200 (16:10)"
+    use_for: "ANY slide presentation — decks, pitches, keynote-style"
+
+  design_canvas:
+    id: design_canvas
+    filename: design_canvas.jsx
+    kind: side_by_side_options_grid
+    element_type: "React component"
+    responsibilities:
+      - "Render 2+ design variants side by side in a grid"
+      - "Label each cell with variant name and rationale"
+      - "Visual convergence view during divergent exploration"
+    use_for: "Presenting divergent exploration outputs (N >= 3 variants)"
+    binds_to:
+      - squads/design-ops/tasks/ds-build-component.md#step-0-divergent-exploration
+      - squads/design-ops/data/deliverable-kinds-registry.yaml#html_prototype
+
+  ios_frame:
+    id: ios_frame
+    filename: ios_frame.jsx
+    kind: device_bezel
+    element_type: "React component"
+    responsibilities:
+      - "Render iOS device chrome (status bar, home indicator)"
+      - "Render keyboard overlay when focused input is present"
+      - "Maintain accurate pixel density for screenshot fidelity"
+    use_for: "Any design that must look like a real iPhone screen"
+    pairs_with:
+      - deck_stage  # for iOS mockups inside decks
+      - design_canvas  # for iOS variants side-by-side
+
+  android_frame:
+    id: android_frame
+    filename: android_frame.jsx
+    kind: device_bezel
+    element_type: "React component"
+    responsibilities:
+      - "Render Android device chrome (navigation bar, status bar)"
+      - "Render keyboard overlay when focused input is present"
+    use_for: "Any design that must look like a real Android screen"
+
+  macos_window:
+    id: macos_window
+    filename: macos_window.jsx
+    kind: desktop_chrome
+    element_type: "React component"
+    responsibilities:
+      - "Render macOS window chrome (traffic lights, title bar)"
+      - "Support light/dark mode window variants"
+    use_for: "Desktop app mockups, screenshot compositions"
+
+  browser_window:
+    id: browser_window
+    filename: browser_window.jsx
+    kind: desktop_chrome
+    element_type: "React component"
+    responsibilities:
+      - "Render browser chrome (tab bar, URL bar, nav controls)"
+      - "Support Chrome/Safari/Firefox styling variants"
+    use_for: "Web app mockups, marketing compositions showing in-browser context"
+
+  animations:
+    id: animations
+    filename: animations.jsx
+    kind: timeline_animation_engine
+    element_type: "React component + hooks"
+    responsibilities:
+      - "Stage: auto-scale + scrubber + play/pause controls"
+      - "Sprite: timeline element with start/end props"
+      - "useTime(): reactive current time in seconds"
+      - "useSprite(): reactive sprite state within Stage"
+      - "Easing: cubic-bezier easing curves"
+      - "interpolate(): value interpolation between keyframes"
+      - "Entry/exit primitives (fade, scale, slide)"
+    use_for: "Animated video artifacts, motion-design explainers, scroll-animation prototypes"
+    fallback:
+      when: "Starter primitives cannot express the motion"
+      library: popmotion
+      pinned_version: "11.0.5"
+      pinned_url: "https://unpkg.com/popmotion@11.0.5/dist/popmotion.min.js"
+      sri_required: true
+
+# =============================================================================
+# TOOL BINDING
+# =============================================================================
+tool_binding:
+  current_runtime: none  # Wave C pending
+  planned_tool:
+    name: "*copy-starter-component"
+    parameter: "kind"
+    parameter_values: [deck_stage, design_canvas, ios_frame, android_frame, macos_window, browser_window, animations]
+    behavior: >-
+      Write the starter file to the target project, echo full content + path
+      back so the agent can slot the design in or edit further. Same semantics
+      as claw-design's copy_starter_component.
+  planned_path: "squads/design-ops/scripts/starters/"
+
+# =============================================================================
+# SELECTION MATRIX (which starter for which deliverable)
+# =============================================================================
+selection_matrix:
+  deck:
+    required: [deck_stage]
+    optional: [ios_frame, android_frame, macos_window, browser_window]
+  html_prototype:
+    required_for_multi_variant: [design_canvas]
+    optional: [ios_frame, android_frame, macos_window, browser_window, animations]
+  animation_video:
+    required: [animations]
+    optional: [macos_window, browser_window]
+  mobile_mockup:
+    required: [ios_frame or android_frame]
+    optional: [design_canvas]  # for variant grids
+  desktop_mockup:
+    required: [macos_window or browser_window]
+    optional: [design_canvas]
+
+# =============================================================================
+# CONSISTENCY BINDING (DS tokens flow into starters)
+# =============================================================================
+ds_consistency_binding:
+  rule: >-
+    Every starter MUST accept or derive tokens from the resolved business
+    workspace contracts (see ds-discovery-paths.yaml). Starters do NOT hardcode
+    colors, spacing, fonts, or radii — they consume the DS.
+  required_token_consumption:
+    - tokens.yaml (colors, spacing, typography, radii)
+    - foundations.yaml (shadows, motion durations, z-index)
+    - motion-primitives.yaml (easing curves for animations starter)
+  enforcement_reference:
+    - squads/design-ops/rules/design-system-fidelity.md
+    - squads/design-ops/rules/ds-consistency-policy.md
+
+related:
+  - squads/design-ops/data/deck-contracts-spec.yaml
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/animation-primitives-contract.yaml
+  - squads/design-ops/data/artifact-file-governance.yaml
+  - squads/design-ops/data/ds-discovery-paths.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

@@ -1,0 +1,14 @@
+version: "1.0.0"
+service_catalog:
+  design_runtime:
+    service_ref: "squads/design-system/scripts/"
+    connection: "local-cli"
+    integration: "validation-and-packaging"
+  token_registry:
+    service_ref: "squads/design-system/data/token-registry.yaml"
+    connection: "local-yaml"
+    integration: "token-governance"
+  workspace_design_handoff:
+    service_ref: "workspace/businesses/"
+    connection: "workspace-readonly"
+    integration: "cross-bu-design-context"

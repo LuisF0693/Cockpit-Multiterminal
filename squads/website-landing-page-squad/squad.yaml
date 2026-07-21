@@ -1,0 +1,120 @@
+name: website-landing-page-squad
+version: 1.0.0
+displayName: "Website Landing Page Squad"
+description: |
+  Squad especializado em criar landing pages de alto desempenho.
+  Equipe multidisciplinar para estratégia, design, copywriting, SEO e conversão.
+  Ideal para empreendedores que precisam de landing pages profissionais sem contratar agências.
+
+author: SPFP Team
+license: MIT
+slashPrefix: lp
+
+aios:
+  minVersion: "2.1.0"
+  type: squad
+
+target_user:
+  profile: Empreendedor solo / PME
+  budget: R$0-5k/mês
+  need: Landing page profissional sem custos de agência
+
+icon: "🚀"
+
+tags:
+  - landing-page
+  - marketing
+  - conversion
+  - web-design
+  - seo
+  - copywriting
+  - user-experience
+
+components:
+  agents:
+    - website-architect.md
+    - ux-designer.md
+    - copywriter.md
+    - seo-specialist.md
+    - frontend-developer.md
+    - backend-developer.md
+    - qa-analyst.md
+    - ux-researcher.md
+    - storyteller.md
+
+  tasks:
+    # Website Architect
+    - architect-estrategia-landing.md
+    - architect-estrutura-site.md
+    - architect-mapa-conversao.md
+
+    # UX Designer
+    - designer-prototipo-mobile.md
+    - designer-prototipo-desktop.md
+    - designer-design-system.md
+    - designer-guia-visual.md
+
+    # Copywriter
+    - copywriter-copy-principal.md
+    - copywriter-microcopy.md
+    - copywriter-cta-messaging.md
+
+    # SEO Specialist
+    - seo-otimizacao-on-page.md
+    - seo-keywords-research.md
+    - seo-meta-tags.md
+
+    # Frontend Developer
+    - frontend-setup-projeto.md
+    - frontend-implementar-design.md
+    - frontend-otimizar-performance.md
+
+    # Backend Developer
+    - backend-setup-api.md
+    - backend-lead-capture.md
+    - backend-integracao-email.md
+
+    # QA Analyst
+    - qa-testes-funcionalidade.md
+    - qa-analise-conversao.md
+    - qa-relatorio-performance.md
+
+    # UX Researcher
+    - researcher-pesquisa-usuario.md
+    - researcher-teste-usabilidade.md
+    - researcher-analise-comportamento.md
+
+    # Storyteller
+    - storyteller-narrativa-marca.md
+    - storyteller-conteudo-emocional.md
+    - storyteller-sequencia-comunicacao.md
+
+  workflows:
+    - landing-page-creation.md
+    - optimization-cycle.md
+
+  templates:
+    - landing-page-blueprint
+    - design-system-template
+    - conversion-flow-template
+
+  scripts: []
+
+config:
+  extends: extend
+  coding-standards: config/coding-standards.md
+  tech-stack: config/tech-stack.md
+  source-tree: config/source-tree.md
+
+dependencies:
+  node:
+    - react@19
+    - typescript
+    - tailwindcss
+    - vite
+
+  python: []
+
+  squads:
+    - time-de-marketing
+    - legal-squad

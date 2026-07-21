@@ -1,0 +1,270 @@
+id: user-terminology-translation
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: user-facing-conversational-layer
+origin: "Wave B.4 — bridge between technical pipeline terms and user-facing language"
+
+# Translation table between the technical vocabulary of /design-artifact-cycle
+# (which appears in briefs, logs, manifests, and rules) and the user-facing
+# vocabulary the /claude-design skill uses in conversation.
+#
+# Rule: users never see the left column. Internal logs/manifests always use
+# the left column. Translation happens at the UX layer.
+
+# =============================================================================
+# PHASE NAMES
+# =============================================================================
+phases:
+  P01 ASK:
+    technical: "Brief materialization + questions intake"
+    user_facing: "Entendendo o que você precisa"
+
+  P02 COLLECT:
+    technical: "DS context resolution + prior art survey"
+    user_facing: "Estudando o design system da {business}"
+
+  P03 VOCALIZE:
+    technical: "Assumption capture and classification"
+    user_facing: "Alinhando decisões antes de construir"
+
+  P04 BUILD:
+    technical: "Divergent exploration (kind-aware N variants)"
+    user_facing:
+      default: "Explorando {N} variações"
+      single_variant: "Construindo a versão DS-first"
+
+  P05 SHOW EARLY:
+    technical: "Working skeleton + feedback gate"
+    user_facing: "Quer dar uma olhada antes de eu polir?"
+
+  P06 ITERATE:
+    technical: "Tweaks within chosen direction"
+    user_facing: "Ajustando o que você pediu"
+
+  P07 VERIFY:
+    technical: "Multi-checklist validation battery"
+    user_facing: "Validando acessibilidade, responsivo e fidelidade ao design system"
+
+  P08 HANDOFF:
+    technical: "Artifact emission + downstream registration"
+    user_facing: "Entregando"
+
+# =============================================================================
+# CORE CONCEPTS
+# =============================================================================
+concepts:
+
+  success_criteria:
+    technical: "success_criteria[]"
+    user_facing: "o que esse {surface} precisa fazer bem"
+    example_question: "Me conta 3 coisas que esse botão precisa fazer bem"
+
+  divergence_posture:
+    technical: "exploration.variants_required (kind-aware)"
+    user_facing: "seguir o design system direto OU explorar variações"
+    example_question: "Uma versão só (seguindo o DS direto), ou quer que eu explore algumas variações?"
+
+  convergence_tiebreaker:
+    technical: "tiebreaker_criterion referencing success_criteria[N]"
+    user_facing: "{hidden — automático, não pergunta}"
+
+  compliance_score:
+    technical: "compliance_score (0-100)"
+    user_facing: "nota de qualidade"
+    thresholds:
+      pass: "Passou (>= 80)"
+      concerns: "Passou com ressalvas (70-79)"
+      fail: "Precisa ajustar (< 70)"
+
+  blocker_violation:
+    technical: "BLOCKER severity violation"
+    user_facing: "problema que precisa ser resolvido antes de entregar"
+
+  critical_violation:
+    technical: "CRITICAL severity violation"
+    user_facing: "problema sério"
+
+  high_violation:
+    technical: "HIGH severity violation"
+    user_facing: "coisa importante pra ajustar"
+
+  medium_violation:
+    technical: "MEDIUM severity violation"
+    user_facing: "ajuste recomendado"
+
+  low_violation:
+    technical: "LOW severity violation"
+    user_facing: "refinamento"
+
+  consistency_model_reference_first:
+    technical: "reference-first via @sinkra/ds-core"
+    user_facing: "{hidden — usa o design system por import, automático pra componente/página/email/dashboard}"
+
+  consistency_model_copy_first:
+    technical: "copy-first with exact token values"
+    user_facing: "{hidden — inline tokens, automático pra deck/protótipo/PDF}"
+
+  ds_fidelity:
+    technical: "pixel fidelity to the repo, not recollection"
+    user_facing: "fidelidade ao design system"
+
+  ai_trope_gate:
+    technical: "dops-ai-trope-guardrails.yaml checklist"
+    user_facing: "checagem anti-padrões genéricos"
+
+  ai_trope_violation_example:
+    technical: "no_emoji_as_functional_icons failed"
+    user_facing: "usou emoji como ícone (melhor trocar por um ícone do DS)"
+
+  brief_intake:
+    technical: "design-brief-intake artifact materialization"
+    user_facing: "{hidden — brief gerado implicitamente da conversa}"
+
+  workspace_contracts:
+    technical: "tokens.yaml, foundations.yaml, component-contracts.yaml, motion-primitives.yaml"
+    user_facing: "design system da {business}"
+
+  prior_art:
+    technical: "existing components in ds-core-catalog and outputs/design-ops"
+    user_facing: "o que já existe parecido"
+
+  handoff_downstream:
+    technical: "handoff-downstream.yaml emission"
+    user_facing: "{hidden — só relevante pra entrega pro próximo squad}"
+
+  verdict:
+    technical: "PASS | CONCERNS | FAIL"
+    user_facing:
+      PASS: "Tá bom pra entregar"
+      CONCERNS: "Dá pra entregar mas tem ressalvas"
+      FAIL: "Precisa ajustar mais"
+
+  responsive_targets:
+    technical: "responsive_targets: [360, 768, 1280]"
+    user_facing: "renderização em mobile, tablet e desktop"
+
+  wcag_aa:
+    technical: "WCAG AA compliance floor"
+    user_facing: "acessibilidade (nível AA)"
+
+  contrast_ratio:
+    technical: "contrast ratio >= 4.5:1"
+    user_facing: "contraste legível"
+
+  change_log:
+    technical: "brief.change_log entries"
+    user_facing: "histórico de ajustes"
+
+  iteration_round:
+    technical: "iteration round"
+    user_facing: "rodada de ajustes"
+
+  wave_c_deferred:
+    technical: "wave_c_deferred: true (ADR-018 pending)"
+    user_facing: "vou fazer o design completo agora; a exportação final ainda depende de uma aprovação arquitetural"
+
+# =============================================================================
+# ERROR CODES → USER LANGUAGE
+# =============================================================================
+error_codes:
+
+  DS_CONTEXT_MISSING:
+    technical: "Resolution protocol reached step 4; no workspace contracts"
+    user_facing: "Não achei o design system da {business} pronto"
+    follow_up: "A gente pode extrair das bases ou começar mais livre"
+
+  BRIEF_INCOMPLETE:
+    technical: "success_criteria count < 3 after 3 elicitation attempts"
+    user_facing: "Preciso de mais 1 ou 2 coisas que esse {surface} tem que fazer bem"
+
+  UNRESOLVED_GUESS:
+    technical: "guess-classified assumption not confirmed"
+    user_facing: "Tem uma decisão que eu tô chutando: {decision}. Você prefere {option_a} ou {option_b}?"
+
+  VARIANT_AI_TROPE_FAIL:
+    technical: "variant compliance < 90% against ai-trope-guardrails"
+    user_facing: "Essa versão bateu em alguns padrões genéricos. Vou refazer."
+
+  CONVERGENCE_AESTHETIC_ONLY:
+    technical: "convergence tiebreaker did not reference success_criteria"
+    user_facing: "{hidden — loop interno; nunca surface pro usuário}"
+
+  SHOW_EARLY_RESTART_3X:
+    technical: "3 consecutive RESTART_BUILD decisions"
+    user_facing: "A gente tá batendo em caminhos errados. Me ajuda a entender: o que eu tô perdendo?"
+
+  COMPLIANCE_STUCK:
+    technical: "compliance < 80 after 3 iteration rounds"
+    user_facing: "Já ajustei 3 vezes e ainda não passa. Parece que o brief pede algo que não cabe sem quebrar regra. Vamos ajustar?"
+
+  WAVE_C_RUNTIME_MISSING:
+    technical: "kind requires Wave C capability; runtime not yet implemented"
+    user_facing: "Pra {kind}, posso fazer o design completo, mas a exportação/runtime final depende de uma aprovação arquitetural. Topa fazer assim?"
+
+# =============================================================================
+# ARGUMENT NAMES (CLI flags → user prompts)
+# =============================================================================
+argument_mapping:
+  "--kind":
+    user_asks_via: "O que você precisa criar? (componente, página, deck, protótipo, PDF, email, dashboard)"
+
+  "--business":
+    user_asks_via: "Pra qual business? AIOX, AllFluence, Academia Lendária, Bilhon, ou shared?"
+
+  "--brief":
+    user_asks_via: "{hidden — se houver brief materializado, detecta automaticamente}"
+
+  "--mode yolo":
+    user_asks_via: "{hidden — claude-design sempre interactive; --yolo só via CLI técnico direto}"
+
+  "--resume":
+    user_asks_via: "Vi que a gente tinha começado o {artifact_slug}. Continuar de onde parou?"
+
+# =============================================================================
+# CONFIRMATION PATTERNS
+# =============================================================================
+confirmation_patterns:
+
+  after_intent_extraction:
+    template: |
+      Entendi o seguinte:
+        - Criar: **{surface_name}** ({kind_user_facing})
+        - Para: **{business}**
+        - Contexto: {use_case_if_known}
+
+      Tá certo?
+
+  after_brief_complete:
+    template: |
+      Beleza. Recapitulando:
+        1. {criterion_1}
+        2. {criterion_2}
+        3. {criterion_3}
+
+      Bora?
+
+  before_delivery:
+    template: |
+      Tá pronto. {nota_de_qualidade}.
+
+      Quer que eu {next_action_suggestion}?
+
+# =============================================================================
+# SILENCE RULES (when NOT to surface something)
+# =============================================================================
+silence_rules:
+  - "Nunca surface o nome da phase (P01, P02, etc)."
+  - "Nunca surface checkpoint IDs (PV_BS_001, META_AXIOMAS)."
+  - "Nunca surface caminho de rule/checklist/data file."
+  - "Nunca surface hash, compliance_score numérico em contexto casual."
+  - "Nunca surface TaskCreate/TaskUpdate status."
+  - "Nunca surface wave B/B.2/B.2.1/B.2.2/B.3 distinction."
+  - "Nunca surface heuristic ID (HEUR-CLAW-*)."
+  - "Nunca surface ADR-018 a menos que usuário pergunte sobre Wave C."
+
+related:
+  - squads/design-ops/data/claude-design-persona.yaml
+  - .claude/skills/claude-design/SKILL.md
+  - .claude/skills/design-artifact-cycle/SKILL.md
+  - squads/design-ops/data/questions-intake-protocol-spec.yaml

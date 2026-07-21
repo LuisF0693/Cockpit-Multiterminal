@@ -1,0 +1,38 @@
+{
+  "cycle": 1,
+  "timestamp": "2026-02-18T12:00:00.000Z",
+  "categories": {
+    "base": {
+      "rankings": [
+        { "rank": 1, "id": "button-shared-v1", "score": 61, "lifecycle": "CANDIDATE", "eligibility": "STABLE (score >= 60)" },
+        { "rank": 2, "id": "input-shared-v1", "score": 57, "lifecycle": "CANDIDATE", "eligibility": "EXPERIMENTAL (breadth >= 10)" },
+        { "rank": 3, "id": "textarea-shared-v1", "score": 53, "lifecycle": "CANDIDATE", "eligibility": "EXPERIMENTAL (breadth >= 10)" },
+        { "rank": 3, "id": "badge-shared-v1", "score": 53, "lifecycle": "CANDIDATE", "eligibility": "EXPERIMENTAL (breadth >= 10)" }
+      ],
+      "leader": { "id": "button-shared-v1", "score": 61, "eligibility": "STABLE" },
+      "health": { "avg": 56, "max": 61, "min": 53, "spread": 8, "count": 4, "has_canonical": false },
+      "tiebreakers": [
+        {
+          "variants": ["textarea-shared-v1", "badge-shared-v1"],
+          "scores": [53, 53],
+          "margin_percent": 0,
+          "breadth": [10, 10],
+          "result": "TIE — same score AND same breadth. Co-ranked at #3.",
+          "note": "Tiebreaker inconclusive: identical scores and breadth. Both remain at rank 3."
+        }
+      ]
+    },
+    "core": {
+      "rankings": [
+        { "rank": 1, "id": "form-field-shared-v1", "score": 57, "lifecycle": "CANDIDATE", "eligibility": "EXPERIMENTAL (breadth >= 10)" },
+        { "rank": 2, "id": "card-planned-v1", "score": 0, "lifecycle": "CANDIDATE", "eligibility": "NONE (breadth = 0, snowflake)" }
+      ],
+      "leader": { "id": "form-field-shared-v1", "score": 57, "eligibility": "EXPERIMENTAL" },
+      "health": { "avg": 28.5, "max": 57, "min": 0, "spread": 57, "count": 2, "has_canonical": false },
+      "tiebreakers": []
+    }
+  },
+  "categories_needing_attention": [
+    { "category": "core", "avg": 28.5, "issue": "Card com score 0 puxa media para baixo. Apenas 1 componente avaliavel.", "recommendation": "Implementar Card para ter competicao real na categoria." }
+  ]
+}

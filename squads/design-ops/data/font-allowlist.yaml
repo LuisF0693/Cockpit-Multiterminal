@@ -1,0 +1,163 @@
+# Canonical Font Allowlist & Blocklist
+#
+# title: Canonical Font Allowlist & Blocklist
+# purpose: Cross-skill font policy consumed by /design-md (detection) and
+#          /slide-creator (gate)
+# version: 1.0.0
+# authority: .claude/rules/design-absolute-bans.md § 1
+# created: 2026-05-19
+# source_bench: docs/bench/2026-05-18-impeccable-vs-sinkra-design-stack/
+# absorbed_from:
+#   - impeccable.style v3.1.1 — monoculture detector list
+#   - tasteskill.dev v2 — anti-Inter + concrete allowlist
+#     (Geist/Outfit/Cabinet Grotesk/Satoshi)
+
+title: "Canonical Font Allowlist & Blocklist"
+purpose: "Cross-skill font policy consumed by /design-md (detection) and /slide-creator (gate)"
+version: "1.0.0"
+authority: ".claude/rules/design-absolute-bans.md § 1"
+created: "2026-05-19"
+source_bench: "docs/bench/2026-05-18-impeccable-vs-sinkra-design-stack/"
+absorbed_from:
+  - "impeccable.style v3.1.1 — monoculture detector list"
+  - "tasteskill.dev v2 — anti-Inter + concrete allowlist (Geist/Outfit/Cabinet Grotesk/Satoshi)"
+
+# ── allowed_sans ──────────────────────────────────────────────────────────────
+# Premium / creative / brand surfaces.
+# These fonts produce non-monoculture, premium output.
+
+allowed_sans:
+  - family: "Geist"
+    use_cases: [brand, product_ui, display, body]
+    preferred_for: "Default sans across both registers"
+    source: tasteskill_recommended
+
+  - family: "Outfit"
+    use_cases: [brand, display, body]
+    preferred_for: "Modern brand display + body"
+    source: tasteskill_recommended
+
+  - family: "Cabinet Grotesk"
+    use_cases: [brand, display]
+    preferred_for: "Premium brand display"
+    source: tasteskill_recommended
+
+  - family: "Satoshi"
+    use_cases: [brand, product_ui, display, body]
+    preferred_for: "Modern brand sans"
+    source: tasteskill_recommended
+
+  - family: "Inter"
+    use_cases: [product_ui_dashboards_only]
+    preferred_for: "Technical dashboard fallback ONLY"
+    source: impeccable_warn_blocked_for_brand
+    warning: "BLOCKED for brand/creative contexts. Allowed only in pure technical dashboards as fallback."
+
+# ── allowed_mono ──────────────────────────────────────────────────────────────
+# Code blocks, dashboards, technical UI.
+
+allowed_mono:
+  - family: "Geist Mono"
+    use_cases: [dashboard, technical, code]
+    preferred_for: "Default mono"
+    source: tasteskill_recommended
+
+  - family: "JetBrains Mono"
+    use_cases: [dashboard, technical, code]
+    preferred_for: "Code blocks + dashboards"
+    source: tasteskill_recommended
+
+  - family: "IBM Plex Mono"
+    use_cases: [dashboard, technical, code]
+    preferred_for: "Allowed alternative"
+
+# ── allowed_serif ─────────────────────────────────────────────────────────────
+# Editorial / brand display only.
+
+allowed_serif:
+  - family: "{custom_brand_serif}"
+    use_cases: [brand_editorial]
+    preferred_for: "Allowed when extracted/declared in brand DNA"
+    policy: "Any serif declared in workspace/businesses/{biz}/L2-tactical/brand/brand-context.yaml is allowed"
+
+# ── blocked_monoculture ───────────────────────────────────────────────────────
+# AI-fingerprint signals. Detection MUST flag. Generation MUST refuse.
+
+blocked_monoculture:
+  - family: "Inter"
+    context: "Used outside dashboards (i.e. brand/creative)"
+    severity: "P1"
+    detector: "AI-default font fingerprint"
+    source: tasteskill_absolute_ban
+    replacement: "Geist | Outfit | Cabinet Grotesk | Satoshi"
+
+  - family: "Fraunces"
+    context: "Used as italic-serif display hero"
+    severity: "P0"
+    detector: "AI italic-serif hero fingerprint (impeccable v3.0.7)"
+    source: impeccable_29_rules
+    replacement: "Custom brand serif extracted from brand DNA, or sans display"
+
+  - family: "Geist Mono"
+    context: "Used outside technical/dashboard UI"
+    severity: "P2"
+    detector: "Monoculture creep"
+    replacement: "Geist (sans variant) for body/display"
+
+  - family: "Mona Sans"
+    context: "Any"
+    severity: "P1"
+    detector: "AI monoculture (GitHub default)"
+    replacement: "Geist | Outfit | Cabinet Grotesk | Satoshi"
+
+  - family: "Plus Jakarta Sans"
+    context: "Any"
+    severity: "P1"
+    detector: "AI monoculture"
+    replacement: "Geist | Outfit | Cabinet Grotesk | Satoshi"
+
+  - family: "Space Grotesk"
+    context: "Any"
+    severity: "P1"
+    detector: "AI monoculture"
+    replacement: "Geist | Outfit | Cabinet Grotesk | Satoshi"
+
+  - family: "Recoleta"
+    context: "Used as italic-serif display hero"
+    severity: "P0"
+    detector: "AI italic-serif hero fingerprint"
+    replacement: "Custom brand serif extracted from brand DNA"
+
+  - family: "Instrument Sans"
+    context: "Any"
+    severity: "P1"
+    detector: "AI monoculture"
+    replacement: "Geist | Outfit | Cabinet Grotesk | Satoshi"
+
+# ── detection_rules ───────────────────────────────────────────────────────────
+# When font extraction detects any blocked_monoculture entry.
+
+detection_rules:
+  emit_in_design_md_lint_report: "monoculture_risk"
+  emit_in_design_md_ai_fingerprint: "font_monoculture detected: {family}"
+  block_in_slide_creator_render: true       # if severity P0 or P1
+  block_in_slide_creator_render_if_warn: false  # severity P2 = advisory
+
+# ── consumers ─────────────────────────────────────────────────────────────────
+
+consumers:
+  design_md: "squads/design-ops/scripts/extract-from-url/lib/font-allowlist-check.cjs (to create)"
+  slide_creator_cross_ref: ".claude/skills/slide-creator/data/palette-registry.yaml#font_policy"
+  slide_creator_validators: ".claude/skills/slide-creator/scripts/validate_design_100_runtime.py"
+  canonical_authority: ".claude/rules/design-absolute-bans.md §1"
+
+# ── override_policy ───────────────────────────────────────────────────────────
+# A specific business can override at:
+#   workspace/businesses/{biz}/L2-tactical/brand/brand-context.yaml#font_policy
+# But override MUST cite an ADR justifying the exception.
+# No silent overrides.
+
+override_policy:
+  allowed_at: "workspace/businesses/{biz}/L2-tactical/brand/brand-context.yaml#font_policy"
+  requires_adr: true
+  silent_overrides_allowed: false

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+  Template: html-artifact-tmpl
+  Version:  1.0.0
+  Owner:    design-ops
+  Consumed by: squads/design-ops/tasks/artifact-create-html.md
+  Contract: squads/design-ops/data/artifact-file-governance.yaml
+  Security: squads/design-ops/rules/self-contained-artifact-security.md
+
+  Replace {{ placeholders }} with brief-resolved values at emit time.
+  Keep inline tokens (no var(--name) references — copy-first model).
+  All CDN scripts MUST carry integrity + crossorigin when used.
+  Do NOT introduce eval, document.write, or new Function.
+-->
+<html lang="{{ lang | default: 'pt-BR' }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{{ description }}" />
+  <meta name="generator" content="design-ops/artifact-create-html@1.0.0" />
+  <meta name="artifact-id" content="{{ artifact_id }}" />
+  <meta name="business" content="{{ business }}" />
+  <title>{{ title }}</title>
+
+  <!-- Inline tokens resolved at emit time from ds-context.yaml (copy-first) -->
+  <style>
+    :root {
+      /* Colors — replace with exact hex from ds-context */
+      --color-primary: {{ tokens.color_primary }};
+      --color-surface: {{ tokens.color_surface }};
+      --color-text: {{ tokens.color_text }};
+      --color-muted: {{ tokens.color_muted }};
+      --color-border: {{ tokens.color_border }};
+
+      /* Typography — replace with exact values */
+      --font-sans: {{ tokens.font_sans }};
+      --font-size-body: {{ tokens.font_size_body }};
+      --line-height-body: {{ tokens.line_height_body }};
+
+      /* Spacing — replace with exact values */
+      --space-1: {{ tokens.space_1 }};
+      --space-2: {{ tokens.space_2 }};
+      --space-3: {{ tokens.space_3 }};
+      --space-4: {{ tokens.space_4 }};
+
+      /* Radii + elevation */
+      --radius-md: {{ tokens.radius_md }};
+      --shadow-card: {{ tokens.shadow_card }};
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      font-size: var(--font-size-body);
+      line-height: var(--line-height-body);
+      color: var(--color-text);
+      background: var(--color-surface);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    /* Responsive — narrowest target from brief.audience.device_mix */
+    @media (max-width: 360px) {
+      html { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Artifact content goes here; kebab-case slug on the root node is conventional -->
+  <main id="{{ artifact_slug }}-root" data-artifact-id="{{ artifact_id }}">
+    <!-- Emitter fills this with brief-resolved markup.
+         Keep under ~1000 lines per artifact-file-governance#size_limits.
+         Split into external assets if exceeded. -->
+  </main>
+
+  <!--
+    OPTIONAL: Tweak Protocol instrumentation
+    Only include when brief.tweak_protocol.enabled == true.
+    Ordering is critical — see artifact-tweak-protocol.md Step 3.
+    Canonical spec: squads/design-ops/data/tweak-protocol-spec.yaml
+  -->
+  <!-- <script>
+    // (1) Defaults with canonical markers — strict JSON between markers
+    const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+      "primaryColor": "{{ tweak.primary_color }}",
+      "dark": false
+    }/*EDITMODE-END*/;
+
+    // (2) Namespace everything under __sinkra_designops_tweak_
+    window.__sinkra_designops_tweak_state = { panelOpen: false, values: { ...TWEAK_DEFAULS } };
+
+    // (3) Register listener BEFORE announcing availability (#1 failure mode otherwise)
+    window.addEventListener("message", (e) => {
+      if (e.source !== window.parent) return;
+      if (e.data?.type === "__activate_edit_mode") { /* showTweakPanel() */ }
+      else if (e.data?.type === "__deactivate_edit_mode") { /* hideTweakPanel() */ }
+    });
+
+    // (4) Announce availability AFTER listener is live
+    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+
+    // (5) On in-panel change: apply live + post partial edit to host
+    // function onTweakChange(key, value) {
+    //   applyLive(key, value);
+    //   window.parent.postMessage({ type: "__edit_mode_set_keys", edits: { [key]: value } }, "*");
+    // }
+  </script> -->
+
+  <!--
+    OPTIONAL: Pinned CDN dependencies
+    MUST include integrity="sha384-..." + crossorigin="anonymous".
+    NEVER use @latest, ^, or range pins. Never use Tailwind Play CDN (REJECT-CLAW-004).
+  -->
+  <!-- <script
+    src="https://unpkg.com/react@19.2.0/umd/react.production.min.js"
+    integrity="sha384-{{ sri.react }}"
+    crossorigin="anonymous"
+  ></script> -->
+
+</body>
+</html>

@@ -1,0 +1,56 @@
+version: "1.0"
+generated_at: "2026-04-10"
+generated_by: "design-chief"
+policy: "workspace-first"
+
+squad:
+  name: design-ops
+  domain: design_provider
+  budget_tier: low_cost
+
+use_cases:
+  - workspace-contract-validation
+  - brandbook-extraction
+  - metadata-manifest-governance
+  - accessibility-gates
+  - motion-coverage-validation
+  - provider-self-healing
+
+capability_tools:
+  workspace_contract_validation:
+    priority: high
+    primary:
+      - script:validate-workspace-contracts.cjs
+    fallback: []
+
+  checklist_gate_validation:
+    priority: high
+    primary:
+      - script:validate-checklists-gate.cjs
+    fallback: []
+
+  metadata_generation:
+    priority: high
+    primary:
+      - script:generate-components-metadata.cjs
+      - script:validate-components-metadata.cjs
+    fallback: []
+
+  manifest_governance:
+    priority: high
+    primary:
+      - script:sync-design-manifest.cjs
+      - script:validate-design-manifest-drift.cjs
+    fallback: []
+
+  motion_coverage:
+    priority: high
+    primary:
+      - script:validate-motion-coverage.cjs
+    fallback: []
+
+  deterministic_autofix:
+    priority: medium
+    primary:
+      - script:autofix-deterministic.cjs
+    fallback: []

@@ -1,0 +1,460 @@
+# Design Mappings — Vocabulario Canonico
+# Tabela de traducao UNICA que todos os agentes do design squad
+# consultam ANTES de gerar qualquer componente, pagina ou prompt.
+#
+# Baseado em: google-labs-code/stitch-skills (design-mappings.md + prompt-keywords.md)
+# Estendido com: vocabulario AIOX (brandbook, editorial, brutalism, command-center)
+# Pesquisa adicional: Gemini prompting best practices (2026-03-20)
+#
+# Fonte: docs/research/2026-03-20-stitch-design-intelligence/
+# Epic: epic-stitch-design-intelligence
+# Version: 1.2.0
+# Updated: 2026-03-21
+
+metadata:
+  version: "1.2.0"
+  squad: "aiox-design"
+  created: "2026-03-20"
+  updated: "2026-03-21"
+  source_references:
+    - "Stitch: skills/stitch-design/references/design-mappings.md"
+    - "Stitch: skills/stitch-design/references/prompt-keywords.md"
+    - "AIOX: squads/aiox-design/data/prompt-templates-library.md"
+    - "AIOX: squads/aiox-design/data/atomic-design-principles.md"
+    - "Research: Gemini prompting best practices (outputs/design/gemini-replication-prompt.md)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 1: UI/UX Keywords
+# Traduz termos vagos do usuario em terminologia profissional de UI/UX.
+# Usar SEMPRE o termo "enhanced" no prompt final.
+# ═══════════════════════════════════════════════════════════════════════════
+ui_ux_keywords:
+  # --- Navigation ---
+  - vague: "menu at the top"
+    enhanced: "sticky navigation bar with logo and menu items"
+  - vague: "menu lateral"
+    enhanced: "collapsible side navigation with icon-label pairings"
+  - vague: "breadcrumbs"
+    enhanced: "breadcrumb navigation trail with chevron separators"
+  - vague: "tabs"
+    enhanced: "horizontal tab bar with active state indicator"
+  - vague: "menu hamburguer"
+    enhanced: "hamburger menu with slide-out drawer navigation"
+  - vague: "voltar"
+    enhanced: "back navigation button with contextual label"
+
+  # --- Content Containers ---
+  - vague: "foto grande"
+    enhanced: "high-impact hero section with full-width imagery"
+  - vague: "big photo"
+    enhanced: "high-impact hero section with full-width imagery"
+  - vague: "lista de coisas"
+    enhanced: "responsive card grid with hover states and subtle elevations"
+  - vague: "list of things"
+    enhanced: "responsive card grid with hover states and subtle elevations"
+  - vague: "card"
+    enhanced: "content card with surface layering and hover transition"
+  - vague: "popup"
+    enhanced: "modal dialog with overlay scrim and smooth entry animation"
+  - vague: "modal"
+    enhanced: "modal dialog with glassmorphism overlay and focus trap"
+  - vague: "accordion"
+    enhanced: "collapsible accordion section with animated expand/collapse"
+  - vague: "carousel"
+    enhanced: "horizontal content carousel with pagination dots and swipe gestures"
+  - vague: "slider"
+    enhanced: "content slider with navigation arrows and auto-advance"
+
+  # --- Video & Motion Backgrounds ---
+  - vague: "video de fundo"
+    enhanced: "full-viewport background video with autoplay muted loop, gradient overlay, poster fallback, and prefers-reduced-motion compliance"
+  - vague: "video background"
+    enhanced: "full-viewport background video with autoplay muted loop, gradient overlay, poster fallback, and prefers-reduced-motion compliance"
+  - vague: "hero com video"
+    enhanced: "hero section with autoplay muted looping video, gradient-y overlay for text legibility, and static poster fallback on mobile"
+  - vague: "fundo animado"
+    enhanced: "ambient background video loop with solid dark overlay, Intersection Observer lazy play/pause, and reduced-motion fallback"
+  - vague: "animated background"
+    enhanced: "ambient background video loop with solid dark overlay, Intersection Observer lazy play/pause, and reduced-motion fallback"
+  - vague: "video hero"
+    enhanced: "hero section with full-viewport autoplay video, WebM+MP4 sources, gradient overlay, and static image mobile fallback"
+
+  # --- Forms ---
+  - vague: "formulario"
+    enhanced: "clean form with labeled input fields, validation states, and submit button"
+  - vague: "form"
+    enhanced: "clean form with labeled input fields, validation states, and submit button"
+  - vague: "campo de texto"
+    enhanced: "text input field with floating label and validation feedback"
+  - vague: "dropdown"
+    enhanced: "select dropdown with search filtering and keyboard navigation"
+  - vague: "checkbox"
+    enhanced: "checkbox group with indeterminate state support"
+  - vague: "toggle"
+    enhanced: "toggle switch with on/off states and accessibility labels"
+  - vague: "date picker"
+    enhanced: "date picker with calendar popup and range selection"
+  - vague: "busca"
+    enhanced: "search input with icon, clear button, and autocomplete suggestions"
+
+  # --- Actions ---
+  - vague: "botao"
+    enhanced: "primary call-to-action button with hover and focus states"
+  - vague: "button"
+    enhanced: "primary call-to-action button with micro-interactions"
+  - vague: "link"
+    enhanced: "text link with underline on hover and focus-visible ring"
+  - vague: "botao flutuante"
+    enhanced: "floating action button (FAB) with elevation shadow"
+  - vague: "icone clicavel"
+    enhanced: "icon button with tooltip and focus-visible ring"
+
+  # --- Feedback ---
+  - vague: "notificacao"
+    enhanced: "toast notification with auto-dismiss and action button"
+  - vague: "alerta"
+    enhanced: "alert banner with severity icon and dismiss action"
+  - vague: "loading"
+    enhanced: "skeleton loader with shimmer animation matching content layout"
+  - vague: "progresso"
+    enhanced: "progress bar with percentage label and animated fill"
+  - vague: "erro"
+    enhanced: "inline error message with destructive color and icon"
+  - vague: "badge"
+    enhanced: "status badge with semantic color coding and mono typography"
+
+  # --- Data Display ---
+  - vague: "tabela"
+    enhanced: "data table with sortable columns, row hover, and pagination"
+  - vague: "grafico"
+    enhanced: "data visualization chart with tooltip on hover and legend"
+  - vague: "KPI"
+    enhanced: "KPI metric card with label, value, trend indicator, and sparkline"
+  - vague: "timeline"
+    enhanced: "vertical timeline with date markers, status dots, and content cards"
+
+  # --- Layout ---
+  - vague: "grid"
+    enhanced: "responsive grid layout with consistent gutters and column breakpoints"
+  - vague: "split view"
+    enhanced: "two-column split view with resizable divider"
+  - vague: "header fixo"
+    enhanced: "sticky header with blur backdrop and scroll-triggered elevation"
+  - vague: "footer"
+    enhanced: "site footer with multi-column links, social icons, and legal text"
+  - vague: "sidebar"
+    enhanced: "persistent sidebar with navigation links, icons, and collapse toggle"
+  - vague: "tela cheia"
+    enhanced: "full-viewport layout with centered content and max-width constraint"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 2: Atmosphere Descriptors
+# Traduz adjetivos basicos de "vibe" em descricoes profissionais de atmosfera.
+# Usar no campo "vibe line" do prompt estruturado.
+# ═══════════════════════════════════════════════════════════════════════════
+atmosphere:
+  # --- Stitch Standard ---
+  - basic: "moderno"
+    enhanced: "Clean, minimal, with generous whitespace and high-contrast typography."
+  - basic: "modern"
+    enhanced: "Clean, minimal, with generous whitespace and high-contrast typography."
+  - basic: "profissional"
+    enhanced: "Sophisticated, trustworthy, utilizing subtle shadows and a restricted, premium palette."
+  - basic: "professional"
+    enhanced: "Sophisticated, trustworthy, utilizing subtle shadows and a restricted, premium palette."
+  - basic: "divertido"
+    enhanced: "Vibrant, organic, with rounded corners, bold accent colors, and bouncy micro-animations."
+  - basic: "fun"
+    enhanced: "Vibrant, playful, with rounded corners, bold accent colors, and bouncy micro-animations."
+  - basic: "dark mode"
+    enhanced: "Electric, high-contrast accents on deep slate or near-black backgrounds with soft glows."
+  - basic: "modo escuro"
+    enhanced: "Electric, high-contrast accents on deep slate or near-black backgrounds with soft glows."
+  - basic: "luxo"
+    enhanced: "Elegant, spacious, with fine lines, serif headers, and a focus on high-fidelity photography."
+  - basic: "luxury"
+    enhanced: "Elegant, spacious, with fine lines, serif headers, and a focus on high-fidelity photography."
+  - basic: "tech"
+    enhanced: "Futuristic, neon accents, glassmorphism effects, and technological monospaced typography."
+  - basic: "cyber"
+    enhanced: "Futuristic, neon accents, glassmorphism effects, and technological monospaced typography."
+
+  # --- AIOX Extended ---
+  - basic: "brutalist"
+    enhanced: "Raw, high-density, with sharp 0px edges, tonal layering instead of shadows, asymmetric layouts, and command-center precision."
+  - basic: "brutalista"
+    enhanced: "Raw, high-density, with sharp 0px edges, tonal layering instead of shadows, asymmetric layouts, and command-center precision."
+  - basic: "editorial"
+    enhanced: "Magazine-like spreads with dramatic typography, intentional dead space, fine ruling lines, and photographic focal points."
+  - basic: "command center"
+    enhanced: "High-density data interface with monospace labels, KPI cards, status badges, dark surfaces, and accent-driven hierarchy."
+  - basic: "centro de comando"
+    enhanced: "High-density data interface with monospace labels, KPI cards, status badges, dark surfaces, and accent-driven hierarchy."
+  - basic: "premium"
+    enhanced: "Restrained, opulent, with muted gold accents, generous padding, whisper-soft shadows, and architectural typography."
+  - basic: "minimalista"
+    enhanced: "Stripped to essentials, maximum whitespace, single accent color, functional typography, zero decoration."
+  - basic: "minimal"
+    enhanced: "Stripped to essentials, maximum whitespace, single accent color, functional typography, zero decoration."
+  - basic: "organico"
+    enhanced: "Warm, earthy tones, natural textures, flowing curves, handcrafted feel with organic shapes."
+  - basic: "corporativo"
+    enhanced: "Formal, structured, hierarchical layout with muted blues, clean data tables, and conservative spacing."
+  - basic: "dashboard"
+    enhanced: "Data-first, dense grid of KPI cards and charts, sidebar navigation, dark or neutral surfaces, status-driven color."
+  - basic: "landing page"
+    enhanced: "Conversion-optimized, hero-driven, with clear CTA hierarchy, social proof sections, and scroll-triggered animations."
+  - basic: "saas"
+    enhanced: "Clean, functional, with card-based UI, left sidebar navigation, breadcrumbs, and neutral color system with single accent."
+  - basic: "startup"
+    enhanced: "Bold, energetic, with gradient accents, large hero sections, social proof, and playful micro-interactions."
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 3: Geometry Translation
+# Traduz valores tecnicos de CSS em descricoes fisicas naturais.
+# Usar quando descrevendo shapes em DESIGN.md ou prompts.
+# ═══════════════════════════════════════════════════════════════════════════
+geometry:
+  border_radius:
+    - technical: "rounded-none"
+      css: "0px"
+      natural: "Sharp, squared-off edges"
+    - technical: "rounded-sm"
+      css: "2px"
+      natural: "Barely softened corners"
+    - technical: "rounded"
+      css: "4px"
+      natural: "Slightly softened corners"
+    - technical: "rounded-md"
+      css: "6px"
+      natural: "Gently rounded corners"
+    - technical: "rounded-lg"
+      css: "8px"
+      natural: "Generously rounded corners"
+    - technical: "rounded-xl"
+      css: "12px"
+      natural: "Very rounded, pillow-like corners"
+    - technical: "rounded-2xl"
+      css: "16px"
+      natural: "Heavily rounded, soft container"
+    - technical: "rounded-full"
+      css: "9999px"
+      natural: "Pill-shaped or circular"
+
+  surfaces:
+    - technical: "glass"
+      css: "backdrop-blur + semi-transparent bg"
+      natural: "Glassmorphism with frosted-glass translucency"
+    - technical: "flat"
+      css: "no shadow, solid bg"
+      natural: "Flat, solid surface with no elevation"
+    - technical: "raised"
+      css: "box-shadow small"
+      natural: "Slightly lifted from the surface with a whisper shadow"
+    - technical: "video-bg"
+      css: "position absolute + object-fit cover + overlay"
+      natural: "Full-viewport background video with overlay scrim for text legibility"
+    - technical: "floating"
+      css: "box-shadow large + offset"
+      natural: "Floating high above the surface with ambient occlusion"
+
+  borders:
+    - technical: "border solid"
+      css: "border: 1px solid"
+      natural: "Clean, defined boundary line"
+    - technical: "ghost border"
+      css: "border: 1px solid rgba(255,255,255,0.15)"
+      natural: "Whisper-thin boundary at low opacity"
+    - technical: "ruling line"
+      css: "border: 1px solid rgba(255,255,255,0.20)"
+      natural: "Blueprint-style ledger line for structural guidance"
+    - technical: "divider"
+      css: "border-bottom: 1px solid"
+      natural: "Horizontal separation line between content blocks"
+    - technical: "outline"
+      css: "outline: 2px solid"
+      natural: "External focus ring visible on keyboard interaction"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 4: Depth Descriptors
+# Traduz niveis de elevacao em descricoes visuais de profundidade.
+# Usar quando descrevendo depth/elevation em DESIGN.md ou prompts.
+# ═══════════════════════════════════════════════════════════════════════════
+depth:
+  - level: "flat"
+    description: "No shadows. Focus on color blocking and borders for separation."
+    technique: "Background token shifts only (tonal layering)"
+    shadow_css: "none"
+  - level: "etched"
+    description: "Depth created by tonal shift only. Surface sits on a slightly lighter or darker background, creating a cut-out effect."
+    technique: "Surface Container tiers (Lowest to Highest)"
+    shadow_css: "none"
+  - level: "whisper-soft"
+    description: "Barely perceptible, ultra-diffused shadow for subtle lift."
+    technique: "Minimal shadow with large blur"
+    shadow_css: "box-shadow: 0 4px 20px rgba(0,0,0,0.08)"
+  - level: "soft"
+    description: "Noticeable but gentle elevation. Elements feel slightly raised."
+    technique: "Standard card shadow"
+    shadow_css: "box-shadow: 0 4px 12px rgba(0,0,0,0.12)"
+  - level: "floating"
+    description: "Elements appear suspended well above the surface. High-offset, large blur."
+    technique: "Dropdown, popover, or tooltip shadow"
+    shadow_css: "box-shadow: 0 12px 40px rgba(0,0,0,0.25)"
+  - level: "ambient"
+    description: "Heavy, ultra-diffused ambient occlusion. Feels like natural light casting soft, formless shadows."
+    technique: "Modal or overlay shadow"
+    shadow_css: "box-shadow: 0 20px 50px rgba(0,0,0,0.4)"
+  - level: "inset"
+    description: "Pressed inward. Elements feel recessed into the surface."
+    technique: "Inner shadow for pressed states"
+    shadow_css: "box-shadow: inset 0 2px 6px rgba(0,0,0,0.15)"
+  - level: "glow"
+    description: "Light radiates outward from the element. Used for active or accent states."
+    technique: "Accent-colored shadow with no offset"
+    shadow_css: "box-shadow: 0 0 20px rgba(accent,0.25)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 5: Spacing Descriptors
+# Traduz niveis de espacamento em linguagem natural para prompts.
+# ═══════════════════════════════════════════════════════════════════════════
+spacing:
+  - level: "compact"
+    description: "Alta densidade de informacao. Gaps minimos. Para data tables, dashboards, admin UI."
+    gap_range: "4-8px"
+    tailwind: "gap-1 gap-2 p-2 p-3"
+    when_to_use: "dashboards, settings, data-heavy views"
+
+  - level: "balanced"
+    description: "Espacamento padrao confortavel. Para maioria das interfaces."
+    gap_range: "12-16px"
+    tailwind: "gap-3 gap-4 p-4 p-6"
+    when_to_use: "default para qualquer interface"
+
+  - level: "generous"
+    description: "Whitespace generoso. Respiro visual. Para landing pages, marketing."
+    gap_range: "24-32px"
+    tailwind: "gap-6 gap-8 p-8 p-12"
+    when_to_use: "landing pages, marketing, product pages"
+
+  - level: "very_generous"
+    description: "Espacamento dramatico. Dead space intencional. Para luxury, editorial, hero sections."
+    gap_range: "40-80px"
+    tailwind: "gap-10 gap-16 p-16 p-20"
+    when_to_use: "luxury, editorial, hero sections, brutalism"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 6: Adjective Palettes
+# Sets de adjetivos que capturam uma estetica especifica.
+# Usar quando o usuario diz "quero algo [estilo]" sem especificar detalhes.
+# ═══════════════════════════════════════════════════════════════════════════
+adjective_palettes:
+  minimal:
+    terms: ["minimal", "clean", "uncluttered", "generous whitespace", "breathing room", "subtle", "understated", "refined", "simple", "focused", "distraction-free"]
+
+  professional:
+    terms: ["sophisticated", "polished", "trustworthy", "corporate", "formal", "clean lines", "structured", "organized", "hierarchical"]
+
+  playful:
+    terms: ["vibrant", "colorful", "energetic", "rounded corners", "soft edges", "bold", "expressive", "dynamic", "friendly", "approachable", "warm"]
+
+  premium:
+    terms: ["elegant", "luxurious", "high-end", "dramatic", "bold contrasts", "sleek", "cutting-edge", "exclusive", "boutique", "curated"]
+
+  dark_mode:
+    terms: ["dark theme", "high-contrast accents", "soft glows", "subtle highlights", "deep backgrounds", "muted surfaces"]
+
+  organic:
+    terms: ["earthy tones", "natural colors", "warm", "inviting", "cozy", "textured", "tactile", "handcrafted", "flowing", "organic shapes"]
+
+  brutalist:
+    terms: ["raw", "monolithic", "architectural", "precise", "grid-like", "asymmetric", "stark", "unapologetic", "industrial", "schematic", "blueprint"]
+
+  editorial_print:
+    terms: ["magazine-like", "spread", "typographic", "offset", "open-ended", "bleed", "crop marks", "chapter", "folio", "ruling lines"]
+
+  command_center:
+    terms: ["HUD", "heads-up", "tactical", "military", "radar", "terminal", "dashboard", "telemetry", "status", "matrix", "data-dense"]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 7: Color Role Terminology
+# Vocabulario canonico para referenciar cores por funcao, nao por valor.
+# ═══════════════════════════════════════════════════════════════════════════
+color_roles:
+  backgrounds:
+    - role: "page background"
+      aliases: ["canvas", "void", "base", "fundo"]
+    - role: "surface"
+      aliases: ["card background", "panel", "elevated", "container"]
+    - role: "overlay"
+      aliases: ["scrim", "modal backdrop", "dialog overlay", "backdrop"]
+
+  text:
+    - role: "primary text"
+      aliases: ["heading", "main content", "on-surface", "titulo"]
+    - role: "secondary text"
+      aliases: ["body copy", "description", "dim", "subtitulo"]
+    - role: "muted text"
+      aliases: ["placeholder", "disabled", "ghost", "meta", "hint"]
+    - role: "inverse text"
+      aliases: ["on-primary", "on-accent", "texto escuro em fundo claro"]
+
+  accents:
+    - role: "primary accent"
+      aliases: ["brand color", "main CTA", "active state", "cor principal"]
+    - role: "secondary accent"
+      aliases: ["highlight", "secondary action", "complementar"]
+    - role: "success"
+      aliases: ["positive", "confirmed", "green", "aprovado"]
+    - role: "error"
+      aliases: ["destructive", "danger", "red", "erro"]
+    - role: "warning"
+      aliases: ["caution", "attention", "amber", "alerta"]
+    - role: "info"
+      aliases: ["informational", "link", "blue", "informacao"]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE 8: Atomic Level Mapping
+# Classifica componentes por nivel atomico para routing correto.
+# Usado por @design-chief para decidir qual agente/task acionar.
+# ═══════════════════════════════════════════════════════════════════════════
+atomic_levels:
+  atoms:
+    description: "Blocos basicos que nao podem ser decompostos"
+    examples: ["button", "input", "label", "icon", "heading", "text", "badge", "avatar", "separator", "toggle", "checkbox", "radio"]
+    rules:
+      - "Standalone, reusavel"
+      - "Sem dependencia de outros atoms"
+      - "Usa APENAS tokens (sem valores hardcoded)"
+      - "Single responsibility"
+
+  molecules:
+    description: "Grupos de atoms funcionando como unidade"
+    examples: ["form-field", "search-bar", "card-header", "breadcrumb", "pagination", "alert", "kpi-card", "data-bit", "nav-dropdown"]
+    rules:
+      - "Compoe atoms (nao reimplementa)"
+      - "Adiciona logica de composicao"
+      - "Atoms internos permanecem independentes"
+
+  organisms:
+    description: "Componentes complexos de moleculas e/ou atoms"
+    examples: ["navigation", "login-form", "product-card", "data-table", "sidebar-nav", "hero-section", "pricing-table"]
+    rules:
+      - "Secao distinta da interface"
+      - "Reutilizavel entre templates"
+      - "Gerencia estado interno se necessario"
+
+  templates:
+    description: "Layout de pagina sem conteudo real"
+    examples: ["dashboard-layout", "article-layout", "auth-layout", "settings-layout", "brandbook-layout"]
+    rules:
+      - "Define estrutura da pagina"
+      - "Conteudo placeholder"
+      - "Reutilizavel entre paginas"
+
+  pages:
+    description: "Templates com conteudo real"
+    examples: ["homepage", "product-detail", "user-dashboard", "settings", "brandbook-page"]
+    rules:
+      - "Application-specific"
+      - "Dados reais ou mock data"

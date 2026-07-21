@@ -1,0 +1,200 @@
+id: animation-primitives-contract
+version: "1.0.0"
+status: active_contract_forward_declared
+owner: design-ops
+scope: provider-contract
+origin: "agenmod/claw-design — animations.jsx starter (2026-04-18)"
+
+# Contract for animation primitives. Absorbed from claw-design's animations.jsx
+# starter component. Provides a canonical vocabulary for timeline-based motion
+# artifacts (animated videos, motion-design explainers, scroll animations).
+#
+# This is a CONTRACT file — the implementation lives under the artifact-creation
+# capability (Wave C, ADR-018). Designers can start authoring against the
+# vocabulary below now.
+
+forward_declaration_notice:
+  runtime_status: pending_wave_c
+  adr: "docs/adrs/ADR-018-design-ops-artifact-creation-capability.md"
+
+# =============================================================================
+# PRIMITIVES
+# =============================================================================
+primitives:
+
+  Stage:
+    kind: component
+    element_type: "React component"
+    responsibilities:
+      - "Auto-scale the animation viewport to fit any browser window"
+      - "Render a scrubber (timeline slider)"
+      - "Play/pause controls"
+      - "Letterbox when aspect ratio mismatches (see responsive scaling rule)"
+    props:
+      duration:
+        type: number
+        unit: seconds
+        description: "Total animation duration"
+        required: true
+      aspect_ratio:
+        type: string
+        default: "16:9"
+        options: ["16:9", "16:10", "4:3", "1:1", "9:16"]
+      start_paused:
+        type: boolean
+        default: false
+      background:
+        type: string
+        default: "#000"
+        description: "Letterbox bar color"
+    children: "Sprite elements and/or React components using useTime/useSprite hooks"
+
+  Sprite:
+    kind: component
+    element_type: "React component"
+    responsibilities:
+      - "Declare a timeline segment during which its content is mounted and visible"
+      - "Auto-fade or auto-transform in/out based on entry/exit primitives"
+    props:
+      start:
+        type: number
+        unit: seconds
+        required: true
+      end:
+        type: number
+        unit: seconds
+        required: true
+      entry:
+        type: string
+        optional: true
+        options: [fade, scale, slide_left, slide_right, slide_up, slide_down]
+      exit:
+        type: string
+        optional: true
+        options: [fade, scale, slide_left, slide_right, slide_up, slide_down]
+    children: "Any React content (components, elements)"
+
+# =============================================================================
+# HOOKS
+# =============================================================================
+hooks:
+
+  useTime:
+    kind: hook
+    signature: "useTime(): number"
+    returns: "Current time in seconds within the Stage"
+    usage: "Reactive — component re-renders when time advances"
+    example: "const t = useTime(); // t = 2.4 (seconds)"
+
+  useSprite:
+    kind: hook
+    signature: "useSprite(): { progress: number, phase: 'entering' | 'active' | 'exiting' | 'inactive' }"
+    returns: "Local sprite state — progress (0-1) within its start/end range and current phase"
+    usage: "Call inside a Sprite child to get its relative state"
+    example: |
+      const { progress, phase } = useSprite();
+      return <div style={{opacity: phase === 'active' ? 1 : progress}}>Hi</div>;
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+utilities:
+
+  Easing:
+    kind: object
+    members:
+      - linear
+      - easeIn
+      - easeOut
+      - easeInOut
+      - cubicBezier(x1, y1, x2, y2)
+    usage: "Pass to interpolate() for non-linear timing"
+
+  interpolate:
+    kind: function
+    signature: "interpolate(t: number, input: number[], output: number[], easing?: EasingFn): number"
+    description: "Piecewise-linear interpolation between keyframes with optional easing"
+    example: "const opacity = interpolate(t, [0, 0.5, 1], [0, 1, 0], Easing.easeInOut);"
+
+# =============================================================================
+# ENTRY / EXIT PRIMITIVES
+# =============================================================================
+entry_exit_primitives:
+  supported_types:
+    - fade
+    - scale
+    - slide_left
+    - slide_right
+    - slide_up
+    - slide_down
+  custom_motion:
+    recommendation: "Compose from useTime + interpolate + Easing for anything beyond these six"
+    anti_pattern: "Importing a large animation library when the starter can express the motion"
+
+# =============================================================================
+# FALLBACK LIBRARY
+# =============================================================================
+fallback_library:
+  name: popmotion
+  when_to_use: >-
+    The starter genuinely cannot express the motion (e.g. spring physics,
+    complex gesture-driven animations, orchestrated timeline choreography
+    beyond Stage + Sprite composition).
+  pinned_version: "11.0.5"
+  cdn_url: "https://unpkg.com/popmotion@11.0.5/dist/popmotion.min.js"
+  sri_required: true
+  decision_heuristic: >-
+    If you find yourself writing > 50 lines of manual keyframe math with
+    interpolate(), consider popmotion. If you can express the motion in
+    < 20 lines, stay with the starter.
+
+# =============================================================================
+# DS CONSISTENCY BINDING
+# =============================================================================
+ds_consistency_binding:
+  motion_tokens_source:
+    priority_1: "workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml"
+    priority_2: "packages/tokens-base/tokens/motion.json"
+  required_reads:
+    - duration scale (instant/fast/normal/slow/slower)
+    - easing curves (linear/easeIn/easeOut/easeInOut + business-custom curves)
+  rule: >-
+    Animation duration and easing MUST come from workspace motion tokens.
+    Ad-hoc values like "duration={0.42}" are a consistency violation — use
+    the token's `var(--motion-duration-normal)` equivalent or resolve the
+    numeric value from motion-primitives.yaml at build time.
+
+# =============================================================================
+# PERFORMANCE GUARDRAILS
+# =============================================================================
+performance:
+  - "Prefer CSS transforms (translate, scale, rotate) over layout-triggering properties (width, left, top)"
+  - "Avoid animating box-shadow and filter simultaneously on many elements"
+  - "Use will-change: transform sparingly — only on elements actively animating"
+  - "Reduce motion preference (prefers-reduced-motion: reduce) MUST disable non-essential animations"
+  - "Sprite count > 50 at once: consider splitting into cascading Stages or paging"
+
+# =============================================================================
+# ACCESSIBILITY
+# =============================================================================
+accessibility:
+  - "Scrubber must be keyboard-reachable (arrow keys for +1 sec, shift+arrow for +5 sec)"
+  - "Play/pause toggle must have aria-label that reflects current state"
+  - "prefers-reduced-motion: reduce handler must pause the Stage by default"
+  - "Animations that convey information (e.g. data visualizations) must have a non-motion fallback"
+
+# =============================================================================
+# CONTRACT VERSIONING
+# =============================================================================
+contract_versioning:
+  current: "1.0.0"
+  backward_compatibility: "Any future minor version MUST remain backward-compatible with v1.0.0 props and hooks"
+  breaking_change_gate: "Major bump requires ADR approval"
+
+related:
+  - squads/design-ops/data/starter-components-catalog.yaml#animations
+  - squads/design-ops/data/motion-primitives-registry.yaml
+  - squads/design-ops/scripts/validate-motion-coverage.cjs
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

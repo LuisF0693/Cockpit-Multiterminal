@@ -1,0 +1,104 @@
+# Bench Output Formats v1.0
+# Available output formats for benchmark reports
+# Referenced by: bench-comparison-pipeline.yaml, bench-report.md
+#
+# Each format defines:
+#   - description: what the format produces
+#   - template: markdown template file to use
+#   - when: conditions under which this format is generated
+
+formats:
+  matrix:
+    description: "Feature/capability comparison table"
+    template: bench-matrix-tmpl.md
+    when: "Always (core output)"
+
+  scorecard:
+    description: "Weighted multi-dimension scoring (Forrester-style)"
+    template: bench-scorecard-tmpl.md
+    when: "Always (core output)"
+
+  battle_card:
+    description: "1-page quick comparison for decision makers"
+    template: bench-battle-card-tmpl.md
+    when: "Always (core output)"
+
+  executive_report:
+    description: "Full narrative report with recommendations"
+    template: bench-report-tmpl.md
+    when: "Standard and Full profiles"
+
+  quadrant:
+    description: "2-axis positioning map (Gartner-style)"
+    template: bench-quadrant-tmpl.md
+    when: "Company and Product types"
+
+  radar:
+    description: "4-ring recommendation radar (ThoughtWorks-style)"
+    template: bench-radar-tmpl.md
+    when: "Technology type"
+
+  gap_analysis:
+    description: "Bidirectional gap identification"
+    template: bench-gap-tmpl.md
+    when: "Standard and Full profiles"
+
+  gold_absorption_pack:
+    description: "Decision-grade deep benchmark pack with micro matrix, persona weights, evidence map, scenario winners, battle card, intelligence graph, absorption actions, presentation brief, dashboard intelligence, and implementation readiness gate"
+    template: bench-gold-absorption-tmpl.md
+    when: "Gold Absorption profile"
+    reference: docs/bench/slides-creator-open-source-absorption/
+    reference_benchmarks:
+      - path: docs/bench/slides-creator-open-source-absorption/
+        strength: "micro matrix, personas, score transparency, presentation pack"
+      - path: docs/bench/deepresearch-absorption-benchmark/
+        strength: "scenario winners, evidence ledger, readiness gate, adoption map, anti-decisions"
+    contract: squads/research/data/bench-gold-absorption-contract.json
+    local_contract: docs/bench/{slug}/bench-contract.json
+    customization: "Each Gold benchmark declares its own taxonomy, categories, row unit, scoring model, normalization, weight policy, and tie-break policy according to the user request."
+    minimum_contract:
+      players: 6
+      preferred_players: 8
+      micro_rows: 72
+      preferred_micro_rows: 108
+      cell_fields:
+        - score
+        - confidence
+        - notes
+        - source
+      personas: 6
+      preferred_personas: 10
+      graph_nodes: 40
+      graph_edges: 80
+      score_semantics_required: true
+      gap_resolution_required: true
+      readiness_gate_required: true
+      battle_card_decisions_required: true
+    required_outputs:
+      - MANIFEST.json
+      - INDEX.md
+      - bench-output-dash.json
+      - dashboard-intelligence.md
+      - deep/micro-capability-matrix.json
+      - deep/micro-capability-matrix.md
+      - deep/macro-comparison-matrix.json
+      - deep/macro-comparison-matrix.md
+      - deep/matrix-methodology.md
+      - deep/scoring-transparency.md
+      - scenario-scorecards.json
+      - scenario-scorecards.md
+      - deep/persona-weight-methodology.json
+      - deep/persona-weight-methodology.md
+      - deep/evidence-strength-map.json
+      - deep/evidence-strength-map.md
+      - deep/intelligence-graph.json
+      - deep/intelligence-graph.md
+      - deep/absorption-decision-table.json
+      - deep/absorption-decision-table.md
+      - battle-card.md
+      - presentation-brief.json
+      - presentation-brief.md
+      - bench-completeness-rubric.json
+      - bench-completeness-rubric.md
+      - implementation-readiness-gate.json
+      - implementation-readiness-gate.md

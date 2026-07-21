@@ -1,0 +1,38 @@
+---
+# Template — Provider Governance Pack
+# Owner squad: design-ops
+# Purpose: Governance bundle the design provider publishes — ownership, SLAs, change process, escalation.
+# Lifecycle: draft → validated → approved
+
+id: TEMPLATE
+title: "Provider Governance Pack — <surface>"
+version: "1.0.0"
+status: draft
+published_at: "YYYY-MM-DDTHH:MM:SSZ"
+
+ownership:
+  provider: design-ops
+  legacy_source: design-system  # frozen during migration
+  workspace_chief: workspace-chief
+
+sla:
+  response_hours: 0
+  resolution_hours: 0
+  office_hours: ""
+
+change_process:
+  request_channel: ""
+  approval_required_for: []
+  auto_approve_for: []
+
+escalation:
+  l1: ""
+  l2: ""
+  l3: ""
+
+compliance:
+  constitution_articles: []
+  gates: []
+  audits: []
+
+references: []

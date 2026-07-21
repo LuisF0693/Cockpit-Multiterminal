@@ -1,0 +1,224 @@
+id: window-claude-complete-contract
+version: "1.0.0"
+status: active_contract_forward_declared
+owner: design-ops
+scope: provider-contract
+origin: "Wave B.5 — NEW DISCOVERY from external prompt deep analysis"
+external_reference: "external/claw-design-system-prompt-2026-04-18.txt lines 131-147"
+
+# Contract for HTML artifacts calling Claude directly via window.claude.complete().
+# This is a Wave C runtime — contract only here. Unlocks AI-powered design
+# artifacts that reason, summarize, or generate content at runtime without
+# requiring the artifact author to ship an SDK or API key.
+#
+# IMPORTANT DISCOVERY: This was NOT in our previous absorption passes. The
+# pattern enables artifacts like "summarize pasted text", "generate variant
+# copy", "answer FAQ from document", all inside a self-contained HTML.
+
+forward_declaration_notice:
+  runtime_status: pending_wave_c
+  adr: "docs/adrs/ADR-018-design-ops-artifact-creation-capability.md"
+  impact: >-
+    This is a significant capability — HTML artifacts become AI-enabled
+    surfaces. Demands careful treatment of quota, latency, and failure UX.
+
+# =============================================================================
+# API SURFACE
+# =============================================================================
+api:
+  global: "window.claude.complete"
+
+  call_signatures:
+    string_prompt:
+      signature: "await window.claude.complete(prompt: string): Promise<string>"
+      example: |
+        const text = await window.claude.complete("Summarize this: ...");
+
+    messages_array:
+      signature: |
+        await window.claude.complete({
+          messages: [{ role: 'user', content: '...' }]
+        }): Promise<string>
+      example: |
+        const text = await window.claude.complete({
+          messages: [
+            { role: 'user', content: 'Rewrite in a friendly tone: Hello.' }
+          ]
+        });
+
+# =============================================================================
+# RUNTIME CONSTRAINTS
+# =============================================================================
+runtime_constraints:
+  model: "claude-haiku-4-5"
+  model_fixed: true  # artifact cannot choose a different model
+  output_token_cap: 1024
+  output_token_cap_fixed: true
+  quota_attribution: "shared artifact viewer (not author)"
+  rate_limiting: "per-user"
+
+  implications:
+    - "Do NOT use for long-form generation — 1024 tokens is ~700-800 words"
+    - "Do NOT assume high-capability reasoning — haiku tier"
+    - "Artifacts shared publicly consume the VIEWER's quota, not the author's"
+    - "Viewers may hit rate limits independently — design for graceful degradation"
+
+# =============================================================================
+# USE CASES (by design pattern)
+# =============================================================================
+use_cases:
+
+  summarization:
+    description: "Condense user-provided text to bullets or short summary"
+    example_artifact: "Meeting-notes summarizer embedded in a deck"
+    token_budget_fit: good
+    latency_note: "~1-3 seconds typical"
+
+  variant_generation:
+    description: "Generate alternative copy for user to compare"
+    example_artifact: "Hero headline A/B generator in a landing page prototype"
+    token_budget_fit: good
+    caveat: "Without context caching, quality is haiku-tier"
+
+  classification:
+    description: "Categorize user input into predefined labels"
+    example_artifact: "Feedback sentiment tagger"
+    token_budget_fit: good
+
+  faq_answering:
+    description: "Answer questions from a small embedded knowledge base"
+    example_artifact: "Pricing-page FAQ bot reading embedded docs"
+    token_budget_fit: tight (watch output length)
+
+  translation:
+    description: "Quick language swap of short strings"
+    example_artifact: "Deck speaker-notes translator"
+    token_budget_fit: good
+
+  NOT_RECOMMENDED:
+    - "Long-form content generation (exceeds 1024 tokens)"
+    - "Complex multi-step reasoning (haiku tier; use server-side for this)"
+    - "Real-time chat at scale (rate limits per-user cap)"
+    - "Code generation (use the Claude API, not window.claude.complete)"
+
+# =============================================================================
+# DESIGN GUARDRAILS
+# =============================================================================
+design_guardrails:
+
+  loading_state:
+    rule: "Artifact MUST show a loading state during the await"
+    rationale: "Calls take 1-5 seconds typical; silent UI implies broken"
+    ui_pattern: "Replace target area with skeleton OR show subtle progress indicator"
+
+  error_handling:
+    rule: "Catch and surface errors gracefully — never let the artifact crash silently"
+    required_cases:
+      - rate_limit_hit: "Show friendly 'try again in a moment' message"
+      - network_error: "Retry once, then show fallback"
+      - unavailable: "Some embed contexts may not have window.claude — feature-detect and degrade"
+    example: |
+      try {
+        const result = await window.claude.complete(prompt);
+        renderResult(result);
+      } catch (e) {
+        if (e.message?.includes('rate limit')) {
+          showRateLimitMessage();
+        } else {
+          showFallbackContent();
+        }
+      }
+
+  feature_detection:
+    rule: "Always feature-detect before relying on window.claude"
+    pattern: |
+      if (typeof window.claude?.complete === 'function') {
+        // AI-powered path
+      } else {
+        // Degraded path — static content or no-op
+      }
+    rationale: "Artifact may be opened in contexts where window.claude is not injected"
+
+  input_sanitization:
+    rule: "Never pass unsanitized user input directly as a prompt without structure"
+    pattern: "Frame with explicit instruction — 'User query: {query}. Answer concisely.'"
+    anti_pattern: "window.claude.complete(document.querySelector('textarea').value)"
+
+  output_rendering:
+    rule: "Treat Claude output as untrusted HTML — never render via innerHTML without sanitization"
+    pattern: "Use textContent OR a sanitizer (DOMPurify-equivalent) OR convert markdown via a known-safe renderer"
+    security_binding: squads/design-ops/rules/self-contained-artifact-security.md
+
+# =============================================================================
+# DEFAULT PROMPT TEMPLATE PATTERNS
+# =============================================================================
+prompt_patterns:
+
+  summarization:
+    template: |
+      Summarize the following in 2-3 bullet points, under 100 words total:
+
+      {user_content}
+
+  variant_generation:
+    template: |
+      Generate {N} alternative versions of the following copy, each with a
+      distinct tone: {tones_list}. Keep each under 15 words.
+
+      Original: {user_content}
+
+  classification:
+    template: |
+      Classify the following into exactly one of: {labels_list}.
+      Reply with only the label name.
+
+      Input: {user_content}
+
+# =============================================================================
+# COST & ETHICS AWARENESS
+# =============================================================================
+cost_ethics:
+  quota_warning_pattern: >-
+    Since calls consume the VIEWER's quota (not author's), aggressive use in
+    shared artifacts can impact recipients. Design for restraint:
+    - Trigger on user action, not on page load
+    - Cache results for repeated queries
+    - Provide a clearly-labeled "AI" button so viewers know they're opting in
+
+  transparency_pattern: >-
+    Artifacts using AI should label it. Example: a small "Powered by Claude"
+    badge or an inline note ("AI-generated suggestion — verify before use").
+
+# =============================================================================
+# INTEGRATION WITH DESIGN-ARTIFACT-CYCLE
+# =============================================================================
+cycle_integration:
+  phase_01_ask:
+    new_question: "Deve usar AI em runtime? (para resumir, classificar, gerar variações, etc.)"
+    captured_in: brief.exploration.ai_powered_runtime
+  phase_04_build:
+    behavior: "If brief.exploration.ai_powered_runtime = true, generate artifact with window.claude integration following guardrails"
+  phase_07_verify:
+    new_checks:
+      - "AI call paths have loading states"
+      - "AI call paths have error handling"
+      - "AI call paths feature-detect window.claude"
+      - "User input is sanitized before prompt construction"
+      - "AI output is not rendered via innerHTML without sanitization"
+
+# =============================================================================
+# REJECTIONS
+# =============================================================================
+explicit_rejections:
+  - rejection: "Use window.claude for critical business logic"
+    rationale: "Haiku + 1024 token cap + rate limit = not reliable enough for business-critical paths. Claude API server-side is the answer."
+  - rejection: "Silent AI calls triggered on page load"
+    rationale: "Consumes viewer quota without opt-in. Always require explicit user action."
+  - rejection: "Render AI output as raw HTML without sanitization"
+    rationale: "XSS risk. The model can output strings that include tags."
+
+related:
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

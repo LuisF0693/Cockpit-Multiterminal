@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "motion-map-v1",
+  "title": "Motion Map Schema",
+  "description": "Contrato formal entre extraction (Fase 3) e replication (Fase 4) do Kinetic Design System. Define a estrutura do motion-map.json gerado pelo pipeline ds-motion-extraction e consumido por ds-kinetic-replication.",
+  "type": "object",
+  "required": ["$schema", "metadata", "entries"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "motion-map-v1",
+      "description": "Versao do schema. Deve ser 'motion-map-v1'."
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "entries": {
+      "type": "array",
+      "description": "Lista de animacoes e interacoes extraidas, cada uma classificada contra o primitives registry.",
+      "items": {
+        "$ref": "#/$defs/Entry"
+      }
+    },
+    "token_recommendations": {
+      "$ref": "#/$defs/TokenRecommendations"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ConfidenceLevel": {
+      "type": "string",
+      "enum": ["ALTA", "MEDIA", "BAIXA"],
+      "description": "Nivel de confianca da classificacao. ALTA (>80%): match 1:1 de propriedades. MEDIA (50-80%): composicao provavel ou delta >50ms. BAIXA (<50%): sem match claro ou scroll-driven parcial."
+    },
+    "ExtractionScope": {
+      "type": "string",
+      "enum": ["full", "css-only", "cdp-only", "interactions"],
+      "description": "Escopo da extracao executada."
+    },
+    "AnimationSource": {
+      "type": "string",
+      "enum": ["css", "cdp", "interaction"],
+      "description": "Origem da captura: css (CSSOM static), cdp (CDP Animation Domain runtime), interaction (hover/active/focus diff)."
+    },
+    "AnimationType": {
+      "type": "string",
+      "enum": ["CSSAnimation", "CSSTransition", "WebAnimation"],
+      "description": "Tipo de animacao conforme Web Animations API."
+    },
+    "Metadata": {
+      "type": "object",
+      "description": "Metadados da extracao: URL fonte, data, escopo, resumo de classificacao.",
+      "required": ["source_url", "extraction_date", "extraction_scope", "total_entries"],
+      "properties": {
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL de onde as animacoes foram extraidas."
+        },
+        "extraction_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora da extracao em ISO 8601."
+        },
+        "extraction_scope": {
+          "$ref": "#/$defs/ExtractionScope"
+        },
+        "playwright_version": {
+          "type": "string",
+          "description": "Versao do Playwright usada na extracao."
+        },
+        "phases_completed": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "description": "Fases da extracao completadas (1-5)."
+        },
+        "total_entries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total de entries (animacoes + interacoes) no mapa."
+        },
+        "classification_summary": {
+          "$ref": "#/$defs/ClassificationSummary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ClassificationSummary": {
+      "type": "object",
+      "description": "Resumo quantitativo das classificacoes por camada do registry.",
+      "properties": {
+        "primitives": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Contagem por primitivo (ex: { fadeIn: 12, slideIn: 8 })."
+        },
+        "compositions": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Contagem por composicao (ex: { reveal: 5, heroEntrance: 1 })."
+        },
+        "choreographies": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Contagem por coreografia (ex: { staggerGrid: 2 })."
+        },
+        "unclassified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total de animacoes sem match no registry."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Entry": {
+      "type": "object",
+      "description": "Uma animacao ou interacao extraida de um elemento do DOM.",
+      "required": ["id", "selector", "animation_type", "source", "properties", "classification"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(anim|int)-\\d{3,}$",
+          "description": "Identificador unico da entry (anim-001 para animacoes, int-001 para interacoes)."
+        },
+        "selector": {
+          "type": "string",
+          "description": "CSS selector do elemento animado (ex: 'section.hero > h1')."
+        },
+        "element_tag": {
+          "type": "string",
+          "description": "Tag HTML do elemento (ex: 'h1', 'button', 'div')."
+        },
+        "animation_type": {
+          "$ref": "#/$defs/AnimationType"
+        },
+        "source": {
+          "$ref": "#/$defs/AnimationSource"
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["load", "scroll", "hover", "active", "focus", "intersection"],
+          "description": "Evento que dispara a animacao."
+        },
+        "properties": {
+          "$ref": "#/$defs/AnimatedProperties"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "token_mapping": {
+          "$ref": "#/$defs/TokenMapping"
+        },
+        "raw_data": {
+          "$ref": "#/$defs/RawData"
+        }
+      },
+      "additionalProperties": false
+    },
+    "AnimatedProperties": {
+      "type": "object",
+      "description": "Propriedades CSS animadas extraidas do elemento.",
+      "properties": {
+        "css_properties": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lista de propriedades CSS animadas (ex: ['opacity', 'transform'])."
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Duracao da animacao em milissegundos."
+        },
+        "delay_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Delay da animacao em milissegundos."
+        },
+        "easing": {
+          "type": "string",
+          "description": "Funcao de easing (ex: 'cubic-bezier(0, 0, 0.2, 1)', 'ease-out', 'linear')."
+        },
+        "iterations": {
+          "type": ["number", "string"],
+          "description": "Numero de iteracoes. 'infinite' para loops.",
+          "examples": [1, "infinite"]
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["normal", "reverse", "alternate", "alternate-reverse"],
+          "description": "Direcao da animacao."
+        },
+        "fill": {
+          "type": "string",
+          "enum": ["none", "forwards", "backwards", "both"],
+          "description": "Fill mode da animacao."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Classification": {
+      "type": "object",
+      "description": "Classificacao da animacao contra o primitives registry do design system.",
+      "required": ["primitive_match", "confidence"],
+      "properties": {
+        "primitive_match": {
+          "type": "string",
+          "enum": [
+            "fadeIn", "fadeOut", "slideIn", "slideOut", "scaleIn",
+            "blur", "rotate", "clipReveal", "colorShift", "parallax",
+            "unclassified"
+          ],
+          "description": "Primitivo do registry que melhor corresponde, ou 'unclassified' se nenhum match."
+        },
+        "confidence": {
+          "$ref": "#/$defs/ConfidenceLevel"
+        },
+        "confidence_reason": {
+          "type": "string",
+          "description": "Explicacao do nivel de confianca (ex: 'opacity + translateY matches slideIn+fadeIn pattern')."
+        },
+        "composition": {
+          "type": ["string", "null"],
+          "description": "ID da composicao se a animacao faz parte de uma (ex: 'reveal', 'heroEntrance'). null se nao e composicao.",
+          "examples": ["reveal", "heroEntrance", "parallaxLayer", null]
+        },
+        "choreography": {
+          "type": ["string", "null"],
+          "description": "ID da coreografia se a animacao faz parte de uma (ex: 'staggerGrid', 'scrollTimeline'). null se nao e coreografia.",
+          "examples": ["staggerGrid", "scrollTimeline", null]
+        },
+        "matched_properties": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Propriedades CSS que fundamentaram o match (ex: ['opacity', 'transform.translateY'])."
+        }
+      },
+      "additionalProperties": false
+    },
+    "TokenMapping": {
+      "type": "object",
+      "description": "Mapeamento dos valores extraidos para tokens do motion-tokens-schema.",
+      "properties": {
+        "duration_token": {
+          "type": ["string", "null"],
+          "description": "Token de duracao mais proximo (ex: 'motion.duration.moderate'). null se nenhum match.",
+          "examples": ["motion.duration.base", "motion.duration.moderate", "motion.duration.slow"]
+        },
+        "duration_delta_ms": {
+          "type": "number",
+          "description": "Diferenca em ms entre o valor extraido e o token mapeado. <50ms para ALTA confianca."
+        },
+        "easing_token": {
+          "type": ["string", "null"],
+          "description": "Token de easing mais proximo (ex: 'motion.easing.ease-out'). null se nenhum match.",
+          "examples": ["motion.easing.ease-out", "motion.easing.ease-in-out", "motion.easing.spring"]
+        },
+        "easing_delta": {
+          "type": "number",
+          "description": "Distancia euclidiana entre curva extraida e curva do token. <0.05 para ALTA confianca."
+        },
+        "stagger_token": {
+          "type": ["string", "null"],
+          "description": "Token de stagger se detectado pattern de delay crescente (ex: 'motion.stagger.base'). null se nao aplicavel.",
+          "examples": ["motion.stagger.subtle", "motion.stagger.base", null]
+        }
+      },
+      "additionalProperties": false
+    },
+    "RawData": {
+      "type": "object",
+      "description": "Dados brutos para debug: keyframes, computed values, CDP payload.",
+      "properties": {
+        "keyframes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keyframe"
+          },
+          "description": "Array de keyframes extraidos da animacao."
+        },
+        "computed_values": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Mapa de propriedade -> valor computado antes da animacao (getComputedStyle snapshot)."
+        },
+        "cdp_payload": {
+          "type": "object",
+          "description": "Payload bruto do CDP Animation.animationStarted event. Preservado para debug e re-classificacao.",
+          "properties": {
+            "animation_id": {
+              "type": "string",
+              "description": "ID da animacao no CDP."
+            },
+            "name": {
+              "type": "string",
+              "description": "Nome da animacao (@keyframes name ou ''  para transitions)."
+            },
+            "type": {
+              "type": "string",
+              "description": "Tipo CDP: CSSTransition, CSSAnimation, WebAnimation."
+            },
+            "source": {
+              "type": "object",
+              "description": "Source object do CDP com timing details.",
+              "properties": {
+                "delay": { "type": "number" },
+                "endDelay": { "type": "number" },
+                "duration": { "type": "number" },
+                "iterationStart": { "type": "number" },
+                "iterations": { "type": "number" },
+                "fill": { "type": "string" },
+                "direction": { "type": "string" },
+                "easing": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "interaction_diff": {
+          "type": "object",
+          "description": "Diff de propriedades antes/depois de interacao (hover, active, focus).",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "before": { "type": "string" },
+              "after": { "type": "string" }
+            },
+            "required": ["before", "after"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Keyframe": {
+      "type": "object",
+      "description": "Um keyframe individual de uma animacao.",
+      "required": ["offset"],
+      "properties": {
+        "offset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Posicao do keyframe (0.0 a 1.0)."
+        },
+        "easing": {
+          "type": "string",
+          "description": "Easing deste keyframe para o proximo."
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "description": "Propriedades CSS animadas neste keyframe (ex: opacity: '0', transform: 'translateY(20px)')."
+      }
+    },
+    "TokenRecommendations": {
+      "type": "object",
+      "description": "Recomendacoes de tokens derivadas dos valores extraidos via clustering.",
+      "properties": {
+        "duration_clusters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DurationCluster"
+          },
+          "description": "Clusters de duracao encontrados nos dados extraidos."
+        },
+        "easing_clusters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EasingCluster"
+          },
+          "description": "Clusters de easing encontrados nos dados extraidos."
+        }
+      },
+      "additionalProperties": false
+    },
+    "DurationCluster": {
+      "type": "object",
+      "description": "Um cluster de duracoes similares encontrado na extracao.",
+      "required": ["centroid_ms", "count"],
+      "properties": {
+        "centroid_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Centroide do cluster em milissegundos."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Quantidade de animacoes neste cluster."
+        },
+        "suggested_token": {
+          "type": "string",
+          "description": "Token sugerido do motion-tokens-schema (ex: 'motion.duration.base')."
+        }
+      },
+      "additionalProperties": false
+    },
+    "EasingCluster": {
+      "type": "object",
+      "description": "Um cluster de easings similares encontrado na extracao.",
+      "required": ["centroid", "count"],
+      "properties": {
+        "centroid": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "Centroide cubic-bezier [x1, y1, x2, y2]."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Quantidade de animacoes neste cluster."
+        },
+        "suggested_token": {
+          "type": "string",
+          "description": "Token sugerido do motion-tokens-schema (ex: 'motion.easing.ease-out')."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

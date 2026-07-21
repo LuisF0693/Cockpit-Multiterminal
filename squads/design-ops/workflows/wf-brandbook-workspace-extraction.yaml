@@ -1,0 +1,84 @@
+workflow:
+  type: legacy
+  name: Brandbook Workspace Extraction
+  id: wf-brandbook-workspace-extraction
+  version: 1.0.0
+  description: Workflow para extrair conhecimento de brandbook implementado em código e materializar contratos canônicos no workspace (workspace-first).
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*extract-brandbook-workspace"
+  estimated_duration: 30-90min
+  sequence:
+    - step: resolve-contracts
+      id: resolve-contracts
+      phase: 1
+      phase_name: Resolver contratos canônicos
+      agent: design-chief
+      action: node squads/design-ops/scripts/resolve-workspace-contracts.cjs --business={business} --format=yaml
+      next: extract-and-map
+    - step: extract-and-map
+      id: extract-and-map
+      phase: 2
+      phase_name: Extrair e mapear brandbook
+      agent: design-chief
+      action: execute_task_dops-extract-brandbook-to-workspace-contracts
+      next: validate-contracts
+    - step: validate-contracts
+      id: validate-contracts
+      phase: 3
+      phase_name: Validar contratos
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-workspace-contracts.cjs --business={business} --strict --format=json
+      next: run-checklists
+    - step: run-checklists
+      id: run-checklists
+      phase: 4
+      phase_name: Executar checklists de qualidade e acessibilidade
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business} --ds-root={ds_root}
+      next: validate-yaml
+    - step: validate-yaml
+      id: validate-yaml
+      phase: 5
+      phase_name: Validar YAML alterado
+      agent: design-chief
+      action: npm run validate:yaml:changed
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  required:
+    - name: business
+      description: "Business slug (ex.: aiox)"
+    - name: ds_root
+      description: Caminho raiz do brandbook implementado em código
+  optional:
+    - name: workspace_design_root
+      description: Caminho de override para contratos no workspace
+
+outputs:
+  required:
+    - workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+    - workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+    - workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+    - workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+  validation_artifacts:
+    - strict_contract_validation_json
+    - yaml_incremental_validation_log
+
+quality_gates:
+  - id: gate-contracts-strict
+    check: validate-workspace-contracts
+    blocking: true
+  - id: gate-a11y-and-quality
+    check: checklists
+    checklist_refs:
+      - squads/design-ops/checklists/ds-core-accessibility-minimum.yaml
+      - squads/design-ops/checklists/dops-accessibility-wcag-aa.yaml
+      - squads/design-ops/checklists/dops-component-quality.yaml
+      - squads/design-ops/checklists/dops-a11y-release-gate.yaml
+    blocking: true
+  - id: gate-yaml
+    check: "validate:yaml:changed"
+    blocking: true

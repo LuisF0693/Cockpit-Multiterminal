@@ -1,0 +1,239 @@
+# DS Advocacy Frameworks -- extraido de dan-mall.md
+# Source: STORY-128.4 BLK-001
+# Origin: Dan Mall / SuperFriendly
+version: "1.0.0"
+
+frameworks:
+  - id: element-collages
+    name: "Element Collages"
+    category: visual_exploration
+    origin: "Dan Mall / SuperFriendly"
+    source: "[SOURCE: DM-OURO-001]"
+    purpose: >
+      A collection of design elements (typography, color, icons, imagery, components)
+      that communicate art direction and FEEL without requiring fully realized page layouts.
+      "An assembly of disparate pieces without specific logic or order."
+    when_to_use:
+      - "Early design phases - exploring direction"
+      - "When full mockups are premature"
+      - "When ideas come in bursts"
+      - "Component-driven development workflows"
+      - "Responsive design projects"
+    when_not_to_use:
+      - "Final stakeholder approval (use comps)"
+      - "Information architecture decisions (use wireframes)"
+      - "Initial inspiration (use moodboards)"
+    process:
+      phase_1_visual_inventory:
+        - "Collect questions during client kickoff about design direction"
+        - "Assemble visual examples pairing questions with industry references"
+        - "Present to client for feedback on direction"
+      phase_2_element_collages:
+        - "Create static document showcasing key design components"
+        - "Design multiple approaches - variations for each element"
+        - "Consider multiple viewports"
+        - "Use as conversation catalyst (not approval document)"
+      phase_3_integration:
+        - "Merge collages with site architecture"
+        - "Move to browser for implementation"
+        - "Create flexible elements and shells"
+    key_questions:
+      - "What should this site FEEL like? (not look like)"
+      - "Which elements are candidates for exploration?"
+      - "What can I document now without full context?"
+    implementation_checklist:
+      - "Visual inventory completed?"
+      - "Multiple variations per element?"
+      - "Documented as conversation starter, not approval doc?"
+      - "Ready to move to browser after consensus?"
+
+  - id: hot-potato-process
+    name: "Hot Potato Process"
+    category: collaboration
+    origin: "Dan Mall & Brad Frost"
+    source: "[SOURCE: DM-OURO-002]"
+    purpose: >
+      Ideas are passed quickly back and forth from designer to developer
+      and back to designer then back to developer for the ENTIRETY
+      of a product creation cycle.
+    vs_traditional_handoff:
+      traditional:
+        - "One-way flow: Designer -> Developer"
+        - "Designer must be perfect in one pass"
+        - "Handoff happens once, at the end"
+      hot_potato:
+        - "Continuous back-and-forth throughout cycle"
+        - "Ideas passed rapidly"
+        - "Iteration throughout, not just at end"
+    implementation:
+      co_located:
+        method: "Sit physically together"
+        insight: "Even longtime collaborators gain new insights within minutes of sitting together"
+      remote_sync:
+        method: "Use real-time video chat"
+        tip: "Leave Zoom channels open for hours as office proxy"
+      remote_async:
+        method: "Trade recorded walkthroughs"
+        tools:
+          - "Voxer"
+          - "Marco Polo"
+          - "Loom"
+    key_quote: >
+      If you can't sit together in person or trade recordings...
+      you might have to come to terms with the fact that
+      you're not truly working together.
+    implementation_checklist:
+      - "Designer and developer can communicate in real-time?"
+      - "Channels open during work hours?"
+      - "Iteration happening throughout, not just at handoff?"
+      - "Both understand how the other works?"
+
+  - id: stakeholder-buyin-framework
+    name: "Stakeholder Buy-in Framework"
+    category: organizational_change
+    origin: "Dan Mall / SuperFriendly"
+    source: "[SOURCE: DM-OURO-003]"
+    purpose: >
+      Get design system budget by showing visual evidence of current pain,
+      not by explaining methodology.
+    technique:
+      step_1: "Collect all websites/properties from specific timeframe (e.g., 100+ from one year)"
+      step_2: "Print each as 3x3 inch thumbnail"
+      step_3: "Mount all thumbnails on large black mounting boards"
+      step_4: "Present to executives as visual evidence"
+    presentation:
+      pain_point_1: "Here are all the websites we developed - look how different and disparate they are"
+      pain_point_2: "Here's how much money we wasted on that"
+      pain_point_3: "All the wasted effort reinventing the wheel every time"
+    comparison:
+      - "Create SECOND board showing what consistency COULD look like"
+      - "Redesign critical elements (headers, buttons)"
+      - "Compare apples to apples"
+    roi_arguments:
+      simple_pitch: "Do you want this task to be months of complicated code updates or days of easy configuration changes?"
+      quantified:
+        - "Design teams: 38% efficiency improvement"
+        - "Development teams: 31% efficiency improvement"
+        - "Typical 5-year ROI: 135%"
+    implementation_checklist:
+      - "Visual evidence collected (thumbnails)?"
+      - "Pain quantified (time, money, inconsistency)?"
+      - "Comparison board created?"
+      - "ROI calculated?"
+
+objection_algorithms:
+  - id: stakeholders-want-full-page-mockups
+    name: "Stakeholders Want Full Page Mockups"
+    trigger: "Clients/stakeholders push back on Element Collages, want complete pages"
+    diagnosis: >
+      The first round of designs are intended to raise more questions
+      than provide answers. Element Collages are conversation starters,
+      not approval documents.
+    steps:
+      - step: understand
+        question: "What are they really asking for?"
+        look_for:
+          - "Fear of ambiguity"
+          - "Need for something tangible"
+          - "Past experience with unclear deliverables"
+      - step: reframe
+        action: "Explain feel vs look"
+        script: >
+          What you're really asking is 'what will this look like?'
+          But what we need to explore first is 'what should this FEEL like?'
+          Element Collages let us explore direction without
+          committing to a layout that might be wrong.
+      - step: offer_path
+        action: "Show the progression"
+        progression:
+          - "Element Collages -> establish direction"
+          - "Consensus on feel -> move to browser"
+          - "Browser prototype -> full implementation"
+      - step: compromise
+        if_still_resistant: >
+          Let's do one Element Collage round first.
+          If after that you still need full comps, we can do that.
+          But I've never seen a client need them after seeing collages.
+    output_format: "DIAGNOSIS -> REFRAME -> PATH -> COMPROMISE"
+
+  - id: ds-will-eliminate-designers
+    name: "Design Systems Will Eliminate Designers"
+    trigger: "Executives fear DS removes need for design work"
+    diagnosis: >
+      Design systems should just help you design better.
+      They don't eliminate design - they eliminate USELESS decisions.
+    steps:
+      - step: acknowledge
+        script: >
+          I understand the concern. You might think
+          'if we have a design system, we don't need designers.'
+          That's a common misconception.
+      - step: correct
+        script: >
+          Design systems eliminate useless decisions -
+          'which shade of blue?' 'what's our button style?'
+          But they don't eliminate the REAL design work -
+          solving user problems, creating new experiences.
+      - step: position
+        script: >
+          Think of it as a tool in the arsenal.
+          A chef doesn't become unnecessary because
+          they have good knives. Good tools make
+          good designers even better.
+    output_format: "ACKNOWLEDGE -> CORRECT -> POSITION"
+
+  - id: no-budget-for-ds
+    name: "We Don't Have Budget for Design System"
+    trigger: "Stakeholders say there's no budget"
+    diagnosis: >
+      Show people the pain. This is the pain we're experiencing
+      and here is a solution that will help alleviate that pain.
+    steps:
+      - step: prepare
+        action: "Collect visual evidence"
+        tasks:
+          - "Screenshot 100+ properties"
+          - "Print as thumbnails"
+          - "Mount on boards"
+      - step: present
+        script: >
+          Look at all the websites we built this year.
+          Look how different they are.
+          Here's how much we spent on that inconsistency.
+          Here's how much we wasted reinventing the wheel.
+      - step: compare
+        action: "Show what consistency could look like"
+        script: >
+          Now look at this board - same sites with consistent elements.
+          Which would you rather have?
+      - step: roi
+        script: >
+          Do you want this task to be months of complicated code updates
+          or days of easy configuration changes?
+          The ROI typically shows 135% return over 5 years.
+    output_format: "EVIDENCE -> COST -> COMPARISON -> ROI"
+
+  - id: not-big-enough-for-ds
+    name: "We're Not Big Enough for Design System"
+    trigger: "Team thinks they're too small"
+    diagnosis: >
+      I don't think size matters. It's about how many
+      digital properties you manage.
+    steps:
+      - step: assess
+        questions:
+          - "How many digital properties do you manage?"
+          - "How often do you rebuild the same things?"
+          - "How consistent is your brand across properties?"
+      - step: reframe
+        script: >
+          It's not about team size - it's about
+          how many times you're reinventing the wheel.
+          Even a 3-person team with 5 properties
+          can benefit from shared components.
+      - step: start_small
+        script: >
+          You don't need a full design system.
+          Start with the 3 components you rebuild most often.
+          Codify those. See what happens.
+    output_format: "ASSESS -> REFRAME -> ACTION"

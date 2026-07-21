@@ -1,0 +1,16 @@
+version: "1.0.0"
+updated_at: "2026-03-28"
+
+infrastructure:
+  runtime_entrypoint:
+    connection: "scripts/load-context.cjs"
+    service_ref: "squads/design-system/scripts/"
+  validation_chain:
+    integration: "scripts/validate-design-squad.py"
+    service_ref: "squads/design-system/data/quality-gates.yaml"
+  registry_sync:
+    connection: "scripts/runtime-paths.cjs"
+    service_catalog: "squads/design-system/data/design-system-service-catalog.yaml"
+  workspace_handoff:
+    integration: "templates/map-generated-handoff-tmpl.yaml"
+    service_ref: "workspace/businesses/"

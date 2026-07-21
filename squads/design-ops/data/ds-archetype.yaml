@@ -1,0 +1,561 @@
+# DS Archetype — Tailwind v4 + shadcn/ui + TypeScript (framework-agnostic)
+#
+# Formalization of the pattern emergent across 3 reference implementations:
+#   - apps/aiox-brandbook/       (full profile, framework=next — Storybook + DTCG + specialized primitives)
+#   - apps/anthropic-ds/         (lean profile, framework=next — reference execution of DS migration workflow)
+#   - apps/redpine-ds/           (lean profile, framework=next — minimal ~24 primitives)
+#
+# The archetype separates three tiers that together let the workflow produce
+# non-identical DSs from a shared skeleton:
+#   1. INVARIANT       — locked; every DS on this archetype has it (framework-agnostic)
+#   2. PARAMETERIZED   — shaped by brief inputs (profile, framework, brand colors, typography)
+#   3. EMERGENT        — discovered per-brand from the source static DS
+#
+# v2.0.0 (2026-04-19): promoted framework from locked Next.js to parameterized.
+# Supported frameworks: next, vite (MVP). Architecture open for astro/remix/sveltekit.
+
+archetype:
+  id: ds-tailwind-shadcn
+  version: 2.0.0
+  description: >-
+    Canonical Design System archetype. Framework-agnostic core: Tailwind CSS v4 +
+    shadcn/ui (new-york) + Radix via `radix-ui` namespace + TypeScript strict.
+    Target framework is a PARAMETER (next, vite, astro, remix, sveltekit) with
+    per-framework shape defining config files, routing, image/link primitives,
+    theme provider wiring, and build commands. Icons and animations are
+    BRAND-DRIVEN (defaults: lucide-react + tw-animate-css, but per-business override
+    is first-class — see `brand_driven` section). Produces a browseable DS surface
+    (tokens, primitives, preview routes, kit routes) from any static DS source.
+  owner: design-ops
+  evidence:
+    - app: apps/aiox-brandbook
+      profile: full
+      notes: "Storybook + DTCG tokens sync + 90+ primitives with stories"
+    - app: apps/anthropic-ds
+      profile: lean
+      notes: "Reference execution of ds-static-to-dynamic-migration workflow (24 primitives + 4 composition + 3 kits)"
+    - app: apps/redpine-ds
+      profile: lean
+      notes: "Minimal — 24 primitives, no Storybook, no DTCG"
+
+# =============================================================================
+# 1. INVARIANT — always present, non-negotiable across any DS built with this
+# =============================================================================
+
+invariant:
+
+  stack:
+    runtime: "Node.js >= 18"
+    language: "TypeScript strict"
+    styling: "Tailwind CSS v4 (@tailwindcss/postcss)"
+    component_kit: "shadcn/ui (style: new-york)"
+    headless_primitives: "Radix UI (via `radix-ui` namespace package — NOT individual @radix-ui/* packages)"
+    class_utils: ["class-variance-authority", "clsx", "tailwind-merge"]
+    # NOT in invariant: framework (next|vite|astro|...), react version, router, image/link primitive, theme provider.
+    # Those are in parameterized.framework — see shape per framework.
+    # NOT in invariant: icons + animations (BRAND-DRIVEN — see brand_driven below).
+
+  brand_driven:
+    # Per-business choices. Defaults exist for fast bootstrap, but override is first-class.
+    # Rationale: 39 reference DS analyzed (2026-04-27) — mature DS publish OWN icon systems,
+    # icon library is brand expression not stack constraint. Same for animation library.
+    # See: squads/design-ops/rules/stack-invariant-vs-framework-parameterized.md
+    icons:
+      default: "lucide-react"
+      alternatives:
+        - "@phosphor-icons/react"     # marketing / brand-rich / e-commerce (4 weights)
+        - "@heroicons/react"          # tailwind-canonical / minimalist
+        - "@tabler/icons-react"       # wide variety (5000+ icons)
+        - "react-icons"               # multi-pack aggregator (logos / SaaS brands)
+        - "@iconify/react"            # 200k+ icons via Iconify API
+        - "internal-svg-component"    # brand-owned mark; small icon set
+    animations:
+      default: "tw-animate-css"
+      alternatives:
+        - "framer-motion"             # marketing / hero / gesture-driven
+        - "motion"                    # vanilla; framework-agnostic
+        - "@formkit/auto-animate"     # list/grid reorder
+        - "@react-spring/web"         # physics-based, low-level
+        - "css-keyframes"             # zero-dep micro-interactions
+
+  config_files:
+    required_all_frameworks:
+      - package.json                  # deps + scripts (dev/build/start/lint/typecheck)
+      - tsconfig.json                 # strict true; paths @/* → ./src/*
+      - postcss.config.mjs            # @tailwindcss/postcss only (unified across frameworks)
+      - components.json               # shadcn: new-york, rsc (framework-dependent), cssVariables true, baseColor neutral
+      - .gitignore
+    framework_specific:
+      note: "See parameterized.framework.shape.{framework}.config_files — e.g., next.config.ts for next, vite.config.ts + index.html for vite."
+
+  src_layout:
+    required_all_frameworks:
+      - src/components/ui/            # shadcn-style primitives (path identical across frameworks)
+      - src/lib/utils.ts              # cn() helper (twMerge + clsx)
+    framework_specific:
+      note: "Entry file + globals.css path varies by framework. See parameterized.framework.shape.{framework}.src_layout."
+    optional:
+      - src/components/{logo,typography,nav}.tsx  # composition (brand-parameterized)
+      - src/hooks/
+      - src/styles/
+      - src/design-system/            # token source-of-truth (full profile only)
+
+  token_architecture:
+    description: "Four-tier token resolution — generic shape, brand-specific values"
+    tiers:
+      - tier: 1
+        name: raw_hsl
+        description: "Space-separated HSL per channel. Enables dark-mode override via single-var flip."
+        example: "--_bg-100: 48 33.3% 97.1%;"
+        location: ":root in globals.css"
+      - tier: 2
+        name: semantic
+        description: "Named design aliases consumed by kit code. Resolves to raw HSL."
+        example: "--bg: hsl(var(--_bg-100));"
+        location: ":root in globals.css"
+      - tier: 3
+        name: shadcn_slots
+        description: "The surface names shadcn expects (background/foreground/primary/card/etc)."
+        example: "--background: var(--bg); --primary: var(--ds-accent);"
+        location: ":root in globals.css"
+      - tier: 4
+        name: theme_inline
+        description: "@theme inline block — wires CSS vars into Tailwind utilities."
+        example: "--color-background: var(--background); --text-h1: var(--fs-h1);"
+        location: "@theme inline block in globals.css"
+
+  dark_mode:
+    mechanism: "`.dark` class on any ancestor flips raw HSL vars (framework-agnostic)"
+    variant: "@custom-variant dark (&:is(.dark *));"
+    persistence: "Framework-specific — next-themes works for next AND vite (package is framework-aware). Astro/Remix/SvelteKit have native theme primitives or can use next-themes."
+    fouc_prevention: "Framework-specific. next: suppressHydrationWarning on <html>+<body>. vite: theme class applied synchronously in index.html <script> before React hydrates. See parameterized.framework.shape.{framework}.theme_provider."
+    legacy_support: "[data-theme=\"dark\"] kept as fallback hook (all frameworks)"
+
+  baseline_primitives:
+    description: "24 shadcn-style primitives — always generated regardless of brand"
+    list:
+      - accordion
+      - alert
+      - avatar
+      - badge
+      - blockquote
+      - breadcrumbs
+      - button
+      - card
+      - checkbox
+      - dialog
+      - dropdown-menu
+      - field
+      - input
+      - label
+      - popover
+      - select
+      - separator
+      - sheet
+      - skeleton
+      - switch
+      - table
+      - tabs
+      - textarea
+      - tooltip
+    contract:
+      per_primitive:
+        - "cva for variants"
+        - "data-slot attribute"
+        - "asChild via radix-ui Slot (where applicable)"
+        - "React.ComponentProps<typeof Primitive> typed props"
+        - "cn() for className merge"
+        - "\"use client\" only when Radix primitive requires client boundary"
+        # GAP-DS-011 (Redpine session): maturity labels + a11y metadata mandatory
+        - "MUST have `status: ready|beta|experimental|deprecated` in components.map.json"
+        - "MUST have `a11y: {role, keyboard, aria, focus, notes}` in components.map.json"
+        - "NEVER uses `ref` as a prop name in Client Components (reserved; breaks RSC)"
+        - "Hover/active states use tokenized slots (--primary-hover/--primary-pressed), not opacity modifiers"
+
+  quality_gates:
+    required:
+      - "npx tsc --noEmit exit 0"
+      - "npm run build exit 0 (framework-agnostic — resolves to next build OR vite build per parameterized.framework)"
+      - "Zero direct @radix-ui/* imports (all via `radix-ui` namespace)"
+      - "Zero `any` types in src/"
+      - "Zero bare <img> when framework provides image primitive (next: next/image mandatory; vite: <img> with width/height OR @unpic/react acceptable; astro: astro:assets)"
+      - "Zero inline <svg> where the registered icon library covers it (allowlist: brand-specific SVGs only). Registered library is brand-driven — see brand_driven.icons in this file"
+      - "Zero inline styles where scale token exists"
+      - "All icon-only buttons have aria-label"
+      - "All internal links via framework-idiomatic primitive (next: next/link; vite+react-router: react-router-dom <Link>; astro: <a> with prefetch OR ViewTransitions)"
+      # GAP-DS-010 (2026-04-19, Redpine session): stack-discipline gates
+      - "Zero prop named `ref` in Client Components (reserved — breaks RSC serialization in next; best-practice in all frameworks)"
+      - "Zero `rounded-(xl|2xl)` outside brand radius ladder (runs check:drift script)"
+      - "Zero `transition-all` — must be explicit property list + tokenized duration/ease"
+      - "Zero `hover:bg-(primary|destructive|secondary)/N` opacity hacks — use `bg-*-hover` tokens"
+      - "Zero `ring-[3px] ring-ring/50` alpha-hardcoded focus — use outline pattern (WCAG 2.2 AAA 3px+3px+transition:none)"
+      - "Zero `shadow-(sm|md|lg|xs)` Tailwind defaults in components — use `shadow-[var(--shadow-N)]`"
+      - "Semantic tokens NEVER reuse base-token names (semantic layer uses distinct prefix: --feedback-*, --action-*)"
+      - "npm run check:drift exits 0 (token-component drift audit per Redpine playbook — baseline output)"
+      - "components.map.json with `status` field committed (baseline output)"
+      - "Framework-specific build gate — next: 34+ static routes; vite: chunks + index.html; astro: static/hybrid per config."
+
+  mandatory_outputs:
+    description: >-
+      Tiered outputs by profile. Baseline applies to every DS regardless of framework/profile.
+      Full-only applies when parameterized.profile = full (aiox-brandbook-style DSs with Storybook + agentic readiness).
+      scaffold-ds.sh drops baseline always + full-only when --profile=full. CI enforces per-tier presence.
+
+    baseline:
+      description: "Required for every DS — any profile, any framework"
+      files:
+        - path: "scripts/check-token-drift.mjs"
+          purpose: "5-rule grep-based drift audit (rounded-xl/transition-all/opacity-hover/ring-alpha/raw-shadow). Exits 1 on violation."
+          source_template: "squads/design-ops/templates/check-token-drift.mjs.tmpl"
+          framework_agnostic: true
+        - path: "src/design-system/components.map.json"
+          purpose: "Every component entry has `status: ready|beta|experimental|deprecated`. No status = G5 fail."
+          framework_agnostic: true
+        - injected_into_globals_css: "focus-indicators-global (:focus-visible outline 3px + transition:none + :is guards)"
+          purpose: "WCAG 2.2 AAA focus policy applied globally, not per-component."
+          source_template: "squads/design-ops/templates/focus-indicators-global.css.tmpl"
+          framework_agnostic: true
+      package_json_requirements:
+        scripts: ["check:drift"]
+
+    full_only:
+      description: "Required when parameterized.profile = full. Unlocks Storybook + agentic/LSP integration."
+      files:
+        - path: "scripts/build-manifest.mjs"
+          purpose: "Generates components.manifest.json (CEM-equivalent for React — MCP/LLM consumable)."
+          source_template: "squads/design-ops/templates/build-manifest.mjs.tmpl"
+          framework_agnostic: true
+        - path: "src/design-system/exports/tokens.dtcg.json"
+          purpose: "DTCG W3C-spec tokens ($value/$type/$description) for Figma/LSP/Style Dictionary interop."
+          emitter: "build-tokens.mjs (extended to emit DTCG alongside CSS/TS)"
+          framework_agnostic: true
+        - path: "src/design-system/components.manifest.json"
+          purpose: "Agentic manifest with status/a11y/exports/signatures/tokens per component (output of build-manifest.mjs)."
+          framework_agnostic: true
+      package_json_requirements:
+        scripts: ["build:tokens", "build:manifest"]
+        fields:
+          - "designTokensLanguageServer: { prefix, tokensFiles: [./src/design-system/exports/tokens.dtcg.json] }"
+
+  legacy_grandfather:
+    description: >-
+      Apps migrated before archetype v2.0.0 (anthropic-ds, redpine-ds) are grandfathered
+      at the v1.0 baseline. They do not violate v2.0 mandatory_outputs — they are just
+      pre-upgraded. Upgrade path: run `scaffold-ds.sh --upgrade-mandatory-outputs` to
+      retrofit them (not authored yet; defer until demand).
+    grandfathered_apps:
+      - apps/anthropic-ds    # framework=next, profile=lean, pre-v2.0
+      - apps/redpine-ds      # framework=next, profile=lean, pre-v2.0
+      - apps/aiox-brandbook  # framework=next, profile=full, pre-v2.0 (partially compliant via tokens:sync script)
+
+# =============================================================================
+# 2. PARAMETERIZED — shaped by brief inputs; schema fixed, values vary
+# =============================================================================
+
+parameterized:
+
+  framework:
+    type: enum
+    values: [next, vite, astro, remix, sveltekit]
+    supported: [next, vite]  # MVP v2.0.0 — others architectural placeholders
+    required: true
+    default: next
+    shape:
+      next:
+        description: "Next.js App Router (React 19 + RSC)"
+        react_version: "19.x"
+        framework_version: "16.x"
+        config_files:
+          - next.config.ts             # reactStrictMode; turbopack root
+          - next-env.d.ts
+          - eslint.config.mjs          # FlatCompat + next/core-web-vitals + next/typescript
+        src_layout:
+          root: src/app/
+          entry: src/app/layout.tsx    # Root; wraps <html> + ThemeProvider
+          home: src/app/page.tsx
+          globals_css: src/app/globals.css
+        router: "Next App Router (file-based, RSC-capable)"
+        image_primitive: "next/image"
+        link_primitive: "next/link"
+        theme_provider: "next-themes + ThemeProvider in layout.tsx (attribute=\"class\")"
+        client_directive: "\"use client\" required at top of files using Radix client primitives (Dialog, Popover, DropdownMenu, Tabs, etc)"
+        build_command: "next build"
+        dev_command: "next dev"
+        components_json_rsc: true
+      vite:
+        description: "Vite + React (SPA, no RSC)"
+        react_version: "19.x"
+        framework_version: "5.x"
+        config_files:
+          - vite.config.ts             # @vitejs/plugin-react + @tailwindcss/vite
+          - index.html                 # entry HTML (Vite convention)
+          - eslint.config.mjs          # FlatCompat + eslint-plugin-react + eslint-plugin-react-hooks
+        src_layout:
+          root: src/
+          entry: src/main.tsx          # Mounts <App /> to #root with ThemeProvider wrapper
+          home: src/App.tsx            # Application root component
+          globals_css: src/index.css
+        router: "Optional react-router-dom (recommended for multi-route DSs) OR SPA (single view)"
+        image_primitive: "<img> with width+height (native) OR @unpic/react (optional)"
+        link_primitive: "react-router-dom <Link> if router present; else <a>"
+        theme_provider: "next-themes (supports Vite — wrap <App /> in ThemeProvider) + synchronous class injection in index.html <script> for FOUC prevention"
+        client_directive: "NOT USED — Vite is client-only. Primitives MUST be generated WITHOUT `\"use client\"` (shadcn CLI auto-detects Vite and omits it)."
+        build_command: "vite build"
+        dev_command: "vite dev"
+        components_json_rsc: false
+      astro:
+        status: ARCHITECTURAL_PLACEHOLDER
+        note: "Defer implementation until demand. Known-compatible: shadcn/ui + Tailwind v4 work. Issues to resolve: Astro Islands boundary, client:* directives, react/ integration pkg."
+      remix:
+        status: ARCHITECTURAL_PLACEHOLDER
+        note: "Defer. Remix v2 + Tailwind v4 + shadcn tested; map to `app/routes/` instead of `src/app/`."
+      sveltekit:
+        status: ARCHITECTURAL_PLACEHOLDER
+        note: "Defer. Requires non-React primitives — substantial rework. Likely a separate archetype (ds-tailwind-shadcn-svelte)."
+
+  profile:
+    type: enum
+    values: [lean, full]
+    required: true
+    shapes:
+      lean:
+        description: "redpine-ds archetype — minimal, fast, no Storybook"
+        deps_add: []
+        scripts_add: {}
+        visual_gate: "squads/design-ops/checklists/visual-gate-lean.yaml (manual)"
+      full:
+        description: "aiox-brandbook archetype — Storybook + DTCG + Chromatic + Playwright. Unlocks mandatory_outputs.full_only."
+        deps_add:
+          next:   [storybook, "@storybook/nextjs-vite", "@storybook/addon-a11y", "@storybook/addon-docs", "@storybook/addon-themes", "@chromatic-com/storybook", "@playwright/test"]
+          vite:   [storybook, "@storybook/react-vite", "@storybook/addon-a11y", "@storybook/addon-docs", "@storybook/addon-themes", "@chromatic-com/storybook", "@playwright/test"]
+        scripts_add: {storybook: "storybook dev -p 6007", "build-storybook": "storybook build", "test:visual": "playwright test"}
+        visual_gate: "playwright automated regression"
+
+  brand_colors:
+    description: "Hue palette — every DS has these roles, values differ"
+    shape:
+      foundation:
+        required: [bg, bg_subtle, bg_card, bg_inset]
+        format: "HSL raw (space-separated)"
+      text:
+        required: [fg_1_primary, fg_2_secondary, fg_3_tertiary, fg_4_placeholder]
+      border:
+        required: [border, border_strong, border_focus]
+      brand_accent:
+        required: [accent, accent_hover, accent_soft, accent_ink]
+        description: "The ONE signature brand color (terracotta for Anthropic, red for Redpine, lime for AIOX)"
+      feedback:
+        required: [success, info, warn, danger]
+    examples:
+      anthropic: "clay orange #d97757 + warm cream #faf9f5 + soft black #141413"
+      redpine:   "red #ab2832 + bone + ink"
+      aiox:      "neon lime #dcff3c + black + white"
+
+  typography:
+    description: "Font stacks — every DS has display/body/mono, families differ"
+    shape:
+      required_tiers: [display, body, mono]
+      optional_tiers: [editorial_serif]
+    fallback_policy: "If brand fonts unlicensed, declare fallback chain + flag substitution in README"
+    examples:
+      anthropic: "display=Styrene A (fallback Poppins); body=Styrene B (fallback Poppins); editorial=Tiempos (fallback Source Serif 4); mono=GT America Mono (fallback JetBrains Mono)"
+      redpine:   "display=Magnetik (fallback Inter Tight); body=Inter Tight; mono=JetBrains Mono"
+      aiox:      "display=Geist/Neue Haas Grotesk; body=Inter; mono=Geist Mono"
+
+  casing:
+    type: enum
+    values: [Sentence, Title]
+    description: "Brand guide determines heading casing — Sentence (Anthropic) vs Title (Redpine)"
+
+  voice:
+    tone: "brand_specific"
+    schema:
+      preferred_words: list
+      forbidden_words: list
+      punctuation_rules: "em-dashes, Oxford commas, exclamation marks, etc per brand"
+      emoji_policy: "enum: forbidden | sparingly | allowed_contextual"
+
+  kit_surfaces:
+    description: "Product surfaces to rebuild — DISCOVERED from source (see emergent.discovery.surfaces), but classified here"
+    taxonomy:
+      - category: product
+        examples: [chat, dashboard, settings, artifact-viewer]
+        ds_seen_in: [anthropic-ds, aiox-brandbook]
+      - category: marketing
+        examples: [home, pricing, blog, article, changelog]
+        ds_seen_in: [anthropic-ds, redpine-ds, aiox-brandbook]
+      - category: docs
+        examples: [api-reference, cookbook, release-notes]
+        ds_seen_in: [anthropic-ds]
+      - category: pitch-deck
+        examples: [investor-pitch, sales-deck]
+        ds_seen_in: [aiox-brandbook]
+      - category: ops/safety
+        examples: [incident-view, reports, integrations, risk-matrix]
+        ds_seen_in: [redpine-ds]
+
+# =============================================================================
+# 3. EMERGENT — discovered from source DS; grows the archetype per-brand
+# =============================================================================
+
+emergent:
+
+  discovery:
+    description: "Phase 0 of the workflow scans the source static DS and emits brand-profile.yaml"
+
+    brand_colors:
+      scan_sources:
+        - "legacy-static/**/*.css (CSS custom properties with color values)"
+        - "legacy-static/preview/colors-*.html (declared color swatches)"
+      extraction: "Parse HSL/hex values; cluster into foundation/accent/feedback; confidence score per mapping"
+      output_schema: "brand_profile.colors (see parameterized.brand_colors.shape)"
+
+    typography:
+      scan_sources:
+        - "legacy-static/**/*.css (@import, @font-face, font-family declarations)"
+        - "legacy-static/preview/type-*.html"
+      extraction: "Identify display/body/mono families; flag substitutions vs licensed originals"
+
+    primitives:
+      scan_sources:
+        - "legacy-static/preview/components-*.html"
+        - "legacy-static/ui_kits/**/*.{html,jsx,tsx}"
+      baseline_match:
+        method: "Structural parse — if source has button/badge/card/input/nav/field/alert markup, map to corresponding baseline shadcn primitive"
+        always_generate: "All 24 invariant.baseline_primitives regardless of source coverage"
+      specialized_detection:
+        method: >-
+          Scan for HTML patterns OUTSIDE the baseline shadcn vocabulary. Common specialized primitives
+          seen across the 3 reference DSs — generate ONLY IF source evidence present.
+        catalog:
+          - name: animated-pill-nav
+            evidence: aiox-brandbook
+            signals: ["nav with pill-shaped items + animated indicator"]
+          - name: article-card
+            evidence: aiox-brandbook
+            signals: ["blog/news list items with cover image + title + excerpt + metadata"]
+          - name: author-card / team-card-horizontal
+            evidence: aiox-brandbook
+            signals: ["avatar + name + role + short bio"]
+          - name: device-mockup-frame
+            evidence: aiox-brandbook
+            signals: ["iphone/laptop frame wrapping a screenshot"]
+          - name: faq-item
+            evidence: aiox-brandbook
+            signals: ["question + collapsible answer, brand-styled vs plain accordion"]
+          - name: grain-overlay / line-pattern
+            evidence: aiox-brandbook
+            signals: ["full-viewport texture overlay"]
+          - name: grid-borders
+            evidence: aiox-brandbook
+            signals: ["decorative grid lines as layout scaffolding"]
+          - name: icon-button
+            evidence: aiox-brandbook
+            signals: ["icon-only with circle/rounded container + specific size variants"]
+          - name: mono-label / section-label / eyebrow
+            evidence: all three
+            signals: ["uppercase small letter-spaced label above heading"]
+          - name: ontology-explorer / org-chart
+            evidence: aiox-brandbook
+            signals: ["tree/graph node with expand-collapse"]
+          - name: post-benefit / pricing-benefit
+            evidence: aiox-brandbook
+            signals: ["check/cross + short feature description in pricing tables"]
+          - name: segmented-control
+            evidence: aiox-brandbook
+            signals: ["2-3 linked buttons acting as toggle"]
+          - name: stacked-avatars
+            evidence: aiox-brandbook
+            signals: ["overlapping avatars indicating group/team"]
+          - name: composer
+            evidence: anthropic-ds
+            signals: ["textarea + tool pills + send button at bottom of chat"]
+          - name: message (chat)
+            evidence: anthropic-ds
+            signals: ["user/assistant message bubble with role styling"]
+          - name: project-card
+            evidence: anthropic-ds
+            signals: ["project tile with color swatch + name + description + metadata"]
+          - name: hero (marketing)
+            evidence: redpine-ds, anthropic-ds
+            signals: ["large heading + subcopy + dual CTA + optional media"]
+          - name: newsroom / article-list
+            evidence: redpine-ds, anthropic-ds
+            signals: ["grid of article cards, blog-index surface"]
+          - name: cta-band
+            evidence: redpine-ds, anthropic-ds
+            signals: ["full-width accent-background section with headline + CTA"]
+          - name: pillar-card
+            evidence: anthropic-ds, redpine-ds
+            signals: ["3-column feature blocks on homepage"]
+      approval_gate:
+        description: "Specialized primitives are PROPOSED to user; user approves subset before Organism 3 scaffolds them"
+        default: "interactive — user confirms; yolo mode accepts all with evidence_score >= 0.7"
+
+    surfaces:
+      scan_sources: "legacy-static/ui_kits/*/"
+      rule: "Each subdir of ui_kits/ becomes ONE kit route namespace. Don't hardcode anthropic-com/claude/docs."
+      output_schema: |
+        discovered_surfaces:
+          - name: {dirname}
+            category: {inferred from content patterns — product|marketing|docs|pitch-deck|ops}
+            files: [list of .html/.jsx/.tsx]
+            primitives_used: [list from primitives discovery]
+
+    composition_components:
+      scan_sources: "logos + typography demos + nav patterns"
+      rule: "Logo variants per SVG in assets/; typography tiers per type-*.html; nav per components-nav.html or kit headers"
+
+  growth:
+    description: "The emergent catalog above GROWS as new DSs are migrated"
+    policy:
+      - "Every DS migration that discovers a genuinely new specialized primitive (evidence_score >= 0.9, used in ≥ 2 places) should PR-back to this archetype"
+      - "Primitives that prove transferable across 2+ brands promote to a 'shared_emergent' tier"
+      - "Shared emergent primitives eligible for promotion to invariant.baseline_primitives after used in 3+ DSs"
+
+# =============================================================================
+# Anti-patterns — what the archetype FORBIDS
+# =============================================================================
+
+forbids:
+  - "Hardcoding brand-specific kit surface names in the workflow (e.g., 'claude', 'anthropic-com', 'docs' — let discovery drive)"
+  - "Generating specialized primitives without source evidence (forced novelty)"
+  - "Skipping baseline shadcn primitives because source doesn't show them (they're the shared language)"
+  - "Direct @radix-ui/react-* imports (breaks namespace contract)"
+  - "Tokens declared outside the 4-tier architecture (raw → semantic → shadcn_slots → @theme_inline)"
+  - "Arbitrary Tailwind values where a scale token exists (leading-[1.55] when leading-body is wired)"
+  - "Dark mode via JS class toggle without next-themes (no persistence, FOUC risk)"
+  - "Inline SVG where the registered icon library has equivalent (breaks icon consistency; library is brand-driven per brand_driven.icons)"
+  - "Guessing token values (hex codes, spacing scales, font stacks) from training-data memory when the source CSS exists — 'the tree is a menu, not the meal' (per Claude Design system prompt 2026-04-19). Discovery scripts MUST read and extract actual values; pixel fidelity to source > recollection"
+  - "Mocking surfaces from scratch when existing legacy-static reference is present — LAST RESORT only, and only after explicit user approval"
+  - "Aggressive gradient backgrounds on full surfaces (subtle radial accents inside illustrations are fine)"
+  - "Decorative numbers/stats/icons with no function (data slop)"
+  - "Generating a weak/approximated asset (icon, illustration, logo) when the real one is unavailable — 'in hi-fi design, a placeholder is better than a bad attempt at the real thing'. Missing assets get a clearly-marked placeholder + caveat in README.md, not an invention."
+  - "Recreating a target UI from screenshots when the source code is accessible. Code > screenshots: read the actual tokens.ts / colors.css / globals.css and lift exact values. Screenshots are for ambiguity resolution only, never the primary source."
+  # GAP-DS-012 (2026-04-19, Redpine session): stack-discipline anti-patterns
+  - "Naming a semantic token the same as its base token (e.g., --rp-success base + --rp-success semantic → circular CSS var → silent unset. Semantic layer MUST use distinct prefix: --feedback-*, --action-*, --state-*)"
+  - "Using `ref` as a prop name on any Client Component (React reserved — breaks Server→Client serialization with 'Refs cannot be used in Server Components' error). Rename to `code`, `identifier`, `slug`, etc."
+  - "Overriding only custom semantic vars (--bg/--fg) in a palette system without ALSO overriding framework slots (--background/--foreground/--card). Shadcn utilities won't respond → white-on-white bugs on dark palettes."
+  - "Per-component focus-visible utilities (`focus-visible:ring-[3px] focus-visible:ring-ring/50`) instead of a SINGLE global rule in globals.css. WCAG 2.2 AAA requires: `:is(*, :hover):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; transition: none; } :focus:not(:focus-visible) { outline: none; }`"
+  - "Running structural renames (`git mv` of route groups, component dirs) while IDE buffers / watchers / other agents have those paths open. Symptoms: dirs keep re-appearing, parallel routes error, stale type caches. MUST audit concurrent writers + close buffers + kill watchers before structural moves. See rules/concurrent-writer-audit.md"
+
+# =============================================================================
+# Consumption contract — how the workflow uses this
+# =============================================================================
+
+consumed_by:
+  workflow: squads/design-ops/workflows/ds-static-to-dynamic-migration.yaml
+  contract:
+    organism_0_discovery: "Reads `emergent.discovery` as scan protocol; writes brand-profile.yaml"
+    organism_1_scaffold:  "Reads `invariant.config_files` + `invariant.src_layout`; writes configs + src skeleton"
+    organism_2_tokens:    "Reads `invariant.token_architecture` + brand-profile.colors + brand-profile.typography; writes globals.css"
+    organism_3_primitives: "Always generates `invariant.baseline_primitives` (24); conditionally generates `emergent.discovery.primitives.specialized_detection` entries approved at discovery"
+    organism_4_routes:    "Derives surfaces from `brand-profile.surfaces` (NOT hardcoded claude/anthropic-com/docs)"
+    organism_5_qa:        "Reads `invariant.quality_gates` as pass/fail criteria"
+    organism_6_polish:    "Applies next-themes per `invariant` contract; icon library and animation library applied per `brand_driven` (defaults: lucide-react + tw-animate-css)"
+
+references:
+  sinkra_map: outputs/sinkra-squad/migracao-ds-estatico-para-dinamico-tokenizado/
+  reference_execution: apps/anthropic-ds
+  reference_lean: apps/redpine-ds
+  reference_full: apps/aiox-brandbook

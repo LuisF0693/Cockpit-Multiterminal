@@ -1,0 +1,237 @@
+# Bench Metadata Canonical Schema (SINKRA v1)
+#
+# Source of truth for the vocabulary used in `docs/bench/{slug}/metadata.json`.
+# Squad: spy | Owner: bench-analyst
+# Companion: bench-output-dash.schema.json (JSON Schema for the dash projection)
+#
+# RULE — NON-NEGOTIABLE:
+#   bench-analyst MUST emit metadata.json using ONLY the canonical field names below.
+#   Aliases (subject_a/b, evaluation_axes, bench_id, etc.) are FORBIDDEN for new benchmarks.
+#   Legacy benchmarks are not migrated here — fallback chain in scripts/bench-dash-output.cjs
+#   handles them as a safety net, not as legitimization.
+
+version: "1.0.0"
+schema_id: "spy/bench-metadata-canonical/v1"
+applies_to: "docs/bench/{slug}/metadata.json"
+companion_schema: "squads/research/data/bench-output-dash.schema.json"
+
+# ============================================================================
+# REQUIRED FIELDS (must always be present)
+# ============================================================================
+required:
+
+  bench:
+    type: object
+    description: "Top-level benchmark identification"
+    fields:
+      id:
+        type: string
+        constraint: "MUST equal the folder slug (docs/bench/{id}/)"
+        example: "chatwoot-vs-zendesk"
+      type:
+        type: enum
+        values: [product, codebase, technology, model, other]
+        rationale: "Drives dashboard categorization + dimensions presets"
+      variant:
+        type: enum
+        values: ["2-way", "3-way", "n-way"]
+        rationale: "Drives UI layout (side-by-side vs grid vs list)"
+      created_at:
+        type: string
+        format: ISO-8601 date or datetime
+        example: "2026-05-06"
+      analyst:
+        type: string
+        description: "Agent + version that emitted the bench"
+        example: "spy/bench-analyst v3.1"
+
+  subjects:
+    type: array
+    constraint: "ALWAYS array — even for 2-way (never subject_a + subject_b)"
+    min_items: 2
+    item_schema:
+      key:
+        type: string
+        constraint: "snake_case stable identifier"
+        example: "chatwoot"
+      name:
+        type: string
+        example: "Chatwoot"
+      category:
+        type: string
+        description: "Free text or controlled per bench.type"
+        example: "Open-Source + Cloud SaaS"
+
+  scoring:
+    type: object
+    description: "Scoring framework — replaces evaluation_axes/criteria"
+    fields:
+      dimensions:
+        type: array
+        constraint: "weights MUST sum to 100"
+        item_schema:
+          id:
+            type: string
+            example: "C1"
+          name:
+            type: string
+            example: "Canais nativos"
+          weight_pct:
+            type: number
+            range: "0 < weight_pct <= 100"
+          rationale:
+            type: string
+            description: "Why this dimension matters (1-2 sentences)"
+
+# ============================================================================
+# OPTIONAL FIELDS (recommended when applicable)
+# ============================================================================
+optional:
+
+  context:
+    type: object
+    fields:
+      central_tension:
+        type: string
+        description: "1-2 sentence problem statement framing the comparison"
+      upstream_research:
+        type: string
+        format: path
+        example: "docs/research/2026-05-06-omnichannel-helpdesk-landscape/"
+      pipeline_pair:
+        type: string
+        description: "Position in a multi-bench pipeline"
+        example: "1 of 3 (par 1: OSS-MIT vs SaaS-Enterprise)"
+
+  subjects_extended:
+    description: "Per-subject deeper metadata — slotted INSIDE each subjects[] entry"
+    fields:
+      license: { type: string, example: "MIT" }
+      country_origin: { type: string, example: "India" }
+      founded: { type: integer, example: 2017 }
+      version_evaluated: { type: string, example: "v4.13.0" }
+      version_release_date: { type: string, format: ISO-8601 }
+      vendor_url: { type: string, format: url }
+      repo_url: { type: string, format: url }
+      type: { type: string, description: "Segment (e.g. 'OSS+Cloud', 'SaaS Enterprise')" }
+      anos: { type: integer, description: "Years since founding" }
+      tech_score: { type: number, description: "0-100 unweighted tech score" }
+      neutral_score: { type: number, description: "0-100 weighted neutral total" }
+      meta:
+        type: object
+        description: "Visualization hints {color, letter, tag} — propagated to dash player_meta"
+      stats:
+        type: object
+        description: "Repo or product stats — free shape, optional"
+
+  bench_extended:
+    description: "Optional richer fields at metadata.bench level — power dashboard rendering"
+    fields:
+      title: { type: string, description: "Full bench title" }
+      short_title: { type: string, description: "Compact title for cards" }
+      method: { type: string, description: "1-sentence methodology" }
+      confidence_breakdown: { type: string, description: "Human-readable (e.g., '5/9 High · 3/9 Medium · 1/9 Low')" }
+      status: { type: enum, values: [draft, in_progress, completed, archived] }
+      schema_variant: { type: string, description: "Internal schema variant (e.g., '3way-consolidated-scorecard-v1')" }
+
+  rich_blocks:
+    description: "Top-level blocks beyond required ones — produce these when bench has the signal"
+    optional_blocks:
+      - categorical          # dimensoes com winner categorical
+      - tiebreakers          # decision questions
+      - cliffs               # risk points per player
+      - decision_tree        # top-level decision flow
+      - tco                  # cost scenarios (product only)
+      - type_specific        # codebase/product/llm specific analyses
+      - editors_note         # editorial framing
+      - sidecars             # paths to bench-cells.json / editors-note.json
+
+  deliverables:
+    type: array
+    description: "Files produced by the pipeline — must include bench-output-dash.json"
+    constraint: "MUST contain 'bench-output-dash.json'"
+
+# ============================================================================
+# FORBIDDEN ALIASES (will be flagged by validator)
+# ============================================================================
+forbidden_aliases:
+
+  # Subject pluralization
+  - alias: subject_a
+    canonical: "subjects[0]"
+    severity: error
+  - alias: subject_b
+    canonical: "subjects[1]"
+    severity: error
+
+  # ID pluralization
+  - alias: bench_id
+    canonical: "bench.id"
+    severity: error
+  - alias: benchmark_id
+    canonical: "bench.id"
+    severity: error
+  - alias: "benchmark.id (as top-level instead of bench.id)"
+    canonical: "bench.id"
+    severity: warning
+
+  # Date pluralization
+  - alias: bench_date
+    canonical: "bench.created_at"
+    severity: error
+  - alias: date
+    canonical: "bench.created_at"
+    severity: error
+  - alias: generated_at
+    canonical: "bench.created_at"
+    severity: error
+  - alias: created
+    canonical: "bench.created_at"
+    severity: warning
+
+  # Type pluralization
+  - alias: bench_type
+    canonical: "bench.type"
+    severity: error
+  - alias: comparison_type
+    canonical: "bench.type"
+    severity: error
+  - alias: comparison_mode
+    canonical: "bench.type"
+    severity: error
+
+  # Dimensions pluralization
+  - alias: scoring_dimensions
+    canonical: "scoring.dimensions"
+    severity: error
+  - alias: dimensions
+    canonical: "scoring.dimensions"
+    severity: error
+  - alias: consolidated_dimensions
+    canonical: "scoring.dimensions"
+    severity: error
+  - alias: evaluation_axes
+    canonical: "scoring.dimensions"
+    severity: error
+  - alias: criteria
+    canonical: "scoring.dimensions"
+    severity: error
+
+# ============================================================================
+# MIGRATION POLICY
+# ============================================================================
+migration:
+  legacy_benchmarks:
+    policy: "DO NOT rewrite — fallback chain in scripts/bench-dash-output.cjs handles them"
+    rationale: "Rewriting 20 metadata.json is tedious and erases historical context. Extractor reads them via heuristic. Canonical schema applies to NEW benchmarks only."
+  new_benchmarks:
+    policy: "MUST conform from emission. bench-analyst BLOCKs on violation."
+
+# ============================================================================
+# REFERENCES
+# ============================================================================
+references:
+  schema_doc: "docs/bench/_dash-schema.md"
+  extractor: "scripts/bench-dash-output.cjs"
+  handoff: "docs/sessions/2026-05/2026-05-11-bench-standardization-handoff.md"
+  sinkra_output: "outputs/sinkra-squad/spy/bench-dash-emission-quick-fix/sinkra-output-express.yaml"

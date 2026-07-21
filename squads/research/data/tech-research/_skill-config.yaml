@@ -1,0 +1,368 @@
+# Tech Research — SINKRA-native skill configuration
+# Pattern: aligned with sinkra-map-process, sinkra-validate-squad, sinkra-upgrade-squad, full-sdc
+# v2.0.0 — full SINKRA-native transformation (inline persona-fidelity, no specialist agents)
+
+pack:
+  name: tech-research
+  version: "2.0.0"
+  description: "Deep technical research pipeline with multi-wave search, coverage scoring, multi-LLM cross-reference, and citation verification. Produces evidence-graded research dossiers under docs/research/. Optional product-discovery mode for JTBD validation."
+  icon: "TRR"
+  type: skill
+  location: .claude/skills/tech-research/
+
+process:
+  id: SP-TECH-RESEARCH
+  mode: EXPLORAR
+  sinkra_version: "1.2"
+  organism: ORG-TRR-001
+  molecules: 7
+  # M1 Auto-Clarify / M2 Decompose / M3 Generate-Prompt /
+  # M4 Execute-Research (waves + deep-read + evaluate + compress + optional multi-LLM) /
+  # M5 Synthesize (with Quick Wins extraction) /
+  # M6 Verify-Citations / M7 Document
+  atoms: 17
+  # Counted from artifact_contracts[] below:
+  # 11 core atoms (Phase 2-5b narrative + state + learning log)
+  # + 6 extractor atoms (Phase 5.1 — apps/research Research Observatory rich render tier):
+  #   sources, players, ux-patterns, matrices, execution-log, research-graph
+
+artifact_contracts:
+  - artifact_id: research-readme
+    template_path: docs/research/{date}-{slug}/README.md
+    lifecycle_states: [draft, validated]
+    phase: P5
+    required: true
+  - artifact_id: original-query
+    template_path: docs/research/{date}-{slug}/00-query-original.md
+    lifecycle_states: [generated]
+    phase: P5
+    required: true
+  - artifact_id: research-prompt
+    template_path: docs/research/{date}-{slug}/01-deep-research-prompt.md
+    lifecycle_states: [generated]
+    phase: P2
+    required: true
+  - artifact_id: research-report
+    template_path: docs/research/{date}-{slug}/02-research-report.md
+    lifecycle_states: [draft, validated]
+    phase: P5
+    required: true
+  - artifact_id: recommendations
+    template_path: docs/research/{date}-{slug}/03-recommendations.md
+    lifecycle_states: [draft, validated]
+    phase: P5
+    required: true
+  - artifact_id: quick-wins
+    template_path: docs/research/{date}-{slug}/quick-wins.md
+    lifecycle_states: [generated]
+    phase: P4
+    required: true
+  - artifact_id: curiosity-queue
+    template_path: docs/research/{date}-{slug}/curiosity_queue.yaml
+    lifecycle_states: [draft, frozen]
+    phase: P5
+    required: true
+  - artifact_id: evolving-report
+    template_path: docs/research/{date}-{slug}/evolving_report.md
+    lifecycle_states: [draft, frozen]
+    phase: P3
+    required: true
+  - artifact_id: wave-summary
+    template_path: docs/research/{date}-{slug}/wave-{N}-summary.md
+    lifecycle_states: [generated]
+    phase: P3
+    required: true
+    cardinality: many   # one per executed wave (1..3)
+  - artifact_id: llm-deep-research
+    template_path: docs/research/{date}-{slug}/XX-llm-deep-research.md
+    lifecycle_states: [generated]
+    phase: P3.7
+    required: false     # only if --deep or coverage<70 after wave 2
+  - artifact_id: learning-log
+    template_path: .aiox/learning/logs/tech-research/{slug}-{timestamp}.yaml
+    lifecycle_states: [in_progress, completed, halted, failed, escalated]
+    phase: P00c-P5b
+    required: true
+    governing_rule: incremental-learning-log
+    downstream_consumer: .aiox/learning/promotion-queue
+
+  # ---------------------------------------------------------------------------
+  # Extractor atoms — Phase 5.1 (apps/research Research Observatory `rich` tier)
+  # All extractors already exist in scripts/. Empty-output is allowed when
+  # the research has no matching content (e.g. ux-patterns on backend research).
+  # ---------------------------------------------------------------------------
+  - artifact_id: sources
+    template_path: docs/research/{date}-{slug}/sources.yaml
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    governing_extractor: squads/research/scripts/tech-research/sources_extractor.py
+    downstream_consumer: apps/research/observatory/research (tabs Evidências, Fontes)
+  - artifact_id: players
+    template_path: docs/research/{date}-{slug}/players.yaml
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    governing_extractor: squads/research/scripts/tech-research/players_extractor.py
+    downstream_consumer: apps/research/observatory/research (tab Players)
+  - artifact_id: ux-patterns
+    template_path: docs/research/{date}-{slug}/ux-patterns.yaml
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    empty_allowed: true   # backend/infra research yields no UX patterns — empty list is valid
+    governing_extractor: squads/research/scripts/tech-research/ux_patterns_extractor.py
+    downstream_consumer: apps/research/observatory/research (tab Map)
+  - artifact_id: matrices
+    template_path: docs/research/{date}-{slug}/matrices.yaml
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    empty_allowed: true   # research without Markdown tables yields empty matrices — valid
+    governing_extractor: squads/research/scripts/tech-research/comparison_matrix_extractor.py
+    downstream_consumer: apps/research/observatory/research (tab Map)
+  - artifact_id: execution-log
+    template_path: docs/research/{date}-{slug}/execution-log.jsonl
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    governing_extractor: squads/research/scripts/tech-research/logger.py
+    schema_validated_by: squads/research/scripts/tech-research/output_validator.py
+    downstream_consumer: apps/research/observatory/research (tab Waves)
+    note: consolidates wave-*-progress.jsonl files written during Phase 3
+  - artifact_id: research-graph
+    template_path: docs/research/{date}-{slug}/research-graph.json
+    lifecycle_states: [generated]
+    phase: P5.1
+    required: true
+    depends_on: [sources]   # must run AFTER sources_extractor.py
+    governing_extractor: squads/research/scripts/tech-research/research_graph.py
+    downstream_consumer: apps/research/observatory/research (tabs Evidências, Map)
+    note: graph nodes=[query, waves, sources, report, decisions]; links=[cite, derives_from]
+
+supported_modes: [EXPLORAR]
+bu_mapping: hub-framework
+
+token_count: 4
+token_families: [Phase, Wave, Source, Coverage]
+
+checkpoints:
+  - id: COVERAGE_GATE
+    name: Wave Coverage Sufficiency
+    phase: P3.5
+    veto_enabled: true
+    thresholds:
+      coverage_score_min: 50   # below this after wave 3 = VETO
+      coverage_score_target: 85
+      max_waves: 3
+    review_band: [50, 70]      # 50-70 triggers REVIEW (default-continue or escalate)
+    escape_valve: P3.7         # multi-LLM deep research when REVIEW band hits wave 3
+  - id: CITATION_GATE
+    name: Citation Integrity Verification
+    phase: P4.5
+    veto_enabled: true
+    thresholds:
+      verified_citation_ratio_min: 0.85   # below this after fix attempts = VETO
+      unsupported_claim_max: 0            # any unverifiable claim left = REVIEW
+    fix_attempts_before_veto: 2
+
+rules_applied:
+  - incremental-learning-log    # log at P00c, update per phase, write on halt/failure
+  - prior-art-search            # absence claims need documented search
+  - cli-next-command-flow       # suggest next command on completion (non-autonomous)
+  - extraction-no-fallbacks     # research findings record what's observed, never universal defaults
+  - skills-authoring            # frontmatter purity + visibility rules
+
+knowledge_sources:
+  - .claude/skills/tech-research/SKILL.md
+  - squads/research/workflows/tech-research/tech-research-pipeline.yaml
+  - squads/research/workflows/tech-research/phase-0-auto-clarify.yaml
+  - squads/research/workflows/tech-research/phase-1-5-decompose.yaml
+  - squads/research/workflows/tech-research/phase-1-clarify.yaml
+  - squads/research/workflows/tech-research/phase-2-generate-prompt.yaml
+  - squads/research/workflows/tech-research/phase-3-execute-research.yaml
+  - squads/research/workflows/tech-research/phase-3-2-deep-read.yaml
+  - squads/research/workflows/tech-research/phase-3-5-evaluate-coverage.yaml
+  - squads/research/workflows/tech-research/phase-3-6-compress-wave.yaml
+  - squads/research/workflows/tech-research/phase-3-7-playwright-deep-research.yaml
+  - squads/research/workflows/tech-research/phase-4-synthesize.yaml
+  - squads/research/workflows/tech-research/phase-4-5-verify-citations.yaml
+  - squads/research/workflows/tech-research/phase-5-document.yaml
+  - squads/research/checklists/tech-research/guardrails.yaml
+  - squads/research/data/tech-research/auto-clarification.yaml
+  - squads/research/data/tech-research/commands.yaml
+  - squads/research/data/tech-research/dependencies.yaml
+  - squads/research/prompts/tech-research/decompose.md
+  - squads/research/prompts/tech-research/evaluate.md
+  - squads/research/prompts/tech-research/verify-citations.md
+  - squads/research/prompts/tech-research/playwright-deep-research.md
+  - .claude/rules/prior-art-search.md
+  - .claude/rules/incremental-learning-log.md
+  - .claude/rules/cli-next-command-flow.md
+  - squads/research/data/product-discovery-framework.md    # product-discovery mode integration
+  - apps/research/HANDOFF-research-compatibility.md       # apps/research Research Observatory render contract (atoms → tabs)
+
+invokes:
+  - path: /research-chief
+    phase: P4 (synthesis handoff, product-discovery mode only)
+    relationship: feeds atoms 3 (Villain OSINT) and 4 (WTP signals) of spy validate-product-idea molecule
+    trigger: "--product-discovery flag set OR auto-clarify detects product_validation pattern"
+    note: optional downstream — research dossier supplies evidence, spy molecule produces GO/NO-GO decision
+
+invoked_by:
+  - path: /research-chief
+    phase: validate-product-idea Wave 0
+    relationship: research helper for product discovery atoms 3 and 4
+  - path: /skill-creator
+    phase: prior-art evidence gathering (optional)
+    relationship: technical research before scaffolding new skill
+  - path: /aiox-architect
+    phase: technology selection / architecture decisions
+    relationship: optional research-before-decision
+
+downstream_renderers:
+  - path: apps/research/observatory/research
+    contract: apps/research/HANDOFF-research-compatibility.md
+    render_tier:
+      rich:    "All 17 atoms present (narrative + state + 6 extractors)"
+      partial: "Narrative + some YAML/JSON (missing graph or sources)"
+      legacy:  "Markdown-only (no extractors run)"
+    atom_to_tab:
+      Doc:          [research-readme, research-report, recommendations]
+      Map:          [metrics, pipeline-state, matrices, ux-patterns, curiosity-queue, research-graph]
+      Evidências:   [sources, research-graph, metrics]
+      Waves:        [execution-log, wave-summary]
+      Fontes:       [sources]
+      Players:      [players]
+      Ações:        [recommendations, quick-wins, curiosity-queue]
+      Perguntas:    [curiosity-queue]
+
+process_mapping: squads/research/workflows/tech-research/tech-research-pipeline.yaml
+
+# ---------------------------------------------------------------------------
+# OPERATIONAL CONFIG (preserved from v1.1.0)
+# These sections are read by Phase 3.7 (playwright) and Phase 3 (search waves).
+# They are NOT SINKRA metadata — they are runtime configuration.
+# ---------------------------------------------------------------------------
+
+# Playwright Deep Research Phase Configuration
+playwright_deep_research:
+  enabled: true
+  description: |
+    Browser automation phase that queries multiple LLMs (Grok, Claude.ai, Gemini)
+    for deep research when traditional search doesn't achieve sufficient coverage.
+
+  # Trigger conditions
+  auto_trigger_threshold: 0.70  # coverage score below this triggers deep research
+  manual_trigger_keywords:
+    - "--deep"
+    - "*deep"
+    - "multiple perspectives"
+    - "compare LLM views"
+    - "cross-reference with LLMs"
+
+  # Timing configuration
+  timeout_per_llm: 60  # seconds to wait for each LLM response
+  retry_count: 2       # retries per LLM if first attempt fails
+  retry_delay: 5       # seconds between retries
+
+  # LLM configurations
+  llms:
+    - name: grok
+      url: https://grok.x.ai
+      enabled: true
+      priority: 1
+      selectors:
+        chat_input_primary: "textarea[placeholder*='Ask']"
+        chat_input_fallback_1: "textarea"
+        chat_input_fallback_2: "[contenteditable='true']"
+        submit_button_primary: "button[type='submit']"
+        submit_button_fallback_1: "button[aria-label*='Send']"
+        submit_button_fallback_2: "button:has-text('Send')"
+        response_container_primary: "[data-testid='message-content']"
+        response_container_fallback_1: ".message-content"
+        response_container_fallback_2: "[class*='response']"
+        login_indicator_primary: "[data-testid='user-menu']"
+        login_indicator_fallback_1: "img[alt*='avatar']"
+        login_indicator_fallback_2: "[class*='user-profile']"
+      notes: "Requires X/Twitter login. UI may change frequently."
+
+    - name: claude
+      url: https://claude.ai
+      enabled: true
+      priority: 2
+      selectors:
+        chat_input_primary: "div[contenteditable='true']"
+        chat_input_fallback_1: "[data-testid='chat-input']"
+        chat_input_fallback_2: "textarea"
+        submit_button_primary: "button[aria-label='Send message']"
+        submit_button_fallback_1: "button[type='submit']"
+        submit_button_fallback_2: "button:has-text('Send')"
+        response_container_primary: "[data-testid='assistant-message']"
+        response_container_fallback_1: ".assistant-message"
+        response_container_fallback_2: "[class*='response']"
+        login_indicator_primary: "button[data-testid='account-menu']"
+        login_indicator_fallback_1: "[class*='user-menu']"
+        login_indicator_fallback_2: "img[alt*='avatar']"
+      notes: "Requires Anthropic account. Most stable UI."
+
+    - name: gemini
+      url: https://gemini.google.com
+      enabled: true
+      priority: 3
+      selectors:
+        chat_input_primary: "rich-textarea"
+        chat_input_fallback_1: "textarea"
+        chat_input_fallback_2: "[contenteditable='true']"
+        submit_button_primary: "button[aria-label='Send message']"
+        submit_button_fallback_1: "button[type='submit']"
+        submit_button_fallback_2: "button:has-text('Submit')"
+        response_container_primary: ".model-response-text"
+        response_container_fallback_1: "[class*='response']"
+        response_container_fallback_2: "[class*='message-content']"
+        login_indicator_primary: "img[data-testid='user-avatar']"
+        login_indicator_fallback_1: "[class*='user-avatar']"
+        login_indicator_fallback_2: "img[alt*='Account']"
+      notes: "Requires Google account. May have rate limiting."
+
+  # Screenshot configuration
+  screenshots:
+    enabled: true
+    format: png
+    full_page: false
+    on_success: true
+    on_error: true
+    naming_pattern: "screenshot-{llm}.png"
+
+  # Output configuration
+  output:
+    file_pattern: "XX-llm-deep-research.md"
+    include_timestamps: true
+    include_screenshots: true
+    include_synthesis: true
+
+  # Error handling
+  graceful_degradation:
+    enabled: true
+    description: "If one LLM fails, continue with others. Partial output is better than no output."
+    min_successful_llms: 1
+
+# Search wave configuration
+search_waves:
+  max_waves: 3
+  coverage_threshold: 85       # target (APPROVE band starts here)
+  min_coverage_to_proceed: 50  # below this after max waves = COVERAGE_GATE VETO
+  review_band: [50, 70]        # REVIEW range — triggers P3.7 escape valve
+
+# MCP tool dependencies
+mcp_dependencies:
+  playwright:
+    tools:
+      - mcp__playwright__browser_navigate
+      - mcp__playwright__browser_click
+      - mcp__playwright__browser_fill
+      - mcp__playwright__browser_snapshot
+      - mcp__playwright__browser_take_screenshot
+      - mcp__playwright__browser_type
+    required: false   # graceful degradation enabled
+    fallback: "Skip Phase 3.7; document missing dependency in learning log; if --deep was explicit, escalate to user"

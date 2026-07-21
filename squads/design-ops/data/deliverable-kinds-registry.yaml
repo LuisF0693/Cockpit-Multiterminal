@@ -1,0 +1,171 @@
+id: deliverable-kinds-registry
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-contract
+origin: squads/design-ops/rules/design-exploration-cycle.md
+external_reference: "agenmod/claw-design — extracted 2026-04-18"
+
+# Registry of artifact deliverable kinds the provider recognizes.
+# This is a CONTRACT file — it does not contain runtime implementations.
+# Implementations live in the artifact-creation capability (ADR-018, Wave C)
+# and in consumer squads (slides-creator, design-pages, design-app).
+
+deliverable_kinds:
+
+  component:
+    label: "Reusable Component"
+    description: "Atomic or molecular UI component (button, input, card, modal, nav)."
+    owner_squad: design-ops
+    implementation_squads: [design-pages, design-app]
+    consumers: [design-pages, design-app, aiox-design-starter, slides-creator]
+    primary_output_format: tsx
+    co_outputs: [css_module, test, storybook_story, markdown_doc]
+    quality_gates:
+      - squads/design-ops/checklists/dops-component-quality.yaml
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: squads/design-ops/tasks/ds-build-component.md
+    typical_responsive_targets: [360, 768, 1280]
+    typical_a11y_floor: "WCAG AA"
+
+  page:
+    label: "Marketing or Product Page"
+    description: "Composed page assembly (hero + features + CTA + footer etc.)."
+    owner_squad: design-pages
+    implementation_squads: [design-pages]
+    consumers: [marketing, slides-creator]
+    primary_output_format: tsx
+    co_outputs: [route_entry, metadata, seo_manifest]
+    quality_gates:
+      - squads/design-ops/checklists/dops-component-quality.yaml
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: delegated
+    typical_responsive_targets: [360, 768, 1280, 1920]
+    typical_a11y_floor: "WCAG AA"
+
+  html_prototype:
+    label: "Self-contained HTML Prototype"
+    description: "Single-file runnable artifact, CDN dependencies pinned + integrity. Shareable link."
+    owner_squad: design-ops
+    implementation_squads: [artifact-creation] # Wave C
+    consumers: [design-chief, external-client]
+    primary_output_format: html
+    co_outputs: [asset_manifest, integrity_hashes]
+    quality_gates:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+      - squads/design-ops/rules/self-contained-artifact-security.md
+      - squads/design-ops/data/artifact-file-governance.yaml
+    task_reference: squads/design-ops/tasks/artifact-create-html.md
+    typical_responsive_targets: [360, 768, 1280]
+    typical_a11y_floor: "WCAG AA"
+    security_reference: squads/design-ops/rules/self-contained-artifact-security.md
+    size_limit_lines: 1000
+    size_behavior_on_limit: "split_into_modules"
+
+  deck:
+    label: "Slide Deck (Presentation)"
+    description: "Multi-slide HTML deck with speaker-notes contract and navigation postMessage protocol."
+    owner_squad: slides-creator
+    implementation_squads: [slides-creator, artifact-creation] # Wave C for primitives
+    consumers: [slides-creator, external-client, pitch-deck-squad]
+    primary_output_format: html
+    co_outputs: [speaker_notes_json, pptx_export, pdf_export]
+    quality_gates:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+      - squads/design-ops/data/deck-contracts-spec.yaml
+    task_reference: delegated
+    typical_responsive_targets: [16_9_fixed_1920_1080, 16_10_fixed_1920_1200]
+    typical_a11y_floor: "WCAG AA"
+    fixed_size_mode: true
+    letterbox_required: true
+    min_text_size_px: 24
+
+  pdf:
+    label: "PDF Export"
+    description: "Print-optimized PDF from HTML source via headless browser open_for_print pipeline."
+    owner_squad: design-ops
+    implementation_squads: [artifact-creation] # Wave C
+    consumers: [external-client, legal, pitch-deck-squad]
+    primary_output_format: pdf
+    co_outputs: [source_html, print_stylesheet]
+    quality_gates:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: "planned: squads/design-ops/tasks/artifact-export-pdf.md"
+    typical_responsive_targets: [a4_portrait, letter_portrait]
+    typical_a11y_floor: "WCAG AA"
+    min_text_size: "12pt"
+
+  pptx:
+    label: "PowerPoint Export"
+    description: "Editable PPTX export with native shapes (preferred) or screenshot-based (fallback)."
+    owner_squad: design-ops
+    implementation_squads: [artifact-creation] # Wave C
+    consumers: [slides-creator, external-client]
+    primary_output_format: pptx
+    co_outputs: [source_html, slide_manifest]
+    quality_gates:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: "planned: squads/design-ops/tasks/artifact-export-pptx.md"
+    typical_responsive_targets: [16_9_fixed]
+    typical_a11y_floor: "WCAG AA"
+
+  email:
+    label: "HTML Email"
+    description: "Email-safe HTML (table layouts, inline styles, deterministic fallbacks)."
+    owner_squad: design-pages
+    implementation_squads: [design-pages]
+    consumers: [marketing, copy-squad]
+    primary_output_format: html
+    co_outputs: [text_fallback, plain_version]
+    quality_gates:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: delegated
+    typical_responsive_targets: [320, 600]
+    typical_a11y_floor: "WCAG AA"
+    email_client_matrix_required: true
+
+  dashboard:
+    label: "Internal Dashboard Surface"
+    description: "Data-dense product UI (tables, charts, filters, live state)."
+    owner_squad: design-app
+    implementation_squads: [design-app]
+    consumers: [product-teams]
+    primary_output_format: tsx
+    co_outputs: [query_contract, state_contract]
+    quality_gates:
+      - squads/design-ops/checklists/dops-component-quality.yaml
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    task_reference: delegated
+    typical_responsive_targets: [1280, 1920]
+    typical_a11y_floor: "WCAG AA"
+
+ownership_matrix_by_kind:
+  provider_owned_directly: [component, html_prototype, pdf, pptx]
+  delegated_to_consumer_squad: [page, email, dashboard, deck]
+  co_owned: [deck] # slides-creator owns pipeline; provider owns primitives
+
+cross_kind_contracts:
+  speaker_notes:
+    kinds: [deck]
+    spec: squads/design-ops/data/deck-contracts-spec.yaml#speaker_notes_protocol
+  playback_persistence:
+    kinds: [deck, html_prototype]
+    spec: squads/design-ops/data/deck-contracts-spec.yaml#playback_persistence
+  security_baseline:
+    kinds: [html_prototype, deck, pdf, pptx, email]
+    spec: squads/design-ops/rules/self-contained-artifact-security.md
+  file_governance:
+    kinds: [html_prototype, deck]
+    spec: squads/design-ops/data/artifact-file-governance.yaml
+
+validation:
+  gate: design-chief
+  used_by_workflows:
+    - squads/design-ops/workflows/wf-provider-enrichment-from-external.yaml
+    - "planned: squads/design-ops/workflows/wf-artifact-creation-loop.yaml"
+
+related:
+  - squads/design-ops/rules/design-exploration-cycle.md
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

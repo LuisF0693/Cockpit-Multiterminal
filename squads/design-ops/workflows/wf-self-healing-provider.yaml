@@ -1,0 +1,40 @@
+workflow:
+  id: dops-self-healing-provider
+  name: Self Healing Provider
+  description: Loop de detecção, autofix determinístico e revalidação para o provider de design.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-self-heal {business} {target}"
+  sequence:
+    - step: step-1-detect
+      id: step-1-detect
+      phase: 1
+      phase_name: Detectar inconsistências
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+      next: step-2-autofix
+    - step: step-2-autofix
+      id: step-2-autofix
+      phase: 2
+      phase_name: Aplicar autofix determinístico
+      agent: design-chief
+      action: node squads/design-ops/scripts/autofix-deterministic.cjs --target={target} --write
+      next: step-3-revalidate
+    - step: step-3-revalidate
+      id: step-3-revalidate
+      phase: 3
+      phase_name: Revalidar contratos e gates
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+      next: step-4-yaml
+    - step: step-4-yaml
+      id: step-4-yaml
+      phase: 4
+      phase_name: Validar YAML
+      agent: design-chief
+      action: npm run validate:yaml:changed
+    - workflow_end:
+        id: complete
+        action: workflow_complete

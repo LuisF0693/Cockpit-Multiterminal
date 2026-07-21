@@ -1,0 +1,151 @@
+# WebApp Defender Squad - AIOS Squad Manifest
+# Defensive Security: Passive Audit + Remediation (ZERO intrusive testing)
+# Based on: Auditoria de Vulnerabilidades Academia Lendaria (41 findings, 9 CRITICAL)
+name: webapp-defender
+version: 2.0.0
+description: "Complete defensive security squad — merges WebApp Defender (app-layer audit & remediation) with Blue Team (threat hunting, log analysis, incident response, hardening). Passive-only: finds vulnerabilities through code review, configuration analysis, policy validation, log analysis, and posture assessment — NEVER performs intrusive or destructive tests. Covers OWASP Top 10, NIST CSF, CIS Controls, NIST 800-53, MITRE ATT&CK, and LGPD compliance. Four-tier architecture: 1 orchestrator, 4 expert Minds, 4 operational Tools, 3 Blue Team specialists. Designed from real-world audit data (41 findings across 3 Supabase+Vercel apps)."
+author: "Craft (Squad Creator) + Sidney Fernandes"
+license: MIT
+slashPrefix: defender
+
+aios:
+  minVersion: "2.1.0"
+  type: squad
+
+# ─────────────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────────────
+components:
+  agents:
+    # Tier 0: Orchestrator
+    - shield.md
+    # Tier 1: Minds (Strategy & Expertise)
+    - rls-guardian.md
+    - config-sentinel.md
+    - auth-inspector.md
+    - compliance-advisor.md
+    # Tier 2: Tools (Passive Operational)
+    - header-analyzer.md
+    - schema-reviewer.md
+    - policy-validator.md
+    - fix-generator.md
+    # Tier 3: Blue Team (Threat Hunting, Hardening, Code Review)
+    - sentinel.md
+    - watchdog.md
+    - code-guardian.md
+  tasks:
+    # Shield (Orchestrator)
+    - shield-triage-findings.md
+    - shield-generate-roadmap.md
+    - shield-audit-report.md
+    # RLS Guardian
+    - rls-guardian-audit-policies.md
+    - rls-guardian-check-table-exposure.md
+    - rls-guardian-generate-fix.md
+    - rls-guardian-validate-rpc-auth.md
+    # Config Sentinel
+    - config-sentinel-audit-cors.md
+    - config-sentinel-audit-security-headers.md
+    - config-sentinel-audit-openapi-exposure.md
+    - config-sentinel-audit-postgrest-hints.md
+    # Auth Inspector
+    - auth-inspector-review-auth-flow.md
+    - auth-inspector-check-rate-limiting.md
+    - auth-inspector-check-signup-config.md
+    - auth-inspector-check-password-policy.md
+    - auth-inspector-review-jwt-config.md
+    # Compliance Advisor
+    - compliance-advisor-scan-pii-exposure.md
+    - compliance-advisor-check-lgpd.md
+    - compliance-advisor-check-consent.md
+    - compliance-advisor-generate-anpd-report.md
+    # Header Analyzer
+    - header-analyzer-analyze.md
+    - header-analyzer-compare-baseline.md
+    - header-analyzer-generate-fix.md
+    # Schema Reviewer
+    - schema-reviewer-analyze-openapi.md
+    - schema-reviewer-check-exposure.md
+    - schema-reviewer-generate-fix.md
+    # Policy Validator
+    - policy-validator-validate-rls.md
+    - policy-validator-check-coverage.md
+    - policy-validator-detect-gaps.md
+    # Fix Generator
+    - fix-generator-sql.md
+    - fix-generator-vercel-config.md
+    - fix-generator-supabase-config.md
+    - fix-generator-cors.md
+    # Blue Team (Sentinel, Watchdog, Code Guardian)
+    - security-posture-check.md
+    - code-security-review.md
+    - log-analysis.md
+    - hardening-assessment.md
+    - dependency-audit.md
+  workflows:
+    - full-audit-workflow.yaml
+    - rls-audit-workflow.yaml
+    - quick-check-workflow.yaml
+  checklists:
+    - supabase-security-baseline.md
+    - vercel-security-config.md
+    - lgpd-compliance.md
+    - pre-deploy-security.md
+    - security-baseline.md
+  templates:
+    - audit-report-template.md
+  tools: []
+  scripts: []
+  data:
+    - vulnerability-patterns.yaml
+
+# ─────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────
+config:
+  extends: extend
+  coding-standards: config/coding-standards.md
+  tech-stack: config/tech-stack.md
+  source-tree: config/source-tree.md
+
+# ─────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────
+dependencies:
+  node: []
+  python: []
+  squads: []
+
+# ─────────────────────────────────────────────────────
+# Constraints
+# ─────────────────────────────────────────────────────
+constraints:
+  - "NEVER perform intrusive or destructive tests"
+  - "NEVER send requests that modify data in target applications"
+  - "NEVER attempt brute force, fuzzing, or injection attacks"
+  - "ONLY passive analysis: read configs, review code, validate policies"
+  - "All findings must include remediation code/instructions"
+  - "Prioritize findings by CVSS score and business impact"
+
+# ─────────────────────────────────────────────────────
+# Tags
+# ─────────────────────────────────────────────────────
+tags:
+  - blue-team
+  - defensive-security
+  - vulnerability-audit
+  - remediation
+  - owasp
+  - lgpd
+  - supabase
+  - vercel
+  - passive-only
+  - appsec
+  - threat-hunting
+  - log-analysis
+  - incident-response
+  - hardening
+  - NIST-CSF
+  - CIS-Controls
+  - MITRE-ATT&CK
+  - secure-coding

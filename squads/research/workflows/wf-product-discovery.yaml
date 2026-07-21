@@ -1,0 +1,181 @@
+# Workflow: Product Discovery (Wave 0)
+# Source of truth for the validate-product-idea molecule execution DAG.
+
+id: wf-product-discovery
+name: "Product Discovery Pipeline (Wave 0)"
+version: "1.0.0"
+category: product-discovery
+description: "Sequential 4-atom validation pipeline: JTBD → Mom Test → Villain → WTP Smoke Test, then composite GO/NO-GO gate."
+
+owner_squad: spy
+parent_molecule: validate-product-idea
+
+# ──────────────────────────────────────────────────────────────────────
+# EXECUTION CONTRACT
+# ──────────────────────────────────────────────────────────────────────
+execution:
+  parallelism: serial
+  rationale: |
+    Each atom consumes the upstream atom's verdict. JTBD must be GO before
+    Mom Test is meaningful; Mom Test pains feed Villain Mapping; Villain
+    root cause feeds WTP positioning. No atom can run in parallel.
+
+  halt_on:
+    - any atom returns NO-GO
+    - any atom returns NEEDS-REWORK after 3 retries
+
+  loop_back_on:
+    - NEEDS-REWORK verdict → same atom retries with refined inputs (max 3 iterations)
+
+# ──────────────────────────────────────────────────────────────────────
+# PHASES (DAG)
+# ──────────────────────────────────────────────────────────────────────
+phases:
+  - id: phase_init
+    name: "Initialize Run"
+    type: setup
+    agent: spy
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/metadata.yaml"
+      - "outputs/research/product-discovery/{run-slug}/00-input.md"
+    next: phase_01_jtbd
+
+  - id: phase_01_jtbd
+    name: "Phase 01 — JTBD Validation"
+    type: atom
+    atom_id: pd-jtbd-validate
+    agent: sackett
+    inputs:
+      - idea_statement
+      - target_audience
+      - proposed_jtbd
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/01-jtbd.md"
+    gate:
+      threshold: "≥80% understanding + ≥3 corroborated problem"
+      on_go: phase_02_mom_test
+      on_needs_rework: phase_01_jtbd  # loop back, max 3 times
+      on_no_go: phase_final_decision  # composite verdict will be NO-GO
+
+  - id: phase_02_mom_test
+    name: "Phase 02 — Mom Test Interviews"
+    type: atom
+    atom_id: pd-mom-test-interview
+    agent: klein
+    depends_on: [phase_01_jtbd]
+    inputs:
+      - validated_jtbd
+      - target_audience
+      - interview_count
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/02-mom-test.md"
+    gate:
+      threshold: "≥10 interviews + ≥5 insights + ≥3 corroborated pains"
+      on_go: phase_03_villain
+      on_needs_rework: phase_02_mom_test
+      on_no_go: phase_final_decision
+
+  - id: phase_03_villain
+    name: "Phase 03 — Villain Root Cause Mapping"
+    type: atom
+    atom_id: pd-villain-mapping
+    agent: bench-analyst
+    depends_on: [phase_02_mom_test]
+    inputs:
+      - validated_jtbd
+      - mom_test_pains
+      - competitor_solutions
+      - villain_hypothesis
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/03-villain.md"
+    gate:
+      threshold: "≥20 evidences + cross-tier pattern + Mom Test alignment"
+      on_go: phase_04_wtp_smoke
+      on_needs_rework: phase_03_villain
+      on_no_go: phase_final_decision
+
+  - id: phase_04_wtp_smoke
+    name: "Phase 04 — Willingness-to-Pay Smoke Test"
+    type: atom
+    atom_id: pd-wtp-smoke-test
+    agent: gilad
+    depends_on: [phase_03_villain]
+    inputs:
+      - validated_jtbd
+      - villain_root_cause
+      - tentative_price
+      - available_traffic
+      - format
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/04-wtp-smoke-test.md"
+    gate:
+      threshold: "≥10% payment-attempt OR ≥5 pre-sales"
+      on_go: phase_final_decision
+      on_needs_rework: phase_04_wtp_smoke
+      on_no_go: phase_final_decision
+
+  - id: phase_final_decision
+    name: "Composite Decision Gate"
+    type: synthesis
+    agent: spy
+    depends_on: [phase_01_jtbd, phase_02_mom_test, phase_03_villain, phase_04_wtp_smoke]
+    decision_matrix:
+      STRONG_GO: "All 4 GO + WTP has ≥1 paying customer"
+      GO: "All 4 GO without paying customer"
+      CONDITIONAL_GO: "3/4 GO + clear remediation possible"
+      NO_GO: "≤2 GO"
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/synthesis.md"
+      - "outputs/research/product-discovery/{run-slug}/decision.yaml"
+    on_strong_go: emit_handoff_wave1
+    on_go: emit_handoff_wave1
+    on_conditional_go: halt_with_remediation
+    on_no_go: halt_with_pivot_log
+
+  - id: emit_handoff_wave1
+    name: "Emit Handoff to Wave 1"
+    type: handoff
+    agent: spy
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/handoff-wave1.yaml"
+    next: terminate
+
+  - id: halt_with_remediation
+    name: "Halt — Conditional GO requires remediation"
+    type: halt
+    notes: "Re-run the failing atom; do not proceed to Wave 1."
+
+  - id: halt_with_pivot_log
+    name: "Halt — NO-GO; log learnings"
+    type: halt
+    outputs:
+      - "outputs/research/product-discovery/{run-slug}/pivot-log.md"
+
+# ──────────────────────────────────────────────────────────────────────
+# OBSERVABILITY
+# ──────────────────────────────────────────────────────────────────────
+observability:
+  metadata_emit_after: [phase_init, phase_01_jtbd, phase_02_mom_test, phase_03_villain, phase_04_wtp_smoke, phase_final_decision]
+  metadata_file: "outputs/research/product-discovery/{run-slug}/metadata.yaml"
+  observatory_adapter: "apps/aiox-brandbook/src/components/observatory/adapters/product-discovery.ts"
+  observatory_route: "/observatory/product-discovery/?slug={run-slug}"
+
+# ──────────────────────────────────────────────────────────────────────
+# AGENT REUSE CONTRACT
+# ──────────────────────────────────────────────────────────────────────
+agent_reuse:
+  rationale: "Zero new agents. All 4 atoms compose existing spy v4.0 agents."
+  mapping:
+    sackett: "Tier 0 evidence-based question formulation — fits JTBD structure"
+    klein: "Tier 1 NDM pattern recognition — fits behavioral interview synthesis"
+    bench-analyst: "Tier 1 OSINT — fits villain mapping across community/review sources"
+    gilad: "Tier 1 competitive intel + strategic early warning — fits WTP positioning + pricing"
+
+# ──────────────────────────────────────────────────────────────────────
+# CHANGELOG
+# ──────────────────────────────────────────────────────────────────────
+changelog:
+  - version: "1.0.0"
+    date: "2026-05-11"
+    author: "@oalanicolas"
+    change: "Initial workflow created during STORY-SPY-PD.1 implementation (YOLO mode A1 re-scope)"

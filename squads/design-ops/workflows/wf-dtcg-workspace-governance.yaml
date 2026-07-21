@@ -1,0 +1,89 @@
+workflow:
+  id: dops-dtcg-workspace-governance
+  name: DTCG Workspace Governance
+  description: Governança de tokens DTCG com contratos canônicos no workspace.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-dtcg-governance"
+  sequence:
+    - step: step-1-context-contract
+      id: step-1-context-contract
+      phase: 1
+      phase_name: Validar contrato de contexto
+      agent: design-chief
+      action: execute_task_dops-context-contract
+      outputs:
+        - context_contract_validation
+      next: step-2-extract-to-workspace
+    - step: step-2-extract-to-workspace
+      id: step-2-extract-to-workspace
+      phase: 2
+      phase_name: Extrair brandbook para contratos canônicos
+      agent: design-chief
+      action: execute_task_dops-extract-brandbook-to-workspace-contracts
+      outputs:
+        - workspace_contracts_updated
+      next: step-3-validate-contracts
+    - step: step-3-validate-contracts
+      id: step-3-validate-contracts
+      phase: 3
+      phase_name: Validar contratos strict
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-workspace-contracts.cjs --business={business} --strict --format=json
+      outputs:
+        - strict_validation_report
+      next: step-4-checklists-gate
+    - step: step-4-checklists-gate
+      id: step-4-checklists-gate
+      phase: 4
+      phase_name: Gate de checklists
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business} --ds-root={ds_root}
+      outputs:
+        - checklists_gate_report
+      next: step-5-yaml-gate
+    - step: step-5-yaml-gate
+      id: step-5-yaml-gate
+      phase: 5
+      phase_name: Gate de YAML
+      agent: design-chief
+      action: npm run validate:yaml:changed
+      outputs:
+        - yaml_gate_report
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  required:
+    - name: business
+      description: "Slug da business unit (ex.: aiox)"
+    - name: ds_root
+      description: "Raiz do brandbook implementado em código"
+  optional:
+    - name: workspace_design_root
+      description: "Override do caminho de design no workspace"
+
+outputs:
+  - workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+  - workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+  - workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+  - workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+
+quality_gates:
+  - id: DOPS-GATE-001
+    check: validate-workspace-contracts
+    blocking: true
+  - id: DOPS-GATE-004
+    check: checklists
+    checklist_refs:
+      - squads/design-ops/checklists/ds-core-accessibility-minimum.yaml
+      - squads/design-ops/checklists/dops-accessibility-wcag-aa.yaml
+      - squads/design-ops/checklists/dops-component-quality.yaml
+      - squads/design-ops/checklists/dops-a11y-release-gate.yaml
+    blocking: true
+  - id: DOPS-GATE-002
+    check: "validate:yaml:changed"
+    blocking: true

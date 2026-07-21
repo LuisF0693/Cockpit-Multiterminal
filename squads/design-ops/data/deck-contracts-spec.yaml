@@ -1,0 +1,213 @@
+id: deck-contracts-spec
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-contract
+origin: squads/design-ops/rules/ai-trope-guardrails.md
+external_reference: "agenmod/claw-design — extracted 2026-04-18"
+
+# Contract specification for deck-kind deliverables.
+# This is a CONTRACT file — it does not contain runtime implementations.
+# Consumers (slides-creator, artifact-creation capability in Wave C)
+# implement the runtime that honors these contracts.
+
+# =============================================================================
+# SPEAKER NOTES PROTOCOL
+# =============================================================================
+speaker_notes_protocol:
+  version: "1.0.0"
+  purpose: >-
+    Expose per-slide speaker notes in a structured, discoverable way so that
+    presenter software, accessibility tools, and export pipelines can read notes
+    without scraping visible DOM.
+
+  storage:
+    location: "embedded in deck HTML"
+    element: '<script type="application/json" id="speaker-notes">'
+    format: json
+    schema:
+      slides:
+        - slide_index: 1
+          notes: "string, markdown-allowed"
+          estimated_duration_seconds: 45
+          cues: []
+        - slide_index: 2
+          notes: "..."
+
+  postmessage_events:
+    sent_by: "deck runtime"
+    sent_to: "window.parent"
+    event_types:
+      - type: slideIndexChanged
+        payload:
+          slideIndexChanged: "integer (1-indexed)"
+        fired_when: "slide navigation occurs (next, prev, jump)"
+
+      - type: deckReady
+        payload:
+          totalSlides: "integer"
+          currentSlide: "integer"
+        fired_when: "deck finishes initial render"
+
+      - type: speakerNotesRequested
+        payload:
+          slideIndex: "integer"
+        fired_when: "presenter view requests notes for a slide"
+
+  contract_rules:
+    - "Slide indices are 1-indexed, not 0-indexed"
+    - "Every slide MUST have a corresponding notes entry (empty notes allowed)"
+    - "postMessage target is window.parent, not specific origin — iframe delivery"
+    - "Notes payload MUST be JSON-serializable"
+    - "No HTML in notes field — markdown is rendered by the presenter, not the deck"
+
+  implementation_guidance:
+    optional: true
+    rationale: >-
+      Speaker notes are optional per deck. Adding them enables presenter software
+      integration. Decks without notes remain valid; the empty state is a deck
+      with the speaker-notes JSON absent or with notes set to empty strings.
+
+  opt_in_rule:
+    policy: "NEVER add speaker notes unless the user explicitly requests them"
+    source: "agenmod/claw-design (2026-04-18)"
+    rationale: >-
+      Speaker notes are a content commitment, not a default. Adding them
+      unasked creates unrequested work and implies the deck needs a
+      presenter (which may not match the deck's use case). Decks shared as
+      read-only artifacts, sales collateral, or reference material should
+      not carry speaker notes unless the user specifies.
+
+  content_style_when_requested:
+    format: "full scripts, in conversational language, for what to say"
+    implication_for_slide_text: >-
+      When speaker notes are present, slide text can be SPARSER and rely more
+      on impactful visuals — the notes carry the narrative. This is a design
+      decision, not a technical one.
+    anti_pattern: >-
+      Bullet-list-style speaker notes that mirror slide text. If the notes
+      say the same thing as the slide, they add no value — either merge them
+      or write the notes as a performance script.
+
+# =============================================================================
+# PLAYBACK PERSISTENCE
+# =============================================================================
+playback_persistence:
+  version: "1.0.0"
+  purpose: >-
+    Persist playback position (current slide, video timestamp, tweak state)
+    across reloads without requiring a backend.
+
+  storage:
+    mechanism: localStorage
+    scope: per-artifact
+    key_pattern: "design-ops:{artifact_id}:{field}"
+    namespacing_required: true
+    rationale: >-
+      Artifacts embedded in host pages (e.g., a client portal) must not
+      collide with host localStorage keys.
+
+  canonical_keys:
+    current_slide:
+      key: "design-ops:{artifact_id}:currentSlide"
+      type: integer
+      description: "1-indexed slide position"
+
+    video_position:
+      key: "design-ops:{artifact_id}:videoPosition:{videoId}"
+      type: float
+      description: "Seconds into the video"
+
+    tweak_state:
+      key: "design-ops:{artifact_id}:tweakState"
+      type: object
+      description: "Live-edit parameter values (TWEAK_DEFAULTS overrides)"
+      blocked_until_wave_c: true
+
+  eviction:
+    strategy: "manual_clear_on_artifact_removal"
+    retention: "session_lifetime_of_client"
+    note: "No TTL — localStorage is the client's responsibility"
+
+  contract_rules:
+    - "localStorage is for ephemeral UI state ONLY (position, tweak, ui-toggle)"
+    - "NEVER use localStorage for user data, auth tokens, or anything a backend should own"
+    - "Always read-then-validate — localStorage can be cleared or tampered at any time"
+    - "Namespace prefix design-ops: is reserved and MUST NOT be used for host-page state"
+
+# =============================================================================
+# DECK SHELL CONTRACT
+# =============================================================================
+deck_shell:
+  version: "1.0.0"
+  required_capabilities:
+    - slide_navigation
+    - keyboard_arrows
+    - swipe_on_touch
+    - fullscreen_toggle
+    - slide_number_display
+    - responsive_letterbox
+
+  fixed_aspect_ratios_supported:
+    - "16:9 (1920x1080)"
+    - "16:10 (1920x1200)"
+    - "4:3 (1024x768)"
+
+  required_responsive_behavior:
+    - "Scale deck viewport to fit browser window via transform: scale()"
+    - "Apply letterbox bars when browser aspect != deck aspect"
+    - "Maintain readable text at all scale factors (min 24px after scale)"
+    - "Handle window resize without full re-render"
+
+  keyboard_contract:
+    - key: "ArrowRight"
+      action: next_slide
+    - key: "ArrowLeft"
+      action: prev_slide
+    - key: "Space"
+      action: next_slide
+    - key: "Home"
+      action: first_slide
+    - key: "End"
+      action: last_slide
+    - key: "f"
+      action: toggle_fullscreen
+    - key: "Escape"
+      action: exit_fullscreen
+    - key: "?"
+      action: show_help
+
+  data_attributes_contract:
+    - attribute: "[data-slide]"
+      purpose: "Marks a slide container"
+    - attribute: "[data-screen-label]"
+      purpose: "Human-readable slide label, 1-indexed (e.g. '01 Title')"
+
+# =============================================================================
+# IMPLEMENTATION NOTES (for consumers)
+# =============================================================================
+implementation_notes:
+  slides_creator_binding:
+    status: "planned"
+    description: >-
+      slides-creator squad implements a runtime that honors these contracts.
+      Deck primitives (stage layouts, animation helpers, export adapters) live
+      under the Wave C artifact-creation capability of design-ops.
+
+  artifact_creation_capability_binding:
+    status: "blocked — ADR-018 pending"
+    description: >-
+      Runtime primitives, including the deck_stage.js starter, live under
+      squads/design-ops/ once Wave C is approved.
+
+  test_fixtures:
+    status: "to be created with Wave C"
+    planned_path: "squads/design-ops/fixtures/"
+
+related:
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/artifact-file-governance.yaml
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

@@ -1,0 +1,184 @@
+workflow:
+  id: dops-provider-enrichment-from-external
+  name: Provider Enrichment — External Prompt Ingestion
+  description: >-
+    Meta-workflow que aplica os guardrails e o protocolo de criação absorvidos
+    de prompts externos (ponto de partida: agenmod/claw-design, 2026-04-18).
+    Costura intake estruturado → exploração divergente → AI-trope gate →
+    responsive scaling gate → build do componente → verificação pós-build.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-enrich-from-external {business} {surface}"
+  sequence:
+    - step: step-1-intake
+      id: step-1-intake
+      phase: 1
+      phase_name: Brief intake estruturado (Questions-first)
+      agent: design-chief
+      action: >-
+        materialize design-brief-intake from
+        squads/design-ops/templates/design-brief-intake-tmpl.yaml
+        for business={business} surface={surface}
+      artifact_contract: design-brief-intake
+      gate:
+        type: elicitation
+        required_fields:
+          - brief.problem_statement
+          - brief.success_criteria
+          - audience.device_mix
+          - contracts.tokens_source
+      next: step-2-divergent-exploration
+
+    - step: step-2-divergent-exploration
+      id: step-2-divergent-exploration
+      phase: 2
+      phase_name: Exploração divergente (N ≥ 3 variantes)
+      agent: design-chief
+      action: >-
+        produce_variants --axes match_existing,novel,constraint_first
+        --brief design-brief-intake --min-variants 3
+      gate:
+        type: count_check
+        min_variants: 3
+        convergence_rule: "must reference brief.success_criteria"
+      next: step-3-ai-trope-gate
+
+    - step: step-3-ai-trope-gate
+      id: step-3-ai-trope-gate
+      phase: 3
+      phase_name: AI-trope guardrails gate
+      agent: design-chief
+      action: >-
+        node squads/design-ops/scripts/validate-checklists-gate.cjs
+        --business={business}
+        --checklist squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+      blocking: true
+      next: step-4-workspace-contracts
+
+    - step: step-4-workspace-contracts
+      id: step-4-workspace-contracts
+      phase: 4
+      phase_name: Validar contratos do workspace
+      agent: design-chief
+      action: >-
+        node squads/design-ops/scripts/validate-workspace-contracts.cjs
+        --business={business} --format=json --strict
+      blocking: true
+      next: step-5-build
+
+    - step: step-5-build
+      id: step-5-build
+      phase: 5
+      phase_name: Build do componente (com divergent exploration embutido)
+      agent: design-chief
+      action: "execute task squads/design-ops/tasks/ds-build-component.md"
+      inputs_from_previous:
+        - design-brief-intake
+        - variants_scratch
+      next: step-6-component-quality
+
+    - step: step-6-component-quality
+      id: step-6-component-quality
+      phase: 6
+      phase_name: Gate de qualidade (componentes + responsive + AI-trope)
+      agent: design-chief
+      action: >-
+        node squads/design-ops/scripts/validate-checklists-gate.cjs
+        --business={business}
+        --checklist squads/design-ops/checklists/dops-component-quality.yaml
+      blocking: true
+      next: step-7-lint
+
+    - step: step-7-lint
+      id: step-7-lint
+      phase: 7
+      phase_name: Lint
+      agent: design-chief
+      action: npm run lint
+      blocking: true
+      next: step-8-typecheck
+
+    - step: step-8-typecheck
+      id: step-8-typecheck
+      phase: 8
+      phase_name: Typecheck
+      agent: design-chief
+      action: npm run typecheck
+      blocking: true
+      next: step-9-yaml
+
+    - step: step-9-yaml
+      id: step-9-yaml
+      phase: 9
+      phase_name: Validar YAML alterado
+      agent: design-chief
+      action: npm run validate:yaml:changed
+      blocking: true
+
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  required:
+    - name: business
+      description: "Slug da business unit (ex.: aiox)"
+    - name: surface
+      description: "Nome da superfície-alvo (componente, página, deck)"
+
+outputs:
+  - id: design-brief-intake
+    description: "Brief estruturado materializado do template"
+    path: "outputs/design-ops/{business}/briefs/{surface}-intake.yaml"
+  - id: variants_scratch
+    description: "Artefato de exploração divergente com N ≥ 3 variantes"
+    path: "outputs/design-ops/{business}/exploration/{surface}-variants.md"
+  - id: component_artifact
+    description: "Componente produzido pela task ds-build-component"
+    path: "outputs/design-ops/{business}/components/{surface}/"
+
+quality_gates:
+  - id: DOPS-ENRICH-GATE-001
+    check: elicitation
+    phase: step-1-intake
+    blocking: true
+  - id: DOPS-ENRICH-GATE-002
+    check: count_check
+    phase: step-2-divergent-exploration
+    blocking: true
+  - id: DOPS-ENRICH-GATE-003
+    check: checklists
+    checklist_refs:
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    phase: step-3-ai-trope-gate
+    blocking: true
+  - id: DOPS-ENRICH-GATE-004
+    check: validate-workspace-contracts
+    phase: step-4-workspace-contracts
+    blocking: true
+  - id: DOPS-ENRICH-GATE-005
+    check: checklists
+    checklist_refs:
+      - squads/design-ops/checklists/dops-component-quality.yaml
+    phase: step-6-component-quality
+    blocking: true
+  - id: DOPS-ENRICH-GATE-006
+    check: lint
+    phase: step-7-lint
+    blocking: true
+  - id: DOPS-ENRICH-GATE-007
+    check: typecheck
+    phase: step-8-typecheck
+    blocking: true
+  - id: DOPS-ENRICH-GATE-008
+    check: "validate:yaml:changed"
+    phase: step-9-yaml
+    blocking: true
+
+provenance:
+  external_source: "agenmod/claw-design — claude-design-sys-prompt.txt"
+  absorbed_at: "2026-04-18"
+  absorbed_by: "design-chief"
+  related_rule: "squads/design-ops/rules/ai-trope-guardrails.md"

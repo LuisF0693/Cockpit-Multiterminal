@@ -1,0 +1,74 @@
+meta:
+  version: "1.1.0"
+  squad: design-system
+  total_tokens: 12
+  source: deterministic-remediation
+
+Accountability:
+  owner_token: design-operator
+Behavior:
+  review_policy: human_checkpoint_required
+Capacity:
+  parallel_audit_limit: 4
+Mode:
+  default_mode: VALIDAR
+Permission:
+  publish_permission: design-operator
+Priority:
+  default_priority: accessibility-before-polish
+Taxonomy:
+  primary_domains: [Strategic, Tactical, Operational]
+Threshold:
+  core_thresholds: [contrast_ratio_min, component_health_min, story_coverage_min]
+Time:
+  review_sla_hours: 24
+
+tokens:
+  - token_id: DS-TOK-001
+    family: Accountability
+    token_name: accountability_token
+    token_value: design-operator
+  - token_id: DS-TOK-002
+    family: Mode
+    token_name: mode_token
+    token_value: VALIDAR
+  - token_id: DS-TOK-003
+    family: Behavior
+    token_name: human_review_required
+    token_value: true
+  - token_id: DS-TOK-004
+    family: Capacity
+    token_name: parallel_audit_limit
+    token_value: 4
+  - token_id: DS-TOK-005
+    family: Permission
+    token_name: publish_permission
+    token_value: design-operator
+  - token_id: DS-TOK-006
+    family: Priority
+    token_name: a11y_priority_rule
+    token_value: critical-first
+  - token_id: DS-TOK-007
+    family: Taxonomy
+    token_name: domain_strategy
+    token_value: Strategic
+  - token_id: DS-TOK-008
+    family: Taxonomy
+    token_name: domain_execution
+    token_value: Tactical
+  - token_id: DS-TOK-009
+    family: Threshold
+    token_name: contrast_ratio_min
+    token_value: 4.5
+  - token_id: DS-TOK-010
+    family: Threshold
+    token_name: component_health_min
+    token_value: 0.8
+  - token_id: DS-TOK-011
+    family: Time
+    token_name: review_sla_hours
+    token_value: 24
+  - token_id: DS-TOK-012
+    family: Data
+    token_name: design_context_token
+    token_value: required

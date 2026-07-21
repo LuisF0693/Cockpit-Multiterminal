@@ -1,0 +1,61 @@
+metadata:
+  version: "1.0.0"
+  squad: design-ops
+  mode: workspace-first
+  description: Especificação semântica mínima para validação de tokens canônicos no workspace.
+
+source:
+  tokens_contract: workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+  foundations_contract: workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+  components_contract: workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+  motion_contract: workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+
+naming:
+  css_variable_prefix: --aiox-
+  convention: kebab-case
+  required_semantic_prefixes:
+    - color
+    - typography
+    - spacing
+    - radius
+    - shadow
+    - motion
+
+required_semantic_roles:
+  color:
+    - background
+    - foreground
+    - primary
+    - secondary
+    - muted
+    - success
+    - warning
+    - danger
+  typography:
+    - display
+    - heading
+    - body
+    - caption
+  motion:
+    durations:
+      - fast
+      - normal
+      - slow
+    easings:
+      - standard
+      - emphasize_in
+      - emphasize_out
+
+validation_rules:
+  - id: DOPS-TOK-001
+    rule: todos_os_contratos_devem_ter_source_of_truth_workspace
+    blocking: true
+  - id: DOPS-TOK-002
+    rule: tokens_semanticos_obrigatorios_presentes
+    blocking: true
+  - id: DOPS-TOK-003
+    rule: componentes_core_button_input_dialog_mapeados
+    blocking: true
+  - id: DOPS-TOK-004
+    rule: motion_primitives_com_durations_e_easings
+    blocking: true

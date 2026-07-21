@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+/**
+ * check-token-drift.mjs — SCAFFOLD TEMPLATE
+ * ==========================================
+ * Dropped into `apps/{target}/scripts/check-token-drift.mjs` by scaffold-ds.sh.
+ * Registered in package.json as `check:drift`.
+ *
+ * Detects 5 anti-patterns that silently break token discipline:
+ *   1. rounded-(xl|2xl)         — not in brand radius ladder
+ *   2. transition-all           — too broad; use explicit tokenized transitions
+ *   3. hover:bg-*/N opacity     — opacity-fake instead of --primary-hover token
+ *   4. ring-[3px] ring-ring/50  — alpha-hardcoded focus (not WCAG 2.2 AAA compliant)
+ *   5. shadow-(sm|md|lg|xs)     — raw Tailwind defaults; use --shadow-N tokens
+ *   6. focus-visible:outline-(1|2)  — weak focus (must be 3px per RHDS spec)
+ *
+ * Origin: Redpine session 2026-04-19 (documented in squads/design-ops/rules/extension-vocabulary-match.md)
+ * Exit 1 on any violation → blocks CI (registered in ci pipeline).
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UI_DIR = path.resolve(__dirname, "../src/components/ui");
+
+const RULES = [
+  {
+    id: "no-rounded-xl",
+    pattern: /\brounded-(xl|2xl)\b/,
+    reason: "12/16px are NOT in the Redpine/brand radius ladder (0/2/4/8/pill). Use rounded-md (4px) for cards, rounded-lg (8px) for modals.",
+  },
+  {
+    id: "no-transition-all",
+    pattern: /\btransition-all\b/,
+    reason: "Use explicit property list + tokenized duration/ease, e.g. transition-[color,background-color,border-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]",
+  },
+  {
+    id: "no-opacity-hover",
+    pattern: /hover:bg-(primary|destructive|secondary)\/\d+/,
+    reason: "Use tokenized state colors (bg-primary-hover, bg-primary-pressed) instead of opacity modifiers.",
+  },
+  {
+    id: "no-ring-alpha-focus",
+    pattern: /(ring-\[3px\]|ring-ring\/50|focus:ring-2 focus:ring-ring)/,
+    reason: "Use RHDS-style outline: focus-visible:outline-[3px] focus-visible:outline-[var(--focus)] focus-visible:outline-offset-[3px] (WCAG 2.2 AAA)",
+  },
+  {
+    id: "no-weak-focus-outline",
+    pattern: /focus-visible:outline-(1|2)\b/,
+    reason: "Focus outline must be 3px per RHDS WCAG 2.2 AAA spec: focus-visible:outline-[3px]",
+  },
+  {
+    id: "no-raw-tailwind-shadow",
+    pattern: /\bshadow-(sm|md|lg|xs)\b(?!-)/,
+    reason: "Use tokenized shadows: shadow-[var(--shadow-1)] (subtle), shadow-[var(--shadow-2)] (popover), shadow-[var(--shadow-3)] (modal).",
+  },
+];
+
+const violations = [];
+
+if (!fs.existsSync(UI_DIR)) {
+  console.error(`✗ UI directory not found: ${UI_DIR}`);
+  process.exit(1);
+}
+
+for (const file of fs.readdirSync(UI_DIR)) {
+  if (!file.endsWith(".tsx")) continue;
+  const full = path.join(UI_DIR, file);
+  const src = fs.readFileSync(full, "utf8");
+  const lines = src.split("\n");
+  lines.forEach((line, i) => {
+    for (const rule of RULES) {
+      if (rule.pattern.test(line)) {
+        violations.push({
+          file,
+          line: i + 1,
+          rule: rule.id,
+          reason: rule.reason,
+          snippet: line.trim().slice(0, 140),
+        });
+      }
+    }
+  });
+}
+
+if (violations.length === 0) {
+  console.log("✓ token-drift check passed — all components honor DS tokens");
+  process.exit(0);
+}
+
+console.error(`✗ token-drift check failed — ${violations.length} violation(s):`);
+console.error("");
+for (const v of violations) {
+  console.error(`  ${v.file}:${v.line} [${v.rule}]`);
+  console.error(`    ${v.snippet}`);
+  console.error(`    → ${v.reason}`);
+  console.error("");
+}
+process.exit(1);

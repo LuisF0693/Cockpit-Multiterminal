@@ -36,3 +36,6 @@ Thumbs.db
 
 # AIOX Runtime (handoffs, sessões — não versionar)
 .aiox/
+
+# Nirvana-OS Runtime (estado de ativação de squads — não versionar)
+.nirvana/

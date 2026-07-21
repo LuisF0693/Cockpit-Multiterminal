@@ -1,0 +1,43 @@
+workflow:
+  phases:
+    1_strategic_brief:
+      name: "Strategic Brief Builder"
+      description: |
+        ALWAYS runs (no skip path). Transforms the raw user query +
+        inferred_context (seed from Phase P0) into a structured, copy-pasteable
+        Deep Research brief, then asks 2-3 clarifying questions OUTSIDE the
+        code block. Replaces the legacy skip/single-question clarify logic.
+      role: |
+        Research-prompt strategist. Convert a simple question into a strategic
+        brief. EXPAND scope, never narrow it. Bias toward actionable insight.
+      execution: |
+        1. Read auto_clarification.strategic_brief_builder from
+           squads/research/data/tech-research/auto-clarification.yaml
+        2. Read inferred_context (SEED) from Phase P0. Apply seed_usage rules:
+           - focus=technical    → SCOPE biased to implementation + tradeoffs
+           - focus=comparison   → SCOPE leads with comparative-matrix angle
+           - temporal=recent    → REQUIREMENTS demands current-year data
+           - domain=[techs]     → name them in TOPIC / SCOPE
+           - product_discovery=true → JTBD / villain OSINT / WTP / blue ocean
+             / validation case studies (product-discovery-framework.md)
+        3. Fill the brief_structure template (TOPIC, CONTEXT, SCOPE[4-6],
+           REQUIREMENTS[3-4], RECOMMENDED SOURCES[3-4], EXPECTED OUTCOMES[3-5]).
+        4. EMIT the brief inside ONE fenced code block (copy-pasteable AND
+           consumed by Phase P1.5 Decompose).
+        5. EMIT 2-3 clarifying questions AFTER and OUTSIDE the code block.
+           Questions are skippable — the brief stands alone.
+        6. Language: the BRIEF (incl. section headers) is ALWAYS ENGLISH.
+           The CLARIFYING QUESTIONS use the operator language (PT-BR default).
+      output: |
+        strategic_brief (structured Deep Research brief, in a code block) +
+        clarifying_questions (2-3, outside the block). Both passed to Phase P1.5.
+      backward_compatibility: |
+        Used ONLY if the strategic_brief_builder section is missing
+        (config error). Ask the single legacy question below.
+      legacy_single_question: |
+        "Sua query parece ampla. Em uma frase: qual o foco e contexto desta
+        pesquisa? (Ex: 'foco técnico, usando Node.js' ou 'comparação geral')"
+      legacy_original_questions:
+        - "Foco: técnico (código/docs) ou geral (artigos/news)?"
+        - "Requisitos de performance? (latência, recursos)"
+        - "Contexto específico? (framework, linguagem, plataforma)"

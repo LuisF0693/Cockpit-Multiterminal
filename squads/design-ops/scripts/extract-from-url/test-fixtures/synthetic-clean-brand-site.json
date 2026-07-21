@@ -1,0 +1,45 @@
+{
+  "fixture_id": "synthetic-clean-brand-site",
+  "purpose": "Regression test fixture — clean brand site (Geist + OKLCH organic palette + asymmetric grid). Should produce zero false positives.",
+  "expected_outcome": {
+    "ai_slop_score_min": 0,
+    "ai_slop_score_max": 20,
+    "recommendation": "adopt-safely",
+    "must_detect": [],
+    "must_not_detect": [
+      "font_monoculture",
+      "ban_02_gradient_text",
+      "ban_01_side_stripe_borders",
+      "ban_08_pure_black_or_white",
+      "lila_purple_blue",
+      "animation_easing_bouncy"
+    ]
+  },
+  "created": "2026-05-19",
+  "rt_origin": "RT-FIX-7 (@architect C5 — commit regression fixtures)",
+
+  "inputs": {
+    "fontFaces": [
+      { "family": "Geist" },
+      { "family": "Outfit" }
+    ],
+    "componentProps": [
+      { "selector": ".hero", "styles": "grid-template-columns: 2fr 1fr;" },
+      { "selector": ".gallery", "styles": "column-count: 3;" }
+    ],
+    "tokens": {
+      "color": {
+        "primary": "oklch(45% 0.15 145)",
+        "surface": "oklch(98% 0.005 145)"
+      },
+      "spacing": { "xs": "16px", "sm": "24px", "md": "32px", "lg": "48px" }
+    },
+    "motion": {
+      "transitions": [
+        { "id": "a", "easing": "spring with stiffness 100 damping 20" }
+      ]
+    },
+    "register": "brand",
+    "sourceUrl": "https://clean-brand-example.com"
+  }
+}

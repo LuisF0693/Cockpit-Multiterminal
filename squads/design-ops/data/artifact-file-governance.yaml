@@ -1,0 +1,244 @@
+id: artifact-file-governance
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-contract
+origin: squads/design-ops/rules/ai-trope-guardrails.md
+external_reference: "agenmod/claw-design — extracted 2026-04-18"
+
+# File governance contract for artifacts produced by the design-ops provider
+# and by downstream consumers. Applies to self-contained HTML, decks, components,
+# and any multi-file artifact bundle.
+
+# =============================================================================
+# SIZE LIMITS
+# =============================================================================
+size_limits:
+  default:
+    max_lines_per_file: 1000
+    behavior_on_exceed: "split_into_modules"
+    rationale: >-
+      Single files beyond 1000 lines become unreviewable and lose tree-shakeability.
+      Split into logical modules (components, hooks, types, styles, constants).
+
+  by_kind:
+    component:
+      max_lines_per_file: 400
+      behavior_on_exceed: "split_into_sub_components"
+      rationale: "A component > 400 lines is almost always several components."
+
+    html_prototype:
+      max_lines_per_file: 1000
+      behavior_on_exceed: "split_into_modules"
+      rationale: "Self-contained artifacts remain readable under 1000 lines."
+
+    deck:
+      max_lines_per_slide: 600
+      behavior_on_exceed: "split_slide"
+      rationale: "A slide over 600 lines is either two slides or has logic that belongs in a helper."
+
+    test:
+      max_lines_per_file: 800
+      behavior_on_exceed: "split_by_describe_block"
+      rationale: "Test files beyond 800 lines are usually combining multiple components' suites."
+
+# =============================================================================
+# NAMING & VERSIONING
+# =============================================================================
+naming:
+  component_tsx:
+    pattern: "{PascalCaseName}.tsx"
+    example: "Button.tsx"
+  component_css_module:
+    pattern: "{PascalCaseName}.module.css"
+    example: "Button.module.css"
+  component_test:
+    pattern: "{PascalCaseName}.test.tsx"
+    example: "Button.test.tsx"
+  component_story:
+    pattern: "{PascalCaseName}.stories.tsx"
+    example: "Button.stories.tsx"
+  component_doc:
+    pattern: "{PascalCaseName}.md"
+    example: "Button.md"
+  html_artifact:
+    pattern: "{kebab-case-name}.html"
+    example: "q4-pitch-prototype.html"
+  deck:
+    pattern: "{kebab-case-name}-deck.html"
+    example: "q4-pitch-deck.html"
+
+versioning:
+  strategy: "file_rename_with_suffix"
+  rationale: >-
+    Preserves historical artifact versions without git blame noise or overwriting.
+    Reviewers, clients, and design-chief can diff visually across versions.
+  pattern:
+    first_version: "{name}.{ext}"
+    subsequent: "{name} v{N}.{ext}"
+    examples:
+      - "Q4 Pitch.html -> Q4 Pitch v2.html -> Q4 Pitch v3.html"
+      - "Button.tsx (versioned via git, not filename)"
+  applies_to:
+    - html_prototype
+    - deck
+    - pdf
+    - pptx
+  does_not_apply_to:
+    - component  # git history handles this
+    - test       # git history handles this
+    - token      # registry handles this
+
+deprecation:
+  pattern: "{name}.deprecated.{ext}"
+  behavior:
+    - "Artifact stays on disk for reference"
+    - "Listed in design-manifest.yaml with deprecated: true"
+    - "Excluded from validate-design-manifest-drift checks after 30 days"
+  retention_days: 90
+
+# =============================================================================
+# MODULE SPLITTING CONVENTIONS
+# =============================================================================
+module_splitting:
+  when_file_exceeds_limit:
+    steps:
+      - "Identify the N largest cohesive blocks (usually sub-components, state machines, or constants)"
+      - "Extract each block to its own file with kebab-case filename inside a directory named after the parent"
+      - "Re-export from an index.ts barrel in the new directory"
+      - "Update imports across the workspace via codemod, not manual edit"
+    anti_pattern:
+      label: "Arbitrary line-based split"
+      description: >-
+        Splitting a file at line 500 because it is 'too long' without cohesive refactor
+        creates tighter coupling and worse readability than the original file.
+
+  directory_layout_on_split:
+    before: "Button.tsx (1200 lines)"
+    after: |
+      Button/
+        index.ts              # re-export
+        Button.tsx            # main component (< 400 lines)
+        button.types.ts       # types
+        button.variants.ts    # CVA variants
+        button.test.tsx
+        button.stories.tsx
+        Button.md
+
+# =============================================================================
+# ASSET REGISTRATION
+# =============================================================================
+asset_registration:
+  required_fields:
+    - artifact_id
+    - kind
+    - business_slug
+    - created_at
+    - source_brief_ref
+    - variants_explored_count
+    - convergence_rationale
+    - verification_status
+
+  # Wave B.5 expansion — absorbed from external prompt register_assets tool schema
+  extended_fields:
+    asset_name:
+      description: "Human-readable asset label (e.g. 'Landing Page', 'Hero Illustration')"
+      required: true
+      inheritance_rule: "Revisions via copy_files inherit automatically; omit to skip registration"
+      source_citation: "external prompt lines 34-37"
+
+    subtitle:
+      description: "Short description of this version (e.g. 'Indigo primary, slate neutrals')"
+      required: false
+      purpose: "Version label shown in review pane; helps distinguish iterations"
+
+    viewport:
+      description: "Intended design dimensions for fixed-size content"
+      required: false
+      schema:
+        width: "Design width in px (required if present)"
+        height: "Intended height cap in px (optional)"
+      typical_values:
+        deck: { width: 1920, height: 1080 }
+        mobile_mockup: { width: 390, height: 844 }
+        desktop_page: { width: 1280, height: 800 }
+
+    status:
+      description: "Review status of this asset version"
+      required: false
+      default: "needs-review"
+      enum:
+        - needs-review
+        - approved
+        - changes-requested
+      behavior_on_re_register: "Resets to needs-review unless explicitly set"
+
+    group:
+      description: "Section this card belongs to in the Design System tab"
+      required: false
+      rationale: >-
+        Groups allow the DS review pane to split cards into semantic sections,
+        making the DS browsable as a system rather than a flat list.
+      canonical_values:
+        - Type          # typography cards, font stacks, scale displays
+        - Colors        # palettes, color scales, semantic tokens
+        - Spacing       # radii, shadows, spacing tokens, elevation
+        - Components    # buttons, forms, cards, badges, atoms/molecules
+        - Brand         # logos, imagery, anything else brand-owned
+      title_case: true
+      omit_only_if: "truly unclassifiable"
+
+  registration_inheritance:
+    rule: "Revisions made via copy_files inherit the asset name automatically"
+    override: "Pass empty string to skip registration on copy"
+    source_citation: "external prompt line 37"
+
+  registry_target:
+    current: "outputs/design-ops/{business}/manifest.yaml"
+    planned_future: "squads/design-ops/data/asset-registry.yaml"  # Wave C
+  validation:
+    gate: design-chief
+    blocking: false  # advisory until Wave C
+    purpose: "Make artifacts discoverable for review panes, asset browsers, and cross-squad reuse."
+
+  support_files_rule:
+    rule: "Omit asset registration for support files (CSS, research notes, scratch)"
+    rationale: "Only user-facing deliverables populate the review pane"
+    source_citation: "external prompt line 37"
+
+# =============================================================================
+# PROHIBITED FILE PATTERNS
+# =============================================================================
+prohibited_patterns:
+  - pattern: "**/.DS_Store"
+    reason: "macOS metadata, never committed"
+  - pattern: "**/node_modules/**"
+    reason: "Dependency directory, gitignored"
+  - pattern: "**/*.log"
+    reason: "Runtime logs do not belong in artifact bundles"
+  - pattern: "**/*.tmp"
+    reason: "Temporary files indicate incomplete work"
+  - pattern: "**/copy-of-*"
+    reason: "Use versioning pattern instead"
+  - pattern: "**/untitled*"
+    reason: "Artifacts must have intentional names"
+
+# =============================================================================
+# ENFORCEMENT
+# =============================================================================
+enforcement:
+  mode: advisory  # advisory in Wave B.2, blocking in Wave C
+  validator:
+    current: null  # planned for Wave C
+    planned: "squads/design-ops/scripts/validate-artifact-file-governance.cjs"
+  gate_reference: design-chief
+  used_by:
+    - squads/design-ops/workflows/wf-provider-enrichment-from-external.yaml
+    - "planned: squads/design-ops/workflows/wf-artifact-creation-loop.yaml"
+
+related:
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

@@ -1,0 +1,584 @@
+workflow:
+  id: design-ops-ds-static-to-dynamic-migration
+  name: DS Static-to-Dynamic Migration (framework-agnostic)
+  version: 2.1.0
+  description: >-
+    Migrates a static design system (HTML + CSS tokens + UI kits) into an app on
+    Tailwind v4 + shadcn/ui + TypeScript strict, on the chosen framework (next|vite).
+    Based on archetype `squads/design-ops/data/ds-archetype.yaml` v2.0.0 separating
+    INVARIANT (Tailwind+shadcn+Radix+TS+tokens+24 primitives) from PARAMETERIZED
+    (framework+profile) and BRAND-DRIVEN (icons, animations, brand colors, typography)
+    and EMERGENT (specialized primitives + discovered surfaces). Produces non-identical
+    outcomes between brands while preserving the common backbone, now also across frameworks.
+  type: sequential-with-branches
+  archetype_ref: squads/design-ops/data/ds-archetype.yaml
+  sinkra_process_ref: outputs/sinkra-squad/migracao-ds-estatico-para-dinamico-tokenizado/sinkra-output.yaml
+  reference_implementations:
+    lean: apps/redpine-ds
+    full: apps/aiox-brandbook
+    executed: apps/anthropic-ds
+  profiles:
+    lean:
+      description: "Next + Tailwind v4 + shadcn sem Storybook, mirror redpine-ds"
+      visual_gate: manual_checklist
+      deps_extra: []
+    full:
+      description: "Lean + Storybook + DTCG tokens sync + Playwright visual regression"
+      visual_gate: playwright_regression
+      deps_extra: [storybook, "@storybook/nextjs-vite", "@chromatic-com/storybook", "@playwright/test"]
+
+  sequence:
+    - step: org-brand-discovery
+      phase: 0
+      phase_name: "Organism 0 — Brand Discovery (scan source, produce brand-profile)"
+      agent: design-chief
+      action: discover
+      outputs: [brand_profile, declared_primitives_baseline_map, proposed_specialized_primitives, discovered_surfaces]
+      gate: G0
+      next: org-scaffold
+
+    - step: org-scaffold
+      phase: 1
+      phase_name: "Organism 1 — Scaffold Next/TS/Tailwind/shadcn (INVARIANT)"
+      agent: design-chief
+      action: scaffold
+      outputs: [legacy_moved, configs_written, src_skeleton, deps_installed]
+      gate: G1
+      next: org-token-system
+
+    - step: org-token-system
+      phase: 2
+      phase_name: "Organism 2 — Token System (PARAMETERIZED via brand-profile)"
+      agent: design-chief
+      action: wire-tokens
+      outputs: [globals_css_complete, type_scale_wired, dark_mode_ready]
+      gate: G2
+      next: org-primitive-layer
+
+    - step: org-primitive-layer
+      phase: 3
+      phase_name: "Organism 3 — Primitive Layer (INVARIANT baseline + EMERGENT approved)"
+      agent: design-chief
+      action: build-primitives
+      outputs: [ui_primitives_baseline, ui_primitives_specialized, composition_components]
+      gate: G3
+      next: [org-route-system-preview, org-route-system-kits]
+      parallel_group: route-system-parallel
+
+    - step: org-route-system-preview
+      phase: 4a
+      phase_name: "Organism 4 — Preview Routes (parallel with kits)"
+      agent: design-chief
+      action: build-preview-routes
+      outputs: [preview_routes, preview_layout, theme_toggle]
+      parallel: true
+      parallel_join_at: G4
+      next: org-qa-gates
+
+    - step: org-route-system-kits
+      phase: 4b
+      phase_name: "Organism 4 — Kit Routes (EMERGENT surfaces from discovery)"
+      agent: design-chief
+      action: build-kit-routes
+      outputs: [kit_routes, kit_composition]
+      parallel: true
+      parallel_join_at: G4
+      next: org-qa-gates
+
+    - step: org-qa-gates
+      phase: 5
+      phase_name: "Organism 5 — QA Gates (INVARIANT quality contract)"
+      agent: design-chief
+      action: run-qa
+      outputs: [tsc_pass, build_pass, lint_pass, visual_gate_verdict]
+      gate: G5
+      next: org-fix-polish
+
+    - step: org-fix-polish
+      phase: 6
+      phase_name: "Organism 6 — Fix & Polish (next-themes, registered icon library, dead code strip)"
+      agent: design-chief
+      action: finalize
+      outputs: [themes_persistent, icons_consolidated, dead_aliases_stripped, docs_updated]
+      gate: G6
+      next: workflow-end
+
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  target_app_name:
+    type: string
+    description: "Nome do app target em apps/ (e.g., foo-ds)"
+    required: true
+  source_static_dir:
+    type: string
+    description: "Diretório com HTML + CSS estáticos a migrar (relativo a target app)"
+    required: true
+    default: legacy-static
+  framework:
+    type: string
+    description: "Target framework — next (Next.js 16) | vite (Vite 5). Other frameworks (astro, remix, sveltekit) are ARCHITECTURAL_PLACEHOLDER in archetype v2.0.0."
+    required: true
+    default: next
+    validation: "Must be: next or vite (MVP)"
+    archetype_ref: "squads/design-ops/data/ds-archetype.yaml#parameterized.framework.shape"
+  profile:
+    type: string
+    description: "lean (redpine-like) | full (aiox-brandbook-like — unlocks mandatory_outputs.full_only)"
+    required: true
+    default: lean
+    validation: "Must be: lean or full"
+  reference_brand:
+    type: string
+    description: "Brand owner name (metadata, aria-labels, legal footer)"
+    required: true
+  tokens_source_css:
+    type: string
+    description: "Path ao arquivo CSS fonte de tokens (relativo a legacy-static/)"
+    required: false
+    default: colors_and_type.css
+  interaction_mode:
+    type: string
+    description: "interactive (user aprova emergent primitives) | yolo (aceita tudo com evidence_score >= 0.7)"
+    required: false
+    default: interactive
+  workflow_mode:
+    type: string
+    description: "migration (default — static DS → Next/Tailwind/shadcn) | extension (add to existing DS — DEFERRED; see rules/extension-vocabulary-match.md)"
+    required: false
+    default: migration
+    deferred_modes:
+      extension:
+        status: DEFERRED
+        rule: squads/design-ops/rules/extension-vocabulary-match.md
+        expected_workflow: squads/design-ops/workflows/ds-extension.yaml (not yet authored)
+        invocation: "For now, @design-chief enforces extension-vocabulary-match.md protocol interactively. Build the workflow when demand materializes."
+
+steps:
+
+  # ── ORGANISM 0 — Brand Discovery (Worker: deterministic node script) ─
+  - id: step-0-brand-discovery
+    name: "Scan source DS and produce brand-profile (Worker-class)"
+    type: script
+    script: squads/design-ops/scripts/design-system/discover-brand.cjs
+    command: "node squads/design-ops/scripts/design-system/discover-brand.cjs --source=apps/{{target_app_name}}/{{source_static_dir}} --output=outputs/design-ops/{{target_app_name}}/brand-profile.yaml"
+    inputs:
+      source_dir: "apps/{{target_app_name}}/{{source_static_dir}}"
+      archetype: "squads/design-ops/data/ds-archetype.yaml"
+    deterministic: true
+    idempotent: true
+    fallback_to_agent: design-chief
+    fallback_trigger: "Worker fails OR brand-profile.yaml coverage gaps require human judgment (e.g., colors unclassifiable)"
+    sub_actions:
+      - "Worker: extract colors (HSL-raw + hsl-fn + hex) — classify into foundation/text/border/brand_accent/feedback/unclassified"
+      - "Worker: parse @import URLs + --font-* families; identify primary_by_tier {sans, display, serif, mono}"
+      - "Worker: match legacy-static/preview/components-*.html against invariant.baseline_primitives (24) — status per primitive: matched_dedicated_preview | mentioned_in_html | missing_from_source"
+      - "Worker: detect specialized via archetype.emergent.discovery.primitives.specialized_detection.catalog — score evidence 0–1 (prose signal + structural class/id match; class-only = 0.6, both = 1.0)"
+      - "Worker: list legacy-static/ui_kits/*/ subdirs; infer category via CATEGORY_SIGNALS (product|marketing|docs|pitch-deck|ops|unknown)"
+      - "Worker: scan assets/ for logos and preview/type-* for typography specimens"
+      - "Worker: emit brand-profile.yaml"
+    outputs:
+      brand_profile: "outputs/design-ops/{{target_app_name}}/brand-profile.yaml"
+      declared_primitives_baseline_map: "outputs/design-ops/{{target_app_name}}/baseline-coverage.yaml"
+      proposed_specialized_primitives: "outputs/design-ops/{{target_app_name}}/proposed-specialized.yaml"
+      discovered_surfaces: "outputs/design-ops/{{target_app_name}}/discovered-surfaces.yaml"
+    approval:
+      trigger: "proposed_specialized_primitives has entries"
+      mode: "{{interaction_mode}}"
+      behavior:
+        interactive: "Present proposed list to user; user approves subset; rejected items archived with rationale"
+        yolo: "Auto-approve entries with evidence_score >= 0.7"
+    validation:
+      - "brand-profile.yaml parses as valid YAML"
+      - "colors section covers all parameterized.brand_colors.shape required roles"
+      - "typography section has display/body/mono tiers"
+      - "discovered_surfaces >= 0 (may be empty — some DSs have no kits)"
+    error_handling:
+      strategy: fail
+      fallback: "agent-inline — request user to declare brand-profile.yaml manually"
+
+  # ── ORGANISM 1 — Scaffold ─────────────────────────────────────────────
+  - id: step-1-scaffold
+    name: Scaffold framework + Tailwind + shadcn (archetype INVARIANT + framework shape)
+    type: script
+    script: squads/design-ops/scripts/design-system/scaffold-ds.sh
+    command: "scaffold-ds.sh --target={{target_app_name}} --framework={{framework}} --profile={{profile}} --source-dir={{source_static_dir}}"
+    inputs:
+      target: "{{target_app_name}}"
+      framework: "{{framework}}"
+      profile: "{{profile}}"
+    emits:
+      baseline:
+        - "scripts/check-token-drift.mjs (from template)"
+        - "src/design-system/components.map.json (skeleton with status field)"
+        - "focus-indicators-global injected into globals.css (WCAG 2.2 AAA)"
+      full_only:
+        - "scripts/build-manifest.mjs (from template)"
+        - "src/design-system/exports/tokens.dtcg.json (skeleton)"
+        - "package.json enriched: designTokensLanguageServer + build:manifest + build:tokens + Storybook"
+    outputs:
+      legacy_moved: "apps/{{target_app_name}}/legacy-static/"
+      configs_written: "apps/{{target_app_name}}/{package.json,tsconfig.json,next.config.ts,postcss.config.mjs,eslint.config.mjs,components.json}"
+      src_skeleton: "apps/{{target_app_name}}/src/"
+    error_handling:
+      strategy: fail
+      fallback: agent-inline
+
+  # ── ORGANISM 2 — Token System ─────────────────────────────────────────
+  - id: step-2-tokens
+    name: Port tokens to globals.css with @theme inline (per archetype 4-tier architecture)
+    type: agent
+    agent: design-chief
+    command: "*wire-tokens"
+    inputs:
+      source_css: "apps/{{target_app_name}}/legacy-static/{{tokens_source_css}}"
+      target_css: "apps/{{target_app_name}}/src/app/globals.css"
+      brand_profile: "{{step-0-brand-discovery.brand_profile}}"
+    sub_actions:
+      - "Port raw HSL tokens from source CSS into :root (tier 1)"
+      - "Create semantic aliases per archetype tier 2 (--bg/--fg-*/--ds-accent/--success/etc)"
+      - "Map shadcn slots per archetype tier 3 (--background/--foreground/--primary/--card/etc)"
+      - "Wire @theme inline per archetype tier 4 (text scale + leading + tracking + colors + radii)"
+      - "Declare @custom-variant dark (&:is(.dark *))"
+      - "Preserve dark-mode HSL overrides from source (both `.dark` and `[data-theme=\"dark\"]`)"
+    outputs:
+      globals_css_complete: "apps/{{target_app_name}}/src/app/globals.css"
+    validation:
+      - "globals.css contains @theme inline block"
+      - "--color-*, --text-*, --leading-*, --tracking-* wired"
+      - "@custom-variant dark declared"
+      - "HSL raw tokens + semantic + shadcn slots all 3 tiers present"
+    error_handling:
+      strategy: fail
+
+  # ── ORGANISM 3 — Primitive Layer ──────────────────────────────────────
+  - id: step-3-primitives
+    name: "Build primitives (INVARIANT baseline + EMERGENT approved)"
+    type: agent
+    agent: design-chief
+    command: "*build-primitives"
+    inputs:
+      tokens_globals: "{{step-2-tokens.globals_css_complete}}"
+      reference_lean: "apps/redpine-ds/src/components/ui"
+      reference_full: "apps/aiox-brandbook/src/components/ui"
+      brand: "{{reference_brand}}"
+      brand_profile: "{{step-0-brand-discovery.brand_profile}}"
+      baseline_coverage: "{{step-0-brand-discovery.declared_primitives_baseline_map}}"
+      approved_specialized: "{{step-0-brand-discovery.proposed_specialized_primitives}}"
+    sub_actions:
+      baseline_phase:
+        - "ALWAYS generate all 24 archetype.invariant.baseline_primitives in src/components/ui/"
+        - "Use redpine-ds as API template; adapt color utilities to brand tokens"
+        - "Every primitive: cva + data-slot + asChild via radix-ui Slot + React.ComponentProps<> typing + cn()"
+      specialized_phase:
+        - "FOR EACH approved specialized primitive from discovery:"
+        - "  - Look up reference implementation (redpine/aiox/anthropic per archetype.emergent.discovery.primitives.specialized_detection.catalog evidence)"
+        - "  - Adapt to brand tokens + target primitive vocabulary (cva variants derived from source HTML)"
+        - "  - Place in src/components/ui/ (single-responsibility) OR src/components/{category}/ (composition)"
+      composition_phase:
+        - "Generate src/components/logo.tsx — variants per logo SVGs discovered in assets/"
+        - "Generate src/components/typography.tsx — Display/H1-H4/Body/BodyLg/Eyebrow/Prose/Code using @theme inline tokens"
+        - "Generate src/components/nav/{top-bar,sidebar}.tsx — scaffolded if source kits have nav patterns"
+    outputs:
+      ui_primitives_baseline: "apps/{{target_app_name}}/src/components/ui/ (24 files)"
+      ui_primitives_specialized: "apps/{{target_app_name}}/src/components/ui/ (N approved) OR src/components/{category}/"
+      composition_components: "apps/{{target_app_name}}/src/components/{logo,typography,nav}/"
+    target_count:
+      baseline: 24
+      specialized: "N (approved at discovery)"
+      composition: "3 base + M (derived from surfaces)"
+    validation:
+      - "tsc --noEmit passes"
+      - "All baseline 24 present"
+      - "All approved specialized present (no more, no less)"
+      - "All primitives follow archetype.invariant.baseline_primitives.contract"
+      - "No direct @radix-ui/* imports"
+    error_handling:
+      strategy: fail
+
+  # ── ORGANISM 4a — Preview Routes ──────────────────────────────────────
+  - id: step-4a-preview-routes
+    name: Build preview routes (derived from source legacy-static/preview/*)
+    type: agent
+    agent: design-chief
+    command: "*build-preview-routes"
+    inputs:
+      legacy_previews: "apps/{{target_app_name}}/legacy-static/preview/*.html"
+      primitives: "{{step-3-primitives.ui_primitives_baseline}}"
+      composition: "{{step-3-primitives.composition_components}}"
+    sub_actions:
+      - "Generate src/app/preview/layout.tsx with sidebar + theme-toggle"
+      - "Generate src/app/preview/page.tsx (index listing all preview cards)"
+      - "FOR EACH legacy-static/preview/*.html → generate src/app/preview/{slug}/page.tsx preserving visual parity"
+      - "If source has specialized categories (e.g., brand/colors/type/spacing/components), group them in layout nav"
+    outputs:
+      preview_routes: "apps/{{target_app_name}}/src/app/preview/"
+    parallel_with: step-4b-kit-routes
+    validation:
+      - "Every legacy-static/preview/*.html has corresponding src/app/preview/{slug}/page.tsx"
+      - "Preview layout has theme-toggle"
+      - "Index page lists all routes"
+    error_handling:
+      strategy: fail
+
+  # ── ORGANISM 4b — Kit Routes ──────────────────────────────────────────
+  - id: step-4b-kit-routes
+    name: "Build kit routes (EMERGENT surfaces from brand-profile, NOT hardcoded)"
+    type: agent
+    agent: design-chief
+    command: "*build-kit-routes"
+    inputs:
+      discovered_surfaces: "{{step-0-brand-discovery.discovered_surfaces}}"
+      legacy_kits: "apps/{{target_app_name}}/legacy-static/ui_kits/"
+      primitives: "{{step-3-primitives.ui_primitives_baseline}}"
+      specialized: "{{step-3-primitives.ui_primitives_specialized}}"
+      composition: "{{step-3-primitives.composition_components}}"
+    sub_actions:
+      - "Generate src/app/kits/page.tsx (index of discovered surfaces)"
+      - "FOR EACH discovered surface (from brand-profile.surfaces):"
+      - "  - mkdir src/app/kits/{surface-name}/"
+      - "  - Generate layout.tsx (surface-specific shell per category — product=sidebar+main, marketing=topbar+footer, docs=sidebar+TOC, pitch-deck=slides)"
+      - "  - For each file in legacy-static/ui_kits/{surface-name}/ → generate corresponding route"
+      - "  - Use specialized primitives when surface requires them (composer for chat, hero for marketing, etc)"
+      - "  - DO NOT hardcode surface names — they come from discovery"
+    outputs:
+      kit_routes: "apps/{{target_app_name}}/src/app/kits/"
+      kit_composition: "apps/{{target_app_name}}/src/components/{discovered-surface-name}/"
+    parallel_with: step-4a-preview-routes
+    validation:
+      - "src/app/kits/ has subdir per discovered surface"
+      - "Each surface has coherent shell matching its category"
+      - "No surface is hardcoded to anthropic/redpine/aiox names"
+    error_handling:
+      strategy: fail
+
+  # ── ORGANISM 5 — QA ───────────────────────────────────────────────────
+  - id: step-5-qa-gates
+    name: "Run QA gates (archetype INVARIANT quality contract)"
+    type: script
+    inputs:
+      profile: "{{profile}}"
+    commands:
+      - cmd: "npx tsc --noEmit"
+        working_dir: "apps/{{target_app_name}}"
+        must_pass: true
+      - cmd: "npm run build"
+        working_dir: "apps/{{target_app_name}}"
+        must_pass: true
+        note: "Framework-agnostic — resolves to 'next build' for framework=next or 'tsc --noEmit && vite build' for framework=vite"
+      - cmd: "npx eslint src/ --max-warnings=0"
+        working_dir: "apps/{{target_app_name}}"
+        must_pass: false
+        note: "ESLint 9 + FlatCompat + next/core-web-vitals emits schema-validation noise; exit 0 acceptable"
+      - cmd: "grep -rn '<svg ' src/ | wc -l"
+        working_dir: "apps/{{target_app_name}}"
+        must_equal: "0 (or allowlisted brand SVGs)"
+        note: "Registered-icon-library-only policy per archetype.invariant.quality_gates. The chosen library is brand-driven — see archetype.brand_driven.icons"
+      - cmd: "grep -rn ':\\s*any\\b' src/ | wc -l"
+        working_dir: "apps/{{target_app_name}}"
+        must_equal: 0
+    visual_gate:
+      lean: "squads/design-ops/checklists/visual-gate-lean.yaml (manual)"
+      full: "playwright (automated regression)"
+    outputs:
+      tsc_pass: boolean
+      build_pass: boolean
+      lint_pass: boolean
+      visual_gate_verdict: "PASS | FAIL"
+    error_handling:
+      strategy: fail
+
+  # ── ORGANISM 6 — Polish ───────────────────────────────────────────────
+  - id: step-6-fix-polish
+    name: "Fix and polish (archetype INVARIANT dark-mode + registered icon library + cleanup)"
+    type: agent
+    agent: design-chief
+    command: "*finalize"
+    inputs:
+      src: "apps/{{target_app_name}}/src/"
+      visual_gate_checklist: "squads/design-ops/checklists/visual-gate-lean.yaml"
+      guardrails: "squads/design-ops/checklists/dops-ai-trope-guardrails.yaml"
+    sub_actions:
+      - "Wire next-themes + ThemeProvider in layout.tsx (persistence + FOUC prevention)"
+      - "Migrate inline <svg> to the registered icon library (per `archetype.brand_driven.icons`; default lucide-react; brand-specific SVGs allowlisted)"
+      - "Strip dead legacy token aliases from globals.css"
+      - "Audit inline styles — keep only data-driven swatches when no scale token covers it"
+      - "Apply visual-gate-lean content-discipline checks (no filler, no data slop, ask-before-adding)"
+      - "Apply visual-gate-lean scale-minimums checks (24px deck / 44px mobile / 12pt print / 44×44 hit area)"
+      - "Apply dops-ai-trope-guardrails checks (placeholder-over-bad-attempt, source-code-first, no-aggressive-gradients, oklch-harmonic-extension)"
+      - "Update README + SKILL.md with stack + archetype reference + brand-profile summary + missing-asset caveats"
+    outputs:
+      themes_persistent: boolean
+      icons_consolidated: boolean
+      dead_aliases_stripped: boolean
+      docs_updated: boolean
+      content_discipline_pass: boolean
+      scale_minimums_pass: boolean
+      guardrails_pass: boolean
+    validation:
+      - "Zero inline <svg> where the registered icon library covers it"
+      - "Zero dead alias vars in globals.css"
+      - "visual-gate-lean content-discipline section: PASS (0 CRITICAL)"
+      - "visual-gate-lean scale-minimums section: PASS (0 CRITICAL)"
+      - "dops-ai-trope-guardrails imagery section: PASS (placeholder policy applied where assets missing)"
+      - "Final tsc + build re-run passa"
+    error_handling:
+      strategy: fail
+
+quality_gates:
+  G0:
+    name: "Discovery gate"
+    criteria:
+      - "brand-profile.yaml emitido e YAML-valid"
+      - "Pelo menos 1 accent color detectado"
+      - "Pelo menos 1 typography tier (display OR body) detectado"
+      - "baseline_coverage lista 24 primitives (cada com status matched|missing_from_source)"
+      - "proposed_specialized tem evidence_score per entry"
+      - "User approval coletado (interactive) ou auto-approved (yolo)"
+  G1:
+    name: "Scaffold gate"
+    criteria:
+      - "package.json exists"
+      - "tsconfig strict true"
+      - "components.json new-york + cssVariables true"
+      - "npm install exit 0"
+  G2:
+    name: "Tokens gate"
+    criteria:
+      - "@theme inline block presente"
+      - "Type scale, leading, tracking, colors todos wired"
+      - ".dark variant declarado"
+      - "Brand colors do brand-profile traduzidos corretamente"
+  G3:
+    name: "Primitives gate (parallelization unlock)"
+    criteria:
+      - "24 baseline primitives gerados"
+      - "N specialized primitives gerados (N = approved at G0)"
+      - "3+ composition components gerados"
+      - "tsc --noEmit passes"
+      - "Preview routes e Kit routes MAY agora rodar em paralelo"
+  G4:
+    name: "Route system join gate"
+    criteria:
+      - "Todos legacy previews têm Next routes"
+      - "Todos discovered surfaces têm route namespaces"
+      - "tsc --noEmit passes"
+  G5:
+    name: "QA gate"
+    criteria:
+      - "tsc pass"
+      - "next build pass"
+      - "Zero inline SVG non-allowlisted"
+      - "Zero `any` types"
+      - "Visual gate PASS (lean: manual checklist; full: playwright regression)"
+  G6:
+    name: "Polish gate"
+    criteria:
+      - "next-themes integrated with ThemeProvider wrapper"
+      - "Zero inline <svg> where the registered icon library covers it"
+      - "Zero legacy dead aliases"
+      - "Zero non-data-driven inline styles"
+      - "README and SKILL.md reflect new stack + archetype + brand-profile"
+      # GAP-DS-010 (2026-04-19, Redpine): stack-discipline gates
+      - "scripts/check-token-drift.mjs presente (scaffold dropped from template)"
+      - "npm run check:drift exit 0 (5 anti-patterns absent)"
+      - "scripts/build-manifest.mjs presente; components.manifest.json committed"
+      - "src/design-system/exports/tokens.dtcg.json presente e DTCG-valid"
+      - "package.json tem designTokensLanguageServer config"
+      - "globals.css tem regra de foco WCAG 2.2 AAA global (3px+3px+transition:none+:is guards)"
+      - "components.map.json: 100% dos componentes com `status` field"
+      - "components.map.json: 100% dos componentes ready com `a11y` metadata completo"
+
+  G7:
+    name: "Continuous Drift Audit (post-delivery)"
+    description: >-
+      GAP-DS-010 — Post-migration loop of disciplina contínua. Runs in CI on
+      schedule (weekly default). Closes the "scaffold well but no enforcement"
+      fraqueza-sombra identified in Redpine session retrospective.
+    schedule: "weekly"
+    criteria:
+      - "npm run check:drift exit 0 (no regression vs previous audit)"
+      - "npm run build:manifest succeeds"
+      - "npm run build:tokens succeeds (regenerates CSS + TS + DTCG)"
+      - "components with status=ready maintain 100% a11y metadata coverage"
+      - "Drift count vs last audit: ≤ 0 (no new violations introduced)"
+      - "Status distribution report: count of ready/beta/experimental/deprecated logged"
+    output: "outputs/design-ops/{{target_app_name}}/continuous-audit-{{date}}.yaml"
+    on_failure:
+      - "File issue against target app with drift report"
+      - "Notify design-chief for triage"
+      - "Non-blocking: does NOT revert migration; records regression trend"
+
+QG-PRIOR-ART.1:
+  name: "Prior-art compliance"
+  applies_to: "Any CREATE verdict in infrastructure mapping"
+  criteria:
+    - "gap_analysis.md contém Prior-Art Search section"
+    - "Cada CREATE tem grep/glob evidence documentada"
+    - "Nenhum fictional artifact path"
+
+outputs:
+  migration_complete:
+    type: boolean
+    source: step-6-fix-polish.success
+  app_location:
+    type: string
+    value: "apps/{{target_app_name}}/"
+  brand_profile_emitted:
+    type: string
+    value: "outputs/design-ops/{{target_app_name}}/brand-profile.yaml"
+  compliance_score:
+    type: integer
+    source: step-5-qa-gates.verdict
+    threshold: 80
+
+global_error_handling:
+  on_error: halt_at_last_good_gate
+  resumption: true
+  notification:
+    enabled: true
+    channels: [console]
+
+security:
+  authorization_required: false
+  audit_logging: true
+
+downstream_gaps:
+  - id: GAP-DS-001
+    description: "scaffold-ds.sh wrapper script"
+    status: closed_by_this_workflow
+    path: squads/design-ops/scripts/design-system/scaffold-ds.sh
+  - id: GAP-DS-003a
+    description: "visual-gate-lean.yaml checklist"
+    status: closed_by_this_workflow
+    path: squads/design-ops/checklists/visual-gate-lean.yaml
+  - id: GAP-DS-003b
+    description: "Playwright visual regression tooling (full profile only)"
+    status: open
+    owner: "target project team"
+    effort: "~3h per project"
+
+metadata:
+  author: "Design Ops Squad"
+  created_date: "2026-04-19"
+  version_history:
+    - version: 1.0.0
+      date: "2026-04-19"
+      note: "Initial from SINKRA map — 6 organisms, hardcoded 24 primitives, 3 surface names"
+    - version: 2.0.0
+      date: "2026-04-19"
+      note: "Added Organism 0 Brand Discovery; promoted archetype to data/ds-archetype.yaml; kit surfaces now derived (not hardcoded); specialized primitives require discovery evidence + approval"
+  source_map: outputs/sinkra-squad/migracao-ds-estatico-para-dinamico-tokenizado/
+  sinkra_compliance_score: 87
+  reference_execution: apps/anthropic-ds
+  tags:
+    - design-system
+    - migration
+    - nextjs
+    - tailwind-v4
+    - shadcn
+    - typescript
+    - brownfield
+    - archetype-driven

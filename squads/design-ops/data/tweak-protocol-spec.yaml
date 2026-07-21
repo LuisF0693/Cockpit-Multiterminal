@@ -1,0 +1,220 @@
+id: tweak-protocol-spec
+version: "1.0.0"
+status: active_contract_forward_declared
+owner: design-ops
+scope: provider-contract
+origin: "agenmod/claw-design — Tweak Protocol (2026-04-18)"
+
+# Live-edit protocol contract for tweakable artifacts. Contract only — the
+# runtime implementation lives in Wave C per ADR-018. Consumers can start
+# instrumenting artifacts against this spec now, knowing the contract is
+# frozen at v1.0.0.
+
+forward_declaration_notice:
+  runtime_status: pending_wave_c
+  adr: "docs/adrs/ADR-018-design-ops-artifact-creation-capability.md"
+  rationale: >-
+    The tweak runtime is a charter-expansion item (creator capability).
+    Contract spec is provider-scope (registry/metadata) and therefore legal
+    to land here in Wave B.2.2.
+
+# =============================================================================
+# PURPOSE
+# =============================================================================
+purpose: >-
+  Enable a host page (the agent's preview pane, the review pane, or an
+  embedded client portal) to provide a live-editing toolbar that mutates
+  in-artifact parameters and persists those changes to disk, without
+  requiring the artifact to ship with its own editor UI.
+
+# =============================================================================
+# EVENT SEQUENCE (CRITICAL — ORDER MATTERS)
+# =============================================================================
+event_sequence:
+  ordering_rule: >-
+    Register the message listener BEFORE posting __edit_mode_available.
+    If the listener is registered after the announcement, the host's activate
+    message can land before the handler exists and the toggle silently does
+    nothing. This is the single most common failure mode of the protocol.
+
+  step_1_register_listener:
+    action: "window.addEventListener('message', handler)"
+    listener_handles:
+      - event_type: "__activate_edit_mode"
+        handler_action: "show the Tweaks panel inside the artifact"
+      - event_type: "__deactivate_edit_mode"
+        handler_action: "hide the Tweaks panel"
+
+  step_2_announce_availability:
+    action: "window.parent.postMessage({type: '__edit_mode_available'}, '*')"
+    fires: "once, on artifact load, AFTER step 1"
+    effect: "host renders the 'Edit Mode' toggle in its toolbar"
+
+  step_3_apply_and_persist_on_change:
+    trigger: "user modifies a tweakable value in the panel"
+    action_a: "apply the change live in the artifact DOM/state"
+    action_b: |
+      window.parent.postMessage({
+        type: '__edit_mode_set_keys',
+        edits: { key1: value1, key2: value2 }
+      }, '*')
+    semantics: "partial updates merge — only included keys are changed"
+    persistence: "host parses TWEAK_DEFAULS JSON block, merges edits, writes file back"
+
+# =============================================================================
+# TWEAK_DEFAULS BLOCK
+# =============================================================================
+tweak_defauls_block:
+  location: "inside an inline <script> tag in the root HTML file"
+  cardinality: "exactly ONE block per artifact"
+  marker_format: |
+    const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+      "primaryColor": "#D97757",
+      "fontSize": 16,
+      "dark": false
+    }/*EDITMODE-END*/;
+  content_rules:
+    - "The block between markers MUST be valid JSON"
+    - "Keys must be double-quoted strings"
+    - "Values must be valid JSON primitives (string, number, boolean, array, object, null)"
+    - "No JavaScript expressions — no computed keys, no comments inside the JSON"
+    - "No trailing commas"
+  rationale: >-
+    The host writes the updated JSON back to disk on persistence. If the block
+    is not parseable JSON, persistence fails silently and the user's changes
+    are lost on reload.
+
+# =============================================================================
+# MESSAGE SCHEMAS
+# =============================================================================
+message_schemas:
+
+  from_host_to_artifact:
+    - type: "__activate_edit_mode"
+      payload: {}
+      direction: "window.parent -> window (host to artifact iframe)"
+
+    - type: "__deactivate_edit_mode"
+      payload: {}
+      direction: "window.parent -> window"
+
+  from_artifact_to_host:
+    - type: "__edit_mode_available"
+      payload: {}
+      direction: "window -> window.parent"
+      fires_when: "artifact has registered listeners and is ready to be toggled"
+
+    - type: "__edit_mode_set_keys"
+      payload:
+        edits: "object with partial key/value updates"
+      direction: "window -> window.parent"
+      fires_when: "user changes a tweakable value"
+
+# =============================================================================
+# TWEAK PANEL UI GUIDELINES
+# =============================================================================
+panel_ui:
+  positioning:
+    default: "fixed overlay, typically corner or edge of viewport"
+    constraint: "MUST NOT block primary artifact content when toggled off"
+  content:
+    per_tweakable: "label + control (slider, color picker, toggle, select)"
+    grouping: "group related tweakables under collapsible sections"
+  accessibility:
+    - "Every control has an accessible label"
+    - "Controls reachable via keyboard"
+    - "Focus visible"
+    - "Changes announced to screen readers via aria-live"
+
+# =============================================================================
+# FAILURE MODES & DIAGNOSTICS
+# =============================================================================
+failure_modes:
+
+  - mode: "listener_not_registered_in_time"
+    symptom: "Toolbar toggle appears but clicking it has no visible effect"
+    cause: "__edit_mode_available posted before message listener was added"
+    fix: "Register listener before posting availability (see event_sequence.ordering_rule)"
+
+  - mode: "invalid_json_in_tweak_defauls"
+    symptom: "Live edits appear to work but revert on reload"
+    cause: "Host cannot parse TWEAK_DEFAULS block; silent persistence failure"
+    fix: "Validate TWEAK_DEFAULS is strict JSON (no trailing commas, double-quoted keys)"
+
+  - mode: "multiple_tweak_defauls_blocks"
+    symptom: "Host writes to wrong block or fails with an error"
+    cause: "Exactly one block per artifact is required"
+    fix: "Consolidate into a single inline <script> block"
+
+  - mode: "namespace_collision_with_host_page"
+    symptom: "Message events trigger unexpected host actions"
+    cause: "Event types are unnamespaced strings"
+    fix: "Use the exact canonical types above — do not invent new __edit_mode_* types"
+
+# =============================================================================
+# BINDING TO OTHER CONTRACTS
+# =============================================================================
+binding:
+  security:
+    - spec: squads/design-ops/rules/self-contained-artifact-security.md
+    - note: >-
+        The message listener sees events from any origin. Always validate
+        event.data.type against the allowed set; ignore unknown types.
+
+  persistence:
+    - spec: squads/design-ops/data/deck-contracts-spec.yaml#playback_persistence
+    - note: >-
+        Tweak state and playback state are separate concerns. Do NOT write
+        tweak state into the playback localStorage key. See deck-contracts-spec
+        for the canonical key pattern.
+
+  file_governance:
+    - spec: squads/design-ops/data/artifact-file-governance.yaml
+    - note: "TWEAK_DEFAULS persistence is a file-rewrite operation; treat like any artifact update."
+
+# =============================================================================
+# EXAMPLE ARTIFACT INSTRUMENTATION
+# =============================================================================
+example:
+  filename: "pricing-page-tweakable.html"
+  inline_script: |
+    <script>
+      // 1. Define tweakable defaults (EDITMODE block required)
+      const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+        "primaryColor": "#D97757",
+        "heroFontSize": 48,
+        "useGradient": false
+      }/*EDITMODE-END*/;
+
+      // 2. Register message listener FIRST
+      let tweakPanelOpen = false;
+      window.addEventListener('message', (e) => {
+        if (e.data.type === '__activate_edit_mode') {
+          tweakPanelOpen = true;
+          renderTweakPanel();
+        } else if (e.data.type === '__deactivate_edit_mode') {
+          tweakPanelOpen = false;
+          hideTweakPanel();
+        }
+      });
+
+      // 3. Announce availability AFTER listener is live
+      window.parent.postMessage({type: '__edit_mode_available'}, '*');
+
+      // 4. On user change in panel: apply live + persist
+      function onTweakChange(key, value) {
+        applyTweakLive(key, value);  // mutate DOM/state
+        window.parent.postMessage({
+          type: '__edit_mode_set_keys',
+          edits: {[key]: value}
+        }, '*');
+      }
+    </script>
+
+related:
+  - squads/design-ops/data/deck-contracts-spec.yaml
+  - squads/design-ops/data/artifact-file-governance.yaml
+  - squads/design-ops/data/starter-components-catalog.yaml
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

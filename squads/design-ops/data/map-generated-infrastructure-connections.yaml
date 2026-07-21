@@ -1,0 +1,375 @@
+# Managed by materialize-map.py
+# Source: outputs/sinkra-squad/design-system/map/20260328-065055-gemini-gemini-3.1-pro-preview/infrastructure_connections.yaml
+# Category: governance
+
+infrastructure:
+  process: design-system
+  mapped_date: '2026-03-28'
+  layer_1_management:
+    clickup:
+    - field_name: executor_type
+      field_type: dropdown
+      task_ids: []
+      status: new
+      justification: Campo SINKRA obrigatório, não existente
+    - field_name: phase
+      field_type: number
+      task_ids: []
+      status: new
+      justification: Campo SINKRA obrigatório, não existente
+    - field_name: sinkra_primitive
+      field_type: dropdown
+      task_ids: []
+      status: new
+      justification: Campo SINKRA obrigatório, não existente
+    - field_name: guardrail_status
+      field_type: checkbox
+      task_ids: []
+      status: new
+      justification: Campo SINKRA obrigatório, não existente
+    - field_name: quality_gate_result
+      field_type: dropdown
+      task_ids: []
+      status: new
+      justification: Campo SINKRA obrigatório, não existente
+  layer_2_automation:
+    n8n:
+    - sinkra_task: atm_capturar_dados
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_capturar_dados
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: Webhook POST do RH
+        action: Implement logic for atm_capturar_dados
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_enviar_kit_boas_vindas
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_enviar_kit_boas_vindas
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: 'Event: dados_completos'
+        action: Implement logic for atm_enviar_kit_boas_vindas
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_agendar_entrega
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_agendar_entrega
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: 'Event: equipamento_configurado'
+        action: Implement logic for atm_agendar_entrega
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_agendar_boas_vindas
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_agendar_boas_vindas
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: 'Event: integracao_iniciada'
+        action: Implement logic for atm_agendar_boas_vindas
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_gerar_checklist_gestor
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_gerar_checklist_gestor
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: 'Event: integracao_iniciada'
+        action: Implement logic for atm_gerar_checklist_gestor
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_agendar_treinamentos
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_agendar_treinamentos
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: 'Event: integracao_iniciada'
+        action: Implement logic for atm_agendar_treinamentos
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_verificar_acessos
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_verificar_acessos
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: Schedule / Gate Trigger
+        action: Implement logic for atm_verificar_acessos
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_verificar_equipamento
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_verificar_equipamento
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: Schedule / Gate Trigger
+        action: Implement logic for atm_verificar_equipamento
+        error_handler: existing
+        logging: existing
+    - sinkra_task: atm_verificar_treinamentos
+      n8n_workflow_id: null
+      n8n_workflow_name: atm_verificar_treinamentos
+      status: GAP
+      error_handler: true
+      logging: true
+      spec_needed:
+        trigger: Schedule / Gate Trigger
+        action: Implement logic for atm_verificar_treinamentos
+        error_handler: existing
+        logging: existing
+  layer_3_agent:
+    custom_agents: []
+  layer_4_database:
+    supabase:
+    - sinkra_data: dadoscolaboradors
+      table: null
+      status: GAP
+      task_ids:
+      - capturarDados
+      schema_needed:
+        columns:
+        - name: dados_colaborador
+          type: JSON
+    - sinkra_data: dadosvalidadoss
+      table: null
+      status: GAP
+      task_ids:
+      - validarCompletude
+      schema_needed:
+        columns:
+        - name: dados_validados
+          type: boolean
+    - sinkra_data: dadosparaprovisionamentos
+      table: null
+      status: GAP
+      task_ids:
+      - validarCompletude
+      schema_needed:
+        columns:
+        - name: dados_para_provisionamento
+          type: JSON
+    - sinkra_data: dadosequipamentos
+      table: null
+      status: GAP
+      task_ids:
+      - validarCompletude
+      schema_needed:
+        columns:
+        - name: dados_equipamento
+          type: JSON
+    - sinkra_data: emailboasvindasenviados
+      table: null
+      status: GAP
+      task_ids:
+      - enviarKitBoasVindas
+      schema_needed:
+        columns:
+        - name: email_boas_vindas_enviado
+          type: boolean
+    - sinkra_data: contascriadass
+      table: null
+      status: GAP
+      task_ids:
+      - criarContas
+      schema_needed:
+        columns:
+        - name: contas_criadas
+          type: JSON
+    - sinkra_data: identidadedigitals
+      table: null
+      status: GAP
+      task_ids:
+      - criarContas
+      schema_needed:
+        columns:
+        - name: identidade_digital
+          type: JSON
+    - sinkra_data: acessosareaaprovadoss
+      table: null
+      status: GAP
+      task_ids:
+      - solicitarAcessosArea
+      schema_needed:
+        columns:
+        - name: acessos_area_aprovados
+          type: boolean
+    - sinkra_data: equipamentoconfigurados
+      table: null
+      status: GAP
+      task_ids:
+      - configurarEquipamento
+      schema_needed:
+        columns:
+        - name: equipamento_configurado
+          type: boolean
+    - sinkra_data: entregaagendadas
+      table: null
+      status: GAP
+      task_ids:
+      - agendarEntrega
+      schema_needed:
+        columns:
+        - name: entrega_agendada
+          type: JSON
+    - sinkra_data: eventocalendarios
+      table: null
+      status: GAP
+      task_ids:
+      - agendarBoasVindas
+      schema_needed:
+        columns:
+        - name: evento_calendario
+          type: JSON
+    - sinkra_data: plano306090s
+      table: null
+      status: GAP
+      task_ids:
+      - gerarPlano306090
+      schema_needed:
+        columns:
+        - name: plano_30_60_90
+          type: Markdown
+    - sinkra_data: planoparaavaliacoess
+      table: null
+      status: GAP
+      task_ids:
+      - gerarPlano306090
+      schema_needed:
+        columns:
+        - name: plano_para_avaliacoes
+          type: Markdown
+    - sinkra_data: mensagemslackenviadas
+      table: null
+      status: GAP
+      task_ids:
+      - gerarChecklistGestor
+      schema_needed:
+        columns:
+        - name: mensagem_slack_enviada
+          type: boolean
+    - sinkra_data: apresentacaoconcluidas
+      table: null
+      status: GAP
+      task_ids:
+      - apresentarEquipe
+      schema_needed:
+        columns:
+        - name: apresentacao_concluida
+          type: boolean
+    - sinkra_data: treinamentosagendadoss
+      table: null
+      status: GAP
+      task_ids:
+      - agendarTreinamentos
+      schema_needed:
+        columns:
+        - name: treinamentos_agendados
+          type: JSON
+    - sinkra_data: avaliacao30ds
+      table: null
+      status: GAP
+      task_ids:
+      - checkpoint30d
+      schema_needed:
+        columns:
+        - name: avaliacao_30d
+          type: JSON
+    - sinkra_data: avaliacao60ds
+      table: null
+      status: GAP
+      task_ids:
+      - checkpoint60d
+      schema_needed:
+        columns:
+        - name: avaliacao_60d
+          type: JSON
+    - sinkra_data: avaliacao90ds
+      table: null
+      status: GAP
+      task_ids:
+      - checkpoint90d
+      schema_needed:
+        columns:
+        - name: avaliacao_90d
+          type: JSON
+    - sinkra_data: statusacessoss
+      table: null
+      status: GAP
+      task_ids:
+      - verificarAcessos
+      schema_needed:
+        columns:
+        - name: status_acessos
+          type: boolean
+    - sinkra_data: statusequipamentos
+      table: null
+      status: GAP
+      task_ids:
+      - verificarEquipamento
+      schema_needed:
+        columns:
+        - name: status_equipamento
+          type: boolean
+    - sinkra_data: statustreinamentoss
+      table: null
+      status: GAP
+      task_ids:
+      - verificarTreinamentos
+      schema_needed:
+        columns:
+        - name: status_treinamentos
+          type: boolean
+    - sinkra_data: scorefinalonboardings
+      table: null
+      status: GAP
+      task_ids:
+      - calcularScoreFinal
+      schema_needed:
+        columns:
+        - name: score_final_onboarding
+          type: float
+    - sinkra_data: kpis_design_system
+      table: null
+      status: GAP
+      task_ids:
+      - calcularScoreFinal
+      schema_needed:
+        columns:
+        - name: process_id
+          type: text
+        - name: metric_name
+          type: text
+        - name: baseline_value
+          type: numeric
+        - name: measured_at
+          type: timestamp
+  layer_5_integration:
+    apis: []
+    webhooks: []
+  google_drive:
+    folders:
+    - folder_path: /Google Drive/Planos 30-60-90
+      task_ids:
+      - gerarPlano306090
+      purpose: Armazenamento de planos de onboarding
+  other: []
+summary:
+  total_existing_reused: 0
+  total_new_proposed: 40
+  reuse_ratio: 0.0

@@ -1,0 +1,197 @@
+# Register Inference — Brand vs Product
+#
+# title: Register Inference — Brand vs Product
+# purpose: Cross-skill heuristic to detect/declare design register (brand vs
+#          product) before generation/extraction
+# version: 1.0.0
+# authority: .claude/rules/design-absolute-bans.md §4
+# absorbed_from: impeccable.style v3.0 — register-aware vocabulary
+# created: 2026-05-19
+# source_bench: docs/bench/2026-05-18-impeccable-vs-sinkra-design-stack/
+#
+# Design has two registers. Each requires different vocabulary, typography,
+# layout, and motion intent. Both /design-md (extraction) and /slide-creator
+# (generation) MUST detect/declare register before producing artifacts.
+
+title: "Register Inference — Brand vs Product"
+purpose: "Cross-skill heuristic to detect/declare design register (brand vs product) before generation/extraction"
+version: "1.0.0"
+authority: ".claude/rules/design-absolute-bans.md §4"
+absorbed_from: "impeccable.style v3.0 — register-aware vocabulary"
+created: "2026-05-19"
+source_bench: "docs/bench/2026-05-18-impeccable-vs-sinkra-design-stack/"
+
+# ── registers ─────────────────────────────────────────────────────────────────
+# The two canonical registers and their vocabularies.
+
+registers:
+
+  brand:
+    definition: "Design IS the product. Marketing, landing, campaign, portfolio, editorial, brand storytelling, manifestos, pitches."
+    vocabulary:
+      typography: "Expressive, varied hierarchy, bold display fonts"
+      layout: "Asymmetric, hero-first, varied composition, dramatic whitespace"
+      motion: "Premium, narrative, atmospheric (MOTION_INTENSITY 6-10)"
+      color: "committed | full palette | drenched strategies (saturated, dramatic)"
+    anti_patterns:
+      - "Pure technical UI fingerprints (mono everywhere, dense grids)"
+
+  product:
+    definition: "Design SERVES the product. App UI, admin, dashboards, internal tools, productivity software."
+    vocabulary:
+      typography: "Neutral sans (Geist default), restrained hierarchy, mono for numbers"
+      layout: "Grid-aligned, functional, dense, repeatable patterns"
+      motion: "Functional (MOTION_INTENSITY 1-5), no narrative, fast transitions"
+      color: "Restrained (tinted neutrals + 1 accent ≤10%)"
+    anti_patterns:
+      - "Marketing copy"
+      - "Hero-metric template"
+      - "Decorative motion"
+
+# ── detection_heuristics ──────────────────────────────────────────────────────
+# Signal matrix used to infer register from observable evidence.
+
+detection_heuristics:
+  signal_matrix:
+    - signal: "URL/route contains /dashboard|/admin|/app|/internal|/portal|/auth|/settings|/profile"
+      inference: product
+    - signal: "URL/route contains /landing|/marketing|/campaign|/blog|/about|/portfolio|/case-study|/pricing"
+      inference: brand
+    - signal: "HTML has <table> density > 3 OR <form> with > 5 inputs"
+      inference: product
+    - signal: "HTML has <hero> block + CTAs + sequential narrative sections"
+      inference: brand
+    - signal: "CSS uses font-mono for body text OR exclusively data-display fonts"
+      inference: product
+    - signal: "CSS uses italic-serif display OR variable letter-spacing on hero"
+      inference: brand
+    - signal: "Page has charts/grids/data-viz > 2"
+      inference: product
+    - signal: "Page has scroll-driven narrative motion OR parallax"
+      inference: brand
+    - signal: "Deck briefing mentions dashboard | review | ops | report | metrics"
+      inference: product
+    - signal: "Deck briefing mentions pitch | story | manifesto | launch | campaign | vision"
+      inference: brand
+    - signal: "Deck briefing mentions internal | team | board | operations"
+      inference: product
+    - signal: "Deck briefing mentions external | audience | press | investors"
+      inference: brand    # usually
+
+# ── inference_algorithm ───────────────────────────────────────────────────────
+# Reference implementation (pseudo-Python) used by extractors and generators.
+
+inference_algorithm:
+  pseudocode: |
+    def infer_register(signals: dict) -> tuple[str, float]:
+        """Returns (register, confidence_0_to_1)."""
+        brand_score = 0
+        product_score = 0
+        for signal_id, weight in signals.items():
+            if signal_id in PRODUCT_SIGNALS:
+                product_score += weight
+            if signal_id in BRAND_SIGNALS:
+                brand_score += weight
+        total = brand_score + product_score
+        if total == 0:
+            return ("product", 0.0)  # safe default
+        if brand_score > product_score:
+            return ("brand", brand_score / total)
+        return ("product", product_score / total)
+
+  decision_thresholds:
+    high_confidence:
+      min: 0.75
+      action: "Declare register explicitly in output, no prompt"
+    medium_confidence:
+      range: [0.50, 0.74]
+      action: "Declare with caveat: 'register inferred (medium confidence), verify in {output_path}'"
+    low_confidence:
+      max: 0.49
+      action: "Default to register: product (safer) + warn operator"
+
+# ── mixed_surfaces ────────────────────────────────────────────────────────────
+# Monorepos / multi-route projects can have BOTH registers.
+
+mixed_surfaces:
+  per_route_basis: "Web extraction emits register_map instead of single register"
+  per_slide_basis: "Slide deck emits register at deck level + slide.register_override for outlier slides"
+  per_business_basis: "Workspace policy — see per_business_override section below"
+
+# ── per_business_override ─────────────────────────────────────────────────────
+# When invoked from inside a workspace/businesses/{biz}/ context,
+# the per-business policy at L2-tactical/design/design-policy.yaml is authority.
+# If design-policy.yaml exists for the business, it OVERRIDES inference.
+# Inference fallback only when the file is missing.
+
+per_business_override:
+  policy_path: "workspace/businesses/{biz}/L2-tactical/design/design-policy.yaml"
+  policy_schema_example:
+    register:
+      default: "brand | product"   # required
+      surfaces:
+        "/marketing/*": brand
+        "/dashboard/*": product
+        "/auth/*": product
+        "/landing/*": brand
+      rationale: "e.g. AllFluence has B2B SaaS + consumer marketing site; SaaS dashboard at /dashboard is product, marketing landing at / is brand."
+  precedence:
+    - "design-policy.yaml present → overrides inference"
+    - "design-policy.yaml missing → inference fallback"
+
+# ── emission_format ───────────────────────────────────────────────────────────
+# How register MUST be emitted by each consuming skill.
+
+emission_format:
+
+  design_md:
+    target: "DESIGN.md frontmatter"
+    schema_example:
+      register: brand                         # OR product
+      register_confidence: 0.87
+      register_signals:
+        - "route_pattern: /landing/* (brand)"
+        - "hero_with_cta_narrative (brand)"
+        - "italic_serif_hero (brand)"
+      register_authority: "inferred"          # OR workspace_policy | manual
+      register_inferred_at: "2026-05-19T10:00:00Z"
+    also_emit_in: "extraction-class.json"
+    extraction_class_json_example:
+      register: "brand"
+      register_confidence: 0.87
+      register_method: "signal_matrix_inference"
+      register_caveat: null
+
+  slide_creator:
+    target: "briefing-normalized.yaml"
+    schema_example:
+      briefing_normalized:
+        audience: "..."
+        objective: "..."
+        register:
+          inferred: brand
+          confidence: 0.82
+          signals: [pitch_keyword, external_audience, narrative_arc]
+          rationale: "Deck is for investor audience with belief-shift goal — brand register"
+          consequences:
+            typography_family: "Cabinet Grotesk | Outfit"   # from font-allowlist#font_pairing_recommendations
+            layout_variance_default: 7
+            motion_intensity_default: 7
+            visual_density_default: 3
+
+# ── consumption ───────────────────────────────────────────────────────────────
+
+consumption:
+  design_md: "squads/design-ops/scripts/extract-from-url/run.cjs Phase 2 (post-LLM hygiene), DESIGN.md frontmatter emission"
+  slide_creator: "Step 1 (Normalize briefing) of SKILL.md workflow — gate before story arc + design direction"
+  cross_rule: ".claude/rules/design-absolute-bans.md §4 — authority"
+  validators: "validate:register-coherence (planned) — checks register declared on output"
+
+# ── anti_patterns ─────────────────────────────────────────────────────────────
+
+anti_patterns:
+  - "Treating every web surface as brand because it has visible design (dashboards have design too)"
+  - "Treating every B2B SaaS as product (their marketing landing is brand)"
+  - "Inferring register from font family alone (signals must combine)"
+  - "Skipping declaration when confidence < 0.50 (always declare + caveat)"
+  - "Hard-coding register without consulting per-business design-policy.yaml"

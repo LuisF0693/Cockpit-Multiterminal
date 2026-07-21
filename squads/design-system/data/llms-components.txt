@@ -1,0 +1,369 @@
+# llms-components.txt — AI-Ready Design System Component Reference
+# Generated for Synkra Hub | 46 components | Story 119.32
+# Format: COMPONENT | import | props | when_to_use | example | a11y
+
+## Accordion
+import: @/components/ui/accordion
+props: type, value, defaultValue, onValueChange, collapsible, disabled, className, asChild
+when_to_use: Accordion component
+example: <Accordion className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Alert
+import: @/components/ui/alert
+props: variant, className
+when_to_use: Alert component
+example: <Alert className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## AlertDialog
+import: @/components/ui/alert-dialog
+props: open, defaultOpen, onOpenChange
+when_to_use: AlertDialog component
+example: <AlertDialog className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Avatar
+import: @/components/ui/avatar
+props: className, asChild
+when_to_use: Avatar component
+example: <Avatar className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Badge
+import: @/components/ui/badge
+props: variant, className, asChild
+when_to_use: Badge component
+example: <Badge className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Breadcrumb
+import: @/components/ui/breadcrumb
+props: separator, className
+when_to_use: Breadcrumb component
+example: <Breadcrumb className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Button
+import: @/components/ui/button
+props: variant, size, asChild, disabled, className
+when_to_use: Button component
+example: <Button className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Calendar
+import: @/components/ui/calendar
+props: mode, selected, onSelect, disabled, month, onMonthChange, className, numberOfMonths
+when_to_use: Calendar component
+example: <Calendar className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Card
+import: @/components/ui/card
+props: className, asChild
+when_to_use: Card component
+example: <Card className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Carousel
+import: @/components/ui/carousel
+props: opts, plugins, orientation, setApi, className
+when_to_use: Carousel component
+example: <Carousel className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## Checkbox
+import: @/components/ui/checkbox
+props: checked, defaultChecked, onCheckedChange, disabled, required, name, value, className
+when_to_use: Checkbox component
+example: <Checkbox className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Collapsible
+import: @/components/ui/collapsible
+props: open, defaultOpen, onOpenChange, disabled, className, asChild
+when_to_use: Collapsible component
+example: <Collapsible className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Combobox
+import: @/components/ui/combobox
+props: open, onOpenChange, value, onValueChange, placeholder, searchPlaceholder, emptyText, className
+when_to_use: Combobox component
+example: <Combobox className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Command
+import: @/components/ui/command
+props: value, onValueChange, filter, shouldFilter, loop, className
+when_to_use: Command component
+example: <Command className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## ContextMenu
+import: @/components/ui/context-menu
+props: onOpenChange, modal
+when_to_use: ContextMenu component
+example: <ContextMenu className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## DataTable
+import: @/components/ui/data-table
+props: columns, data, pagination, sorting, filtering, columnVisibility, rowSelection, className
+when_to_use: DataTable component
+example: <DataTable className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## DatePicker
+import: @/components/ui/date-picker
+props: date, onDateChange, placeholder, disabled, className
+when_to_use: DatePicker component
+example: <DatePicker className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Dialog
+import: @/components/ui/dialog
+props: open, defaultOpen, onOpenChange, modal
+when_to_use: Dialog component
+example: <Dialog className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Drawer
+import: @/components/ui/drawer
+props: open, onOpenChange, shouldScaleBackground, direction, dismissible, handleOnly, snapPoints, activeSnapPoint
+when_to_use: Drawer component
+example: <Drawer className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## DropdownMenu
+import: @/components/ui/dropdown-menu
+props: open, defaultOpen, onOpenChange, modal
+when_to_use: DropdownMenu component
+example: <DropdownMenu className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## Form
+import: @/components/ui/form
+props: form
+when_to_use: Form component
+example: <Form className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## HoverCard
+import: @/components/ui/hover-card
+props: open, defaultOpen, onOpenChange, openDelay, closeDelay
+when_to_use: HoverCard component
+example: <HoverCard className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Input
+import: @/components/ui/input
+props: type, placeholder, disabled, value, onChange, name, id, required
+when_to_use: Input component
+example: <Input className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## InputOTP
+import: @/components/ui/input-otp
+props: maxLength, value, onChange, disabled, pattern, render, containerClassName, className
+when_to_use: InputOTP component
+example: <InputOTP className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Label
+import: @/components/ui/label
+props: htmlFor, className, asChild
+when_to_use: Label component
+example: <Label className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Menubar
+import: @/components/ui/menubar
+props: className
+when_to_use: Menubar component
+example: <Menubar className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## NavigationMenu
+import: @/components/ui/navigation-menu
+props: value, defaultValue, onValueChange, delayDuration, skipDelayDuration, orientation, className
+when_to_use: NavigationMenu component
+example: <NavigationMenu className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## Pagination
+import: @/components/ui/pagination
+props: className
+when_to_use: Pagination component
+example: <Pagination className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Popover
+import: @/components/ui/popover
+props: open, defaultOpen, onOpenChange, modal
+when_to_use: Popover component
+example: <Popover className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Progress
+import: @/components/ui/progress
+props: value, max, className
+when_to_use: Progress component
+example: <Progress className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## RadioGroup
+import: @/components/ui/radio-group
+props: value, defaultValue, onValueChange, disabled, required, orientation, name, className
+when_to_use: RadioGroup component
+example: <RadioGroup className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## ResizablePanel
+import: @/components/ui/resizable
+props: defaultSize, minSize, maxSize, collapsible, collapsedSize, onCollapse, onExpand, onResize
+when_to_use: ResizablePanel component
+example: <ResizablePanel className="..." />
+a11y: follows WAI-ARIA organism pattern
+
+## ScrollArea
+import: @/components/ui/scroll-area
+props: type, scrollHideDelay, className, orientation
+when_to_use: ScrollArea component
+example: <ScrollArea className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Select
+import: @/components/ui/select
+props: value, defaultValue, onValueChange, open, defaultOpen, onOpenChange, disabled, required
+when_to_use: Select component
+example: <Select className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Separator
+import: @/components/ui/separator
+props: orientation, decorative, className, asChild
+when_to_use: Separator component
+example: <Separator className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Sheet
+import: @/components/ui/sheet
+props: open, defaultOpen, onOpenChange, side
+when_to_use: Sheet component
+example: <Sheet className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Skeleton
+import: @/components/ui/skeleton
+props: className
+when_to_use: Skeleton component
+example: <Skeleton className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Slider
+import: @/components/ui/slider
+props: value, defaultValue, onValueChange, onValueCommit, min, max, step, disabled
+when_to_use: Slider component
+example: <Slider className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Sonner
+import: @/components/ui/sonner
+props: position, expand, duration, closeButton, richColors, theme, className, toastOptions
+when_to_use: Sonner component
+example: <Sonner className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Switch
+import: @/components/ui/switch
+props: checked, defaultChecked, onCheckedChange, disabled, required, name, value, className
+when_to_use: Switch component
+example: <Switch className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Table
+import: @/components/ui/table
+props: className
+when_to_use: Table component
+example: <Table className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Tabs
+import: @/components/ui/tabs
+props: value, defaultValue, onValueChange, orientation, activationMode, className
+when_to_use: Tabs component
+example: <Tabs className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Textarea
+import: @/components/ui/textarea
+props: placeholder, disabled, value, onChange, name, id, required, rows
+when_to_use: Textarea component
+example: <Textarea className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## Toggle
+import: @/components/ui/toggle
+props: variant, size, pressed, defaultPressed, onPressedChange, disabled, className, asChild
+when_to_use: Toggle component
+example: <Toggle className="..." />
+a11y: follows WAI-ARIA atom pattern
+
+## ToggleGroup
+import: @/components/ui/toggle-group
+props: type, value, defaultValue, onValueChange, variant, size, disabled, className
+when_to_use: ToggleGroup component
+example: <ToggleGroup className="..." />
+a11y: follows WAI-ARIA molecule pattern
+
+## Tooltip
+import: @/components/ui/tooltip
+props: open, defaultOpen, onOpenChange, delayDuration, skipDelayDuration, disableHoverableContent
+when_to_use: Tooltip component
+example: <Tooltip className="..." />
+a11y: follows WAI-ARIA atom pattern
+# Extended components (Story 119.32 additions)
+
+## DataTable
+import: @/components/ui/data-table
+props: columns, data, pageSize, onSort, onFilter
+when_to_use: display tabular data with sorting, filtering and pagination
+example: <DataTable className="..." />
+a11y: semantic table element, keyboard navigable
+
+## CommandPalette
+import: @/components/ui/command
+props: open, onOpenChange, children
+when_to_use: global search and command execution (Cmd+K pattern)
+example: <CommandPalette className="..." />
+a11y: semantic dialog element, keyboard navigable
+
+## Breadcrumb
+import: @/components/ui/breadcrumb
+props: items, separator, className
+when_to_use: navigation hierarchy indicator
+example: <Breadcrumb className="..." />
+a11y: semantic nav element, keyboard navigable
+
+## EmptyState
+import: @/components/ui/empty-state
+props: title, description, action, icon
+when_to_use: display when list/table has no data
+example: <EmptyState className="..." />
+a11y: semantic section element, keyboard navigable
+
+## Timeline
+import: @/components/ui/timeline
+props: items, orientation, className
+when_to_use: display chronological events or steps
+example: <Timeline className="..." />
+a11y: semantic ol element, keyboard navigable
+
+## RichTextEditor
+import: @/components/ui/rich-text
+props: value, onChange, toolbar, className
+when_to_use: formatted text editing with markdown/WYSIWYG
+example: <RichTextEditor className="..." />
+a11y: semantic div[contenteditable] element, keyboard navigable
+

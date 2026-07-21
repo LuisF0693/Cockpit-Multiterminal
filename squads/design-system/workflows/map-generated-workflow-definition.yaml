@@ -1,0 +1,362 @@
+# Managed by materialize-map.py
+# Source: outputs/sinkra-squad/design-system/map/20260328-065055-gemini-gemini-3.1-pro-preview/workflow_definition.yaml
+# Category: workflow
+
+workflows:
+  - workflow_id: "wf_intake_validacao"
+    name: "Intake e Validação"
+    organism: "org_orquestracao_onboarding"
+    trigger: "event: contratacao_confirmada_rh"
+    frequency: "Sob demanda (por nova contratação)"
+
+    steps:
+      - step_id: "step_capturar_dados"
+        task_id: "atm_capturar_dados"
+        executor_type: "Worker"
+        action: "Extrair dados do RH e gerar formulário complementar"
+        inputs: ["Evento de contratação (RH)"]
+        outputs: ["Formulário de dados gerado"]
+        guardrails:
+          pre_conditions:
+            - "Webhook payload includes valid employee_id"
+          post_conditions:
+            - "Portal Self-Service link generated"
+          error_handling:
+            strategy: "retry"
+            max_retries: 3
+            fallback: "Notificar Analista de RH para intervenção manual"
+
+      - step_id: "step_validar_completude"
+        task_id: "atm_validar_completude"
+        executor_type: "Worker"
+        action: "Validar campos obrigatórios do formulário"
+        inputs: ["Formulário submetido"]
+        outputs: ["Status de validação", "Campos pendentes"]
+        guardrails:
+          pre_conditions:
+            - "Form submitted event received"
+          post_conditions:
+            - "Validation status correctly computed"
+          error_handling:
+            strategy: "abort"
+            max_retries: 0
+            fallback: "Logar erro e escalar para Analista de RH"
+        conditionals:
+          - condition: "Campos pendentes > 0"
+            then: "Notificar candidato com link para preencher pendências"
+            else: "Prosseguir para envio de kit"
+
+      - step_id: "step_enviar_kit"
+        task_id: "atm_enviar_kit_boas_vindas"
+        executor_type: "Worker"
+        action: "Enviar email de boas-vindas"
+        inputs: ["Status de validação = completo"]
+        outputs: ["Email enviado"]
+        guardrails:
+          pre_conditions:
+            - "Status de validação is completo"
+            - "Email pessoal do candidato is known"
+          post_conditions:
+            - "Email sent successfully via API"
+          error_handling:
+            strategy: "retry"
+            max_retries: 2
+            fallback: "Notificar Analista de RH para envio manual"
+
+    error_handling:
+      global_fallback: "Notificar Líder de RH e pausar workflow"
+      alert_channels: ["#alerts-rh-onboarding"]
+
+  - workflow_id: "wf_provisionamento_ti"
+    name: "Provisionamento de TI"
+    organism: "org_provisionamento_ti"
+    trigger: "event: dados_validados"
+    frequency: "Sob demanda"
+    
+    steps:
+      - step_id: "step_criar_contas"
+        task_id: "atm_criar_contas"
+        executor_type: "Worker"
+        action: "Criar contas padrão no Google e Slack"
+        inputs: ["Dados validados", "Template de acessos"]
+        outputs: ["Contas criadas"]
+        guardrails:
+          pre_conditions:
+            - "Dados completos disponíveis"
+          post_conditions:
+            - "Google Workspace ID exists"
+            - "Slack User ID exists"
+          error_handling:
+            strategy: "retry"
+            max_retries: 3
+            fallback: "Ticket manual no ClickUp para Analista de TI"
+            
+      - step_id: "step_solicitar_acessos_area"
+        task_id: "atm_solicitar_acessos_area"
+        executor_type: "Human"
+        action: "Revisar e aprovar acessos específicos"
+        inputs: ["Checklist de acessos", "Dados do colaborador"]
+        outputs: ["Acessos aprovados/negados"]
+        guardrails:
+          pre_conditions:
+            - "Contas padrão criadas"
+          post_conditions:
+            - "Formulário de aprovação submetido"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Reminders no Slack para o Gestor a cada 24h"
+
+      - step_id: "step_configurar_equipamento"
+        task_id: "atm_configurar_equipamento"
+        executor_type: "Human"
+        action: "Configurar laptop/equipamento físico"
+        inputs: ["Equipamento em estoque"]
+        outputs: ["Equipamento configurado"]
+        guardrails:
+          pre_conditions:
+            - "Equipamento disponível em estoque"
+          post_conditions:
+            - "Equipamento testado e registrado"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Escalar para Líder de TI se falta de estoque"
+
+      - step_id: "step_agendar_entrega"
+        task_id: "atm_agendar_entrega"
+        executor_type: "Worker"
+        action: "Agendar envio ou entrega presencial"
+        inputs: ["Equipamento configurado", "Modalidade", "Endereço"]
+        outputs: ["Entrega agendada"]
+        guardrails:
+          pre_conditions:
+            - "Equipamento is configurado"
+          post_conditions:
+            - "Código de rastreio ou slot presencial confirmado"
+          error_handling:
+            strategy: "retry"
+            max_retries: 2
+            fallback: "Avisar Analista de TI para agendamento manual"
+
+    error_handling:
+      global_fallback: "Notificar TI e Gestor sobre atrasos de provisionamento"
+      alert_channels: ["#alerts-ti-onboarding"]
+
+  - workflow_id: "wf_integracao"
+    name: "Integração e Treinamento"
+    organism: "org_integracao_equipe"
+    trigger: "event: acessos_provisionados_e_primeiro_dia"
+    frequency: "Uma vez por contratação"
+
+    steps:
+      - step_id: "step_gerar_plano_30_60_90"
+        task_id: "atm_gerar_plano_30_60_90"
+        executor_type: "Agent"
+        action: "Gerar plano de integração de 90 dias"
+        inputs: ["Objetivos da área", "Cargo"]
+        outputs: ["Documento Markdown do Plano"]
+        guardrails:
+          pre_conditions:
+            - "Cargo e departamento definidos"
+          post_conditions:
+            - "Output follows plano schema"
+          error_handling:
+            strategy: "retry"
+            max_retries: 1
+            fallback: "Carregar template genérico e enviar para preenchimento do Gestor"
+
+      - step_id: "step_gerar_checklist_gestor"
+        task_id: "atm_gerar_checklist_gestor"
+        executor_type: "Worker"
+        action: "Gerar checklist do gestor e enviar por DM"
+        inputs: ["Plano gerado"]
+        outputs: ["Mensagem enviada com checklist"]
+        guardrails:
+          pre_conditions:
+            - "Plano is ready"
+          post_conditions:
+            - "Message successfully posted to Slack"
+          error_handling:
+            strategy: "retry"
+            max_retries: 2
+            fallback: "Enviar por email ao gestor"
+
+      - step_id: "step_agendar_boas_vindas"
+        task_id: "atm_agendar_boas_vindas"
+        executor_type: "Worker"
+        action: "Agendar reunião com a equipe"
+        inputs: ["Calendários da equipe"]
+        outputs: ["Convite enviado no Calendar"]
+        guardrails:
+          pre_conditions:
+            - "Calendar API access is valid"
+          post_conditions:
+            - "Event is created with guest list"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 1
+            fallback: "Notificar Gestor para agendar manualmente"
+
+      - step_id: "step_apresentar_equipe"
+        task_id: "atm_apresentar_equipe"
+        executor_type: "Human"
+        action: "Apresentar na reunião"
+        inputs: ["Reunião iniciada"]
+        outputs: ["Concluído"]
+        guardrails:
+          pre_conditions:
+            - "Equipe presente na call/sala"
+          post_conditions:
+            - "N/A - manual process"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Reagendar"
+
+      - step_id: "step_agendar_treinamentos"
+        task_id: "atm_agendar_treinamentos"
+        executor_type: "Worker"
+        action: "Agendar treinamentos obrigatórios"
+        inputs: ["Lista de treinamentos"]
+        outputs: ["Eventos agendados"]
+        guardrails:
+          pre_conditions:
+            - "Lista de treinamentos exists for role"
+          post_conditions:
+            - "All training slots filled"
+          error_handling:
+            strategy: "retry"
+            max_retries: 2
+            fallback: "Ticket para RH agendar manualmente"
+            
+      - step_id: "step_checkpoint_30d"
+        task_id: "atm_checkpoint_30d"
+        executor_type: "Human"
+        action: "Avaliação 30 dias"
+        inputs: ["Plano 30-60-90"]
+        outputs: ["Avaliação registrada"]
+        guardrails:
+          pre_conditions:
+            - "30 dias decorridos"
+          post_conditions:
+            - "Formulário de avaliação 30d salvo"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Notificar RH para cobrar Gestor"
+            
+      - step_id: "step_checkpoint_60d"
+        task_id: "atm_checkpoint_60d"
+        executor_type: "Human"
+        action: "Avaliação 60 dias"
+        inputs: ["Plano 30-60-90"]
+        outputs: ["Avaliação registrada"]
+        guardrails:
+          pre_conditions:
+            - "60 dias decorridos"
+          post_conditions:
+            - "Formulário de avaliação 60d salvo"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Notificar RH para cobrar Gestor"
+
+      - step_id: "step_checkpoint_90d"
+        task_id: "atm_checkpoint_90d"
+        executor_type: "Human"
+        action: "Avaliação 90 dias (Final)"
+        inputs: ["Plano 30-60-90"]
+        outputs: ["Avaliação registrada"]
+        guardrails:
+          pre_conditions:
+            - "90 dias decorridos"
+          post_conditions:
+            - "Decisão de efetivação registrada"
+          error_handling:
+            strategy: "fallback"
+            max_retries: 0
+            fallback: "Notificar Diretoria e RH de pendência crítica"
+
+    error_handling:
+      global_fallback: "Alerta para RH sobre quebra de fluxo de integração"
+      alert_channels: ["#alerts-rh-onboarding"]
+
+  - workflow_id: "wf_quality_gate_conclusao"
+    name: "Quality Gate Final"
+    organism: "org_quality_gate_conclusao"
+    trigger: "schedule: d+30, d+60, d+90 após admissão"
+    frequency: "Recorrente no ciclo de vida"
+
+    steps:
+      - step_id: "step_verificar_acessos"
+        task_id: "atm_verificar_acessos"
+        executor_type: "Worker"
+        action: "Conferir acessos ativos via API"
+        inputs: ["Lista de contas"]
+        outputs: ["Status de acessos"]
+        guardrails:
+          pre_conditions:
+            - "API credentials valid"
+          post_conditions:
+            - "Relatório gerado"
+          error_handling:
+            strategy: "retry"
+            max_retries: 3
+            fallback: "Log alert"
+
+      - step_id: "step_verificar_equipamento"
+        task_id: "atm_verificar_equipamento"
+        executor_type: "Worker"
+        action: "Conferir status no asset management"
+        inputs: ["ID Colaborador"]
+        outputs: ["Status equipamento"]
+        guardrails:
+          pre_conditions:
+            - "Asset management system reachable"
+          post_conditions:
+            - "Status retrieved"
+          error_handling:
+            strategy: "retry"
+            max_retries: 3
+            fallback: "Log alert"
+
+      - step_id: "step_verificar_treinamentos"
+        task_id: "atm_verificar_treinamentos"
+        executor_type: "Worker"
+        action: "Conferir LMS"
+        inputs: ["ID Colaborador"]
+        outputs: ["Status treinamentos"]
+        guardrails:
+          pre_conditions:
+            - "LMS API reachable"
+          post_conditions:
+            - "Completion percentages retrieved"
+          error_handling:
+            strategy: "retry"
+            max_retries: 3
+            fallback: "Log alert"
+
+      - step_id: "step_calcular_score_final"
+        task_id: "atm_calcular_score_final"
+        executor_type: "Worker"
+        action: "Calcular score de onboarding (0-10)"
+        inputs: ["Relatórios"]
+        outputs: ["Score final"]
+        guardrails:
+          pre_conditions:
+            - "All verification steps completed"
+          post_conditions:
+            - "Score calculated >= 0 and <= 10"
+          error_handling:
+            strategy: "abort"
+            max_retries: 0
+            fallback: "Assinalar erro no cálculo no Dashboard"
+        conditionals:
+          - condition: "Score final >= 8"
+            then: "Marcar Onboarding como PASS"
+            else: "Marcar como REVIEW, listar pendências no ticket"
+
+    error_handling:
+      global_fallback: "Notificar equipe de Qualidade RH"
+      alert_channels: ["#alerts-rh-onboarding"]

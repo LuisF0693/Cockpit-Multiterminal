@@ -1,0 +1,332 @@
+checklist:
+  id: ds-visual-gate-lean
+  name: "Visual Gate — Lean Profile"
+  owner: design-ops
+  applies_to:
+    workflow: design-ops-ds-static-to-dynamic-migration
+    gate: G5
+    profile: lean
+  description: >-
+    Manual visual inspection checklist for the lean profile migration. Compares
+    `apps/{target}/legacy-static/` (original) against the new `apps/{target}/src/`
+    output. Closes GAP-DS-003a. For full profile, Playwright visual regression
+    replaces this checklist (GAP-DS-003b).
+  closes_gap: GAP-DS-003a
+  verdict:
+    pass_threshold: "Zero CRITICAL findings + ≤2 MINOR findings"
+    fail_threshold: "Any CRITICAL finding (brand color drift, missing section, broken layout, illegible text)"
+
+preparation:
+  - step: 1
+    action: "Start dev server"
+    cmd: "cd apps/{target} && npm run dev"
+    expect: "localhost:3000 boots without console errors"
+  - step: 2
+    action: "Open legacy-static side-by-side"
+    cmd: "Open apps/{target}/legacy-static/preview/*.html and ui_kits/*/index.html in separate browser windows"
+  - step: 3
+    action: "Set viewport widths"
+    viewports: [375, 768, 1280, 1920]
+
+sections:
+  - id: tokens
+    name: "Token fidelity"
+    checks:
+      - id: tokens.foundation
+        severity: CRITICAL
+        description: "Background, card, subtle, inset surface tokens match legacy values"
+        how: "Visit /preview/colors-foundation; compare with legacy-static/preview/colors-foundation.html"
+      - id: tokens.accent
+        severity: CRITICAL
+        description: "Brand accent color matches exactly (not off by 1-2 saturation points)"
+      - id: tokens.feedback
+        severity: MAJOR
+        description: "info/success/warn/danger swatches render with correct hues"
+      - id: tokens.type-scale
+        severity: MAJOR
+        description: "Display, H1-H5, body sizes visually match legacy type-*.html specimens"
+      - id: tokens.spacing
+        severity: MINOR
+        description: "Spacing scale (sp-1 through sp-24) renders correct proportions"
+      - id: tokens.radii
+        severity: MINOR
+        description: "Border radii match (xs, sm, md, lg, xl, pill)"
+      - id: tokens.shadows
+        severity: MINOR
+        description: "Shadow elevation steps (1-4) render soft, warm, not pure black"
+
+  - id: primitives
+    name: "Primitive parity"
+    checks:
+      - id: primitives.button
+        severity: CRITICAL
+        description: "Button variants (default, secondary, outline, ghost, link, destructive, pill) render with correct bg/fg/border"
+      - id: primitives.badge
+        severity: MAJOR
+        description: "Badge variants match legacy badge showcase"
+      - id: primitives.card
+        severity: MAJOR
+        description: "Card padding, radius, border, shadow match"
+      - id: primitives.input
+        severity: MAJOR
+        description: "Input + disabled + focus states visible"
+      - id: primitives.field
+        severity: MAJOR
+        description: "Field/FieldLabel/FieldDescription/FieldError composed correctly"
+      - id: primitives.alert
+        severity: MINOR
+        description: "Alert variants: info/success/warn/danger use border-l-4 only (no all-sides border stacking at corners)"
+
+  - id: preview-routes
+    name: "Preview routes"
+    checks:
+      - id: preview.index
+        severity: CRITICAL
+        description: "/preview lists all legacy preview pages as navigable cards"
+      - id: preview.nav-coverage
+        severity: CRITICAL
+        description: "Every legacy preview HTML has a corresponding Next route"
+        how: "Compare ls legacy-static/preview/*.html vs ls src/app/preview/*/page.tsx"
+      - id: preview.layout
+        severity: MAJOR
+        description: "Preview layout has sidebar + theme toggle + content area"
+      - id: preview.theme-toggle
+        severity: CRITICAL
+        description: "Dark mode toggle flips ALL routes, persists on reload"
+        how: "Toggle on /preview, navigate to another route, reload page → should stay dark"
+
+  - id: kit-routes
+    name: "UI kit routes"
+    checks:
+      - id: kits.index
+        severity: CRITICAL
+        description: "/kits lists all 3 kits with descriptions"
+      - id: kits.product-kit
+        severity: MAJOR
+        description: "Product kit (chat/app) renders shell + sidebar + main content"
+      - id: kits.marketing-kit
+        severity: MAJOR
+        description: "Marketing kit renders hero + pillars + footer"
+      - id: kits.docs-kit
+        severity: MAJOR
+        description: "Docs kit renders with TOC + content + optional right sidebar"
+
+  - id: responsive
+    name: "Responsive behavior"
+    checks:
+      - id: responsive.mobile-375
+        severity: MAJOR
+        description: "Layout holds at 375px (no horizontal scroll, no overlap)"
+      - id: responsive.tablet-768
+        severity: MAJOR
+        description: "Layout holds at 768px (sidebar collapse, content shift)"
+      - id: responsive.desktop-1280
+        severity: CRITICAL
+        description: "Layout renders correctly at primary desktop viewport"
+      - id: responsive.wide-1920
+        severity: MINOR
+        description: "Layout max-width respected at 1920px, no stretched content"
+
+  - id: dark-mode
+    name: "Dark mode parity"
+    checks:
+      - id: dark.tokens-flip
+        severity: CRITICAL
+        description: "Background, text, border, accent tokens flip correctly in dark"
+      - id: dark.contrast
+        severity: CRITICAL
+        description: "Text remains legible (WCAG AA: 4.5:1 body text)"
+      - id: dark.persistence
+        severity: CRITICAL
+        description: "Reload on a random route stays in dark (next-themes persistence)"
+      - id: dark.no-fouc
+        severity: MAJOR
+        description: "No flash-of-wrong-theme on initial page load"
+
+  - id: accessibility
+    name: "A11y (manual smoke)"
+    checks:
+      - id: a11y.focus-visible
+        severity: CRITICAL
+        description: "Tab through buttons/links → focus outline visible, 2px, non-accent color"
+      - id: a11y.keyboard-nav
+        severity: MAJOR
+        description: "Composer/sidebar/dialog usable with keyboard alone"
+      - id: a11y.aria-labels
+        severity: MAJOR
+        description: "Icon-only buttons have aria-label (inspect DOM on Copy/Share/Menu buttons)"
+      - id: a11y.heading-hierarchy
+        severity: MINOR
+        description: "Each route has exactly one H1; H2/H3 nest sensibly"
+
+  - id: brand-voice
+    name: "Brand voice"
+    checks:
+      - id: voice.casing
+        severity: MAJOR
+        description: "Sentence case everywhere per brand (no TITLE CASE unless brand guide allows)"
+      - id: voice.tone
+        severity: MINOR
+        description: "Copy reads per brand tone (not 'revolutionary', 'game-changing', etc)"
+      - id: voice.no-emoji
+        severity: MAJOR
+        description: "No emoji in chrome or marketing (per brand guide — relax for brands that allow)"
+
+  - id: content-discipline
+    name: "Content discipline (One thousand no's for every yes)"
+    rationale: >-
+      Ported from Claude Design HTML-artifact system prompt (2026-04-19). Every element earns
+      its place. If a section feels empty, that is a design problem to solve with layout and
+      composition — not by inventing filler.
+    checks:
+      - id: content.no-filler
+        severity: CRITICAL
+        description: "Zero placeholder text, dummy sections, or informational material added just to fill space. Every element earns its place."
+        how: "Review each section — ask: would removing this weaken the design or strengthen it?"
+      - id: content.no-data-slop
+        severity: MAJOR
+        description: "No decorative numbers, stats, or icons without function. Stats must be real and relevant to the audience."
+        how: "Count numeric claims on each page; each should tie to a source or decision"
+      - id: content.ask-before-adding
+        severity: MAJOR
+        description: "If additional sections/pages/copy would improve the design, ASK the user first — don't unilaterally add material"
+        how: "Check commit history / session notes — anything added without user request?"
+      - id: content.system-up-front
+        severity: MAJOR
+        description: "The system (section-header layout, title layout, image treatment, background variation, type hierarchy) was declared BEFORE building. No improvised layouts per-screen."
+        how: "Look for a design-decisions.md / system-upfront.md at the project root, or a clear spec in README"
+
+  - id: stack-discipline
+    name: "Stack discipline (React + Tailwind v4 + shadcn — framework-parameterized)"
+    rationale: >-
+      Added 2026-04-19 from Redpine session playbook. Catches React+Tailwind+shadcn
+      foot-guns that cosmetic visual review misses but production breaks on.
+      Each check declares `applies_to: [framework|all]` so scaffolds for vite/astro/remix
+      filter framework-specific ones out. Universal checks (Tailwind discipline, focus
+      policy, token naming, drift, manifest, DTCG) run for ALL frameworks.
+    closes_gap: GAP-DS-010
+    applies_to_frameworks: [next, vite, astro, remix, sveltekit]
+    checks:
+      - id: stack.no-ref-prop
+        severity: CRITICAL
+        applies_to: all                        # React reserved word — universal concern
+        description: "No component exposes a prop named `ref` — reserved by React. In Next.js App Router breaks Server→Client serialization ('Refs cannot be used in Server Components'); in Vite/others still collides with forwardRef semantics."
+        how: "grep -rE 'type\\s+(Props|\\w+Props)\\s*=.*\\bref:' src/components/ → any match = FAIL"
+        fix: "Rename prop to `code`, `identifier`, `slug`, etc."
+      - id: stack.no-transition-all
+        severity: MAJOR
+        applies_to: all                        # Tailwind universal
+        description: "No `transition-all` — too broad. Must be explicit property list + tokenized duration/ease."
+        how: "npm run check:drift (rule: no-transition-all)"
+        fix: "transition-[color,background-color,border-color] duration-[var(--dur-base)] ease-[var(--ease-standard)]"
+      - id: stack.no-opacity-hover
+        severity: MAJOR
+        applies_to: all                        # shadcn+Tailwind universal
+        description: "No `hover:bg-(primary|destructive|secondary)/N` opacity modifiers. Use tokenized state colors (bg-primary-hover, bg-primary-pressed)."
+        how: "npm run check:drift (rule: no-opacity-hover)"
+        fix: "Declare --primary-hover / --primary-pressed in globals.css; expose via @theme inline"
+      - id: stack.no-rounded-drift
+        severity: MAJOR
+        applies_to: all                        # Tailwind universal
+        description: "No `rounded-xl|rounded-2xl` outside brand radius ladder. Must map to --r-1/--r-2/--r-3/pill only."
+        how: "npm run check:drift (rule: no-rounded-xl)"
+        fix: "Use rounded-sm (inputs/buttons), rounded-md (cards), rounded-lg (modals), rounded-full (pills)"
+      - id: stack.focus-global-only
+        severity: CRITICAL
+        applies_to: all                        # Pure CSS — framework-agnostic
+        description: "Focus indicators are defined in ONE place: globals.css. WCAG 2.2 AAA: 3px outline + 3px offset + transition:none + :is(*, :hover):focus-visible guard + :focus:not(:focus-visible) { outline: none; }"
+        how: "grep globals.css for `:is(*, :hover):focus-visible`; per-component `focus-visible:ring-*` or `focus-visible:outline-*` = REDUNDANT (FAIL unless overriding for inset/offset)."
+        fix: "Strip per-component focus utilities; rely on global rule"
+      - id: stack.palette-shadcn-override
+        severity: CRITICAL
+        applies_to: all                        # shadcn slot discipline — framework-agnostic
+        description: "If using data-palette system: dark palettes MUST override BOTH custom (--bg/--fg) AND shadcn slots (--background/--foreground/--card/--secondary/--muted/--accent-foreground/--input). Otherwise shadcn components don't adapt → white-on-white bugs."
+        how: "For each [data-palette=ink*] rule in foundations.css, verify all 8 shadcn slots are overridden (grep block for --background/--foreground/--card/...)"
+      - id: stack.semantic-vs-base-distinct
+        severity: CRITICAL
+        applies_to: all                        # CSS var discipline — framework-agnostic
+        description: "Semantic tokens NEVER share names with base tokens. --rp-success (base) + --rp-success (semantic) = circular CSS var reference → unset → silent bug."
+        how: "grep exports/tokens.css for lines matching `--(\\w+): var\\(--\\1\\)` → any match = FAIL"
+        fix: "Rename semantic to --feedback-success, --action-success, --state-success, etc."
+      - id: stack.drift-check-passes
+        severity: CRITICAL
+        applies_to: all                        # Drift script is framework-agnostic (UI dir path identical)
+        description: "npm run check:drift exits 0. No regressions in 6 Tailwind/shadcn anti-patterns across components/ui/*.tsx."
+        how: "cd apps/{target} && npm run check:drift"
+        fix: "Address each violation reported (file:line + rule id + suggested fix)"
+      - id: stack.manifest-in-sync
+        severity: MAJOR
+        applies_to: all                        # Manifest script is framework-agnostic
+        description: "components.manifest.json is committed and regenerates cleanly. Status counts match components.map.json."
+        how: "npm run build:manifest; git diff → zero unstaged changes"
+      - id: stack.dtcg-valid
+        severity: MAJOR
+        applies_to: all                        # DTCG is W3C spec — framework-agnostic
+        description: "tokens.dtcg.json is valid DTCG ($value/$type/$description on every leaf; aliases preserved as {path.to.token})."
+        how: "npm run build:tokens; node -e \"JSON.parse(require('fs').readFileSync('src/design-system/exports/tokens.dtcg.json'))\""
+      - id: stack.rsc-serialization
+        severity: CRITICAL
+        applies_to: [next]                     # Next.js App Router RSC boundary only
+        description: "Props crossing Server→Client boundary are 100% serializable. Functions, class instances, refs, Maps/Sets, Symbols break RSC."
+        how: "In Next App Router projects: review all <ClientComponent prop={...}> call sites for non-serializable values"
+        fix: "Serialize upstream OR move consumption to Client Component"
+      - id: stack.image-primitive
+        severity: MAJOR
+        applies_to: all                        # Each framework enforces differently
+        description: "Use framework-native image primitive. next: next/image. vite: <img> with width/height or @unpic/react. astro: astro:assets. remix: Remix Image. sveltekit: enhanced:img."
+        how: "grep src/ for `<img ` → allowlist only brand-specific assets without width/height"
+        fix: "Replace with framework image primitive; always provide dimensions"
+      - id: stack.dev-cache-cleaned-after-rename
+        severity: MAJOR
+        applies_to: all                        # Each framework has its own cache dir
+        description: "After structural renames (route group, component dir), framework dev cache MUST be cleaned. next: .next/server/app/ + .next/types/app/. vite: .vite/. astro: .astro/. remix: .cache/. sveltekit: .svelte-kit/."
+        how: "Structural rename PR must include cache-clean step in commit notes (see rules/concurrent-writer-audit.md step 4)"
+
+  - id: scale-minimums
+    name: "Scale minimums (per Claude Design system prompt)"
+    rationale: >-
+      Concrete pixel/point minimums for each medium. Smaller = broken, not artistic.
+    checks:
+      - id: scale.deck-text-min
+        severity: CRITICAL
+        description: "On 1920x1080 slide decks / pitch-deck kits: text never smaller than 24px; body ideally 28-36px"
+        applies_to: "kits with category: pitch-deck OR marketing hero slides"
+      - id: scale.mobile-hit-target
+        severity: CRITICAL
+        description: "Mobile touch targets ≥ 44×44px (buttons, icon buttons, tap zones). iOS input min 16px font-size to prevent auto-zoom"
+        applies_to: "all — verify at 375px viewport"
+      - id: scale.print-body-min
+        severity: MAJOR
+        description: "Print-facing PDF exports: body text ≥ 12pt"
+        applies_to: "docs kit, any *.pdf exports"
+      - id: scale.interactive-hit-area
+        severity: MAJOR
+        description: "All interactive elements have hit area ≥ 44×44px (pad around small icons)"
+        applies_to: "icon buttons, checkboxes, radio, switch, close X in dialogs"
+
+reporting:
+  format: yaml
+  path: "outputs/design-ops/{target}/visual-gate-report.yaml"
+  schema:
+    date: "YYYY-MM-DD"
+    target: "app name"
+    profile: "lean"
+    verdict: "PASS | FAIL"
+    findings:
+      - section: "id"
+        check: "id"
+        severity: "CRITICAL | MAJOR | MINOR"
+        observation: "what was seen"
+        reference_legacy: "path to legacy file showing expected"
+        reference_new: "route or file showing current"
+    summary:
+      critical_count: 0
+      major_count: 0
+      minor_count: 0
+      notes: ""
+
+reference:
+  legacy: "apps/{target}/legacy-static/"
+  new: "apps/{target}/src/"
+  workflow: "squads/design-ops/workflows/ds-static-to-dynamic-migration.yaml"
+  sinkra_map: "outputs/sinkra-squad/migracao-ds-estatico-para-dinamico-tokenizado/"

@@ -1,0 +1,45 @@
+id: dops-a11y-release-gate
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: release
+origin: squads/design-system/checklists/ds-a11y-release-gate-checklist.md
+
+canonical_artifacts:
+  required:
+    - squads/design-ops/checklists/dops-accessibility-wcag-aa.yaml
+    - squads/design-ops/checklists/ds-core-accessibility-minimum.yaml
+    - squads/design-ops/data/quality-gates.yaml
+    - squads/design-ops/data/design-tokens-spec.yaml
+
+integrity:
+  required:
+    - no_duplicate_criteria_ids
+    - required_wcag_additions_present
+    - checklist_counts_documented
+
+freshness_governance:
+  required:
+    - last_verified_at_within_max_age_days
+    - review_cadence_documented
+    - source_links_valid
+  defaults:
+    max_age_days: 30
+    review_cadence: monthly
+
+command_gates:
+  required:
+    - node squads/design-ops/scripts/validate-workspace-contracts.cjs --business={business} --strict
+    - node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+    - node squads/design-ops/scripts/validate-motion-coverage.cjs --business={business}
+    - npm run validate:yaml:changed
+
+ci_enforcement:
+  required:
+    - validate_on_changes_in_squads_design_ops
+    - validate_on_changes_in_workspace_design_contracts
+    - block_release_on_gate_fail
+
+release_result:
+  approved_when_all_required_true: true
+  blocked_when_any_required_false: true

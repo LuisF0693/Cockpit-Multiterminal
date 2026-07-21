@@ -1,0 +1,364 @@
+---
+# DESIGN.md v2.2 template — alias-preserved 5-layer token contract (ADR-022 v2)
+#
+# Reference curated:     apps/design/src/data/designs/anthropic/design.md
+# Schema:                squads/design-ops/templates/design-md.schema.json
+# Validator:             npm run validate:design-md
+# Scaffold builder:      node squads/design-ops/scripts/build-design-md-scaffold.cjs --slug {SLUG}
+#
+# 20 top-level keys + 11 prose sections. The 5-layer model:
+#   Layer 1 — shadcn slots             (background, foreground, primary, card, ...)
+#   Layer 2 — Material 3 + Fluentui    (surface-container-*, motion duration/easing)
+#   Layer 3 — Tailwind base            (spacing, rounded, fontFamily stacks)
+#   Layer 4 — deprecated aliases       (paper, ink, primary-deep — editorial)
+#   Layer 5 — brand primitives         (clay, slate-dark, ivory-light — extracted)
+#
+# Strict-extraction principle: every value is extracted, aliased, or `null`
+# with `extraction_gap(...)` metadata.
+# Defaults are NEVER fabricated.
+
+version: "2.2"
+name: "{DS_NAME}"
+description: "{ONE_LINE_SUMMARY}"
+defaultMode: "light"           # or "dark"
+supportsDark: true             # set false if brand has no dark tokens
+archetype: "{ARCHETYPE_LABEL}" # e.g. "Warm Editorial · Slate-on-Ivory"
+chips:
+  - "{CHIP_1}"                 # 4 short identity tags (font, primary, accent, radius)
+  - "{CHIP_2}"
+  - "{CHIP_3}"
+  - "{CHIP_4}"
+
+consumer_contract:
+  standalone: true
+  goal: "Generate {DS_NAME}-style interfaces from this file alone."
+  priority_order:
+    - "Use semantic tokens first: colors, dark, typography, spacing, rounded, shadows, motion."
+    - "Apply component recipes exactly before inventing variants."
+    - "Use prose sections for judgment when a token is ambiguous."
+    - "Respect Do's and Don'ts over generic framework defaults."
+  mode_rule: "{MODE_RULE}"
+  font_rule: "{FONT_RULE}"
+  asset_rule: "Do not require logos, photography, or proprietary assets. Use typography, color, spacing, and component behavior to express the system."
+  accessibility_rule: "Ship WCAG AA contrast, visible focus rings, keyboard-operable controls, and no body text below 16px."
+
+colors:
+  # Layer 1: shadcn semantic UI slots
+  primary: "#{HEX}"
+  primary-foreground: "#{HEX}"
+  secondary: "#{HEX}"
+  secondary-foreground: "#{HEX}"
+  background: "#{HEX}"
+  foreground: "#{HEX}"
+  card: "#{HEX}"
+  card-foreground: "#{HEX}"
+  popover: "#{HEX}"
+  popover-foreground: "#{HEX}"
+  muted: "#{HEX}"
+  muted-foreground: "#{HEX}"
+  accent: "#{HEX}"
+  accent-foreground: "#{HEX}"
+  destructive: "#{HEX}"
+  destructive-foreground: "#{HEX}"
+  border: "#{HEX}"
+  input: "#{HEX}"
+  ring: "#{HEX}"
+
+  # Layer 2: Material 3 surface ladder
+  surface-container-low: "#{HEX}"
+  surface-container: "#{HEX}"
+  surface-container-high: "#{HEX}"
+  surface-container-highest: "#{HEX}"
+  surface-bright: "#{HEX}"
+  surface-dim: "#{HEX}"
+  surface-inverse: "#{HEX}"
+  surface-inverse-foreground: "#{HEX}"
+
+  # Layer 5: brand primitives (extracted swatches)
+  # {BRAND}-{shade}: "#{HEX}"
+
+dark:
+  # Layer 1 shadcn slots in dark mode (only when supportsDark = true)
+  background: "#{HEX}"
+  foreground: "#{HEX}"
+  primary: "#{HEX}"
+  # ... mirror the slot list above
+
+fonts:
+  sans: "{FONT_STACK_SANS}"
+  serif: "{FONT_STACK_SERIF}"
+  mono: "{FONT_STACK_MONO}"
+  display: "{FONT_STACK_DISPLAY}"  # optional — defaults to sans
+
+typography:
+  display:
+    fontFamily: "{FONT_NAME}"
+    fontSize: "{REM}"
+    fontWeight: 700
+    lineHeight: 1.1
+    letterSpacing: "0em"
+  heading:
+    fontFamily: "{FONT_NAME}"
+    fontSize: "{REM}"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "0em"
+  body:
+    fontFamily: "{FONT_NAME}"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "0em"
+  caption:
+    fontFamily: "{FONT_NAME}"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: "0em"
+  mono:
+    fontFamily: "{FONT_STACK_MONO}"
+    fontSize: "0.9375rem"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "0em"
+
+spacing:
+  # Tailwind-style numeric stops
+  "0": "0px"
+  "1": "4px"
+  "2": "8px"
+  "3": "12px"
+  "4": "16px"
+  "5": "20px"
+  "6": "24px"
+  "8": "32px"
+  "10": "40px"
+  "12": "48px"
+  "16": "64px"
+  # T-shirt aliases (optional — co-exist with numeric stops)
+  xs: "4px"
+  sm: "8px"
+  md: "16px"
+  lg: "24px"
+  xl: "32px"
+
+rounded:
+  none: "0px"
+  sm: "2px"
+  md: "4px"
+  lg: "8px"
+  xl: "12px"
+  "2xl": "16px"
+  full: "9999px"
+  button: "{RADIUS_BUTTON}"
+  card: "{RADIUS_CARD}"
+  input: "{RADIUS_INPUT}"
+
+shadows:
+  # Filtered elevation shadows (no focus rings, no all-transparent)
+  xs: "{SHADOW_XS}"
+  sm: "{SHADOW_SM}"
+  md: "{SHADOW_MD}"
+  lg: "{SHADOW_LG}"
+  xl: "{SHADOW_XL}"
+
+# Optional — only when brand uses inset-as-hairline pattern (Linear/Anthropic)
+shadows_inset:
+  hairline: "{INSET_HAIRLINE}"
+  ring: "{INSET_RING}"
+
+motion:
+  # Layer 2: Fluentui canonical durations + easings
+  duration-faster: "100ms"
+  duration-fast: "150ms"
+  duration-normal: "250ms"
+  duration-gentle: "300ms"
+  duration-slow: "400ms"
+  duration-slower: "500ms"
+  easing-standard: "cubic-bezier(0.4, 0, 0.2, 1)"
+  easing-decelerate: "cubic-bezier(0, 0, 0.2, 1)"
+  easing-accelerate: "cubic-bezier(0.4, 0, 1, 1)"
+
+elevation:
+  # M3-style depth tiers
+  flat: "none"
+  raised: "0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1)"
+  floating: "0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06)"
+  overlay: "0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05)"
+  modal: "0 20px 25px rgba(0,0,0,0.1), 0 10px 10px rgba(0,0,0,0.04)"
+
+components:
+  # Recipe atoms — at minimum the 8 spec components
+  button-primary:
+    atomic_layer: "atom"
+    atomic_layer_reasoning: "q1_indivisible: primitive action surface"
+    backgroundColor: "{TOKEN_REF}"
+    textColor: "{TOKEN_REF}"
+    borderRadius: "{TOKEN_REF}"
+    padding: "{X} {Y}"
+    typography: "{FONT_SIZE} / {LH} {WEIGHT}"
+  button-primary-hover:
+    backgroundColor: "{TOKEN_REF}"
+  button-secondary:
+    backgroundColor: "{TOKEN_REF}"
+    textColor: "{TOKEN_REF}"
+    border: "1px solid {TOKEN_REF}"
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{TOKEN_REF}"
+  card:
+    atomic_layer: "molecule"
+    atomic_layer_reasoning: "q2_one_action: bounded content composite"
+    backgroundColor: "{TOKEN_REF}"
+    borderRadius: "{TOKEN_REF}"
+    padding: "{TOKEN_REF}"
+    shadow: "{TOKEN_REF}"
+  input-text:
+    backgroundColor: "{TOKEN_REF}"
+    borderColor: "{TOKEN_REF}"
+    borderRadius: "{TOKEN_REF}"
+    focusRingColor: "{TOKEN_REF}"
+  badge-default:
+    backgroundColor: "{TOKEN_REF}"
+    textColor: "{TOKEN_REF}"
+    borderRadius: "{TOKEN_REF}"
+    padding: "{X} {Y}"
+  nav-header:
+    atomic_layer: "organism"
+    atomic_layer_reasoning: "q3_reusable_section: reusable navigation region"
+    backgroundColor: "{TOKEN_REF}"
+    height: "{TOKEN_REF}"
+    borderBottom: "1px solid {TOKEN_REF}"
+
+pattern_tokens:
+  # Cross-component patterns. Emit extracted values only, or extraction_gap(...)
+  motion:
+    duration-fast: "{TOKEN_REF}"
+    easing-standard: "{TOKEN_REF}"
+  focus:
+    outline: "{TOKEN_REF}"
+    outline_offset: "{TOKEN_REF}"
+  elevation:
+    raised: "{TOKEN_REF}"
+    modal: "{TOKEN_REF}"
+  z_index_scale:
+    modal: "{TOKEN_REF}"
+    tooltip: "{TOKEN_REF}"
+
+preview_tokens:
+  # Convenience tokens for renderer preview surfaces
+  surface_bg: "{TOKEN_REF}"
+  surface_fg: "{TOKEN_REF}"
+  cta_bg: "{TOKEN_REF}"
+  cta_fg: "{TOKEN_REF}"
+
+brand_primitives:
+  # Layer 5 — brand-specific primitives without shadcn equivalents (editorial)
+  # case-eyebrow: "{TOKEN_REF}"
+  # motion-press: "{TOKEN_REF}"
+  # hairline-color: "{TOKEN_REF}"
+
+aliases:
+  # Layer 4 — deprecated aliases mapped to canonical Layer 1/2/3 targets
+  # Format: "alias-name": "canonical-token"
+  # paper: "muted"
+  # ink: "foreground"
+  # primary-deep: "primary"
+
+showcase:
+  # Hero block consumed by the gallery card renderer
+  headline: "{HERO_HEADLINE}"
+  headlineHtml: "{HERO_HEADLINE_WITH_INLINE_TAGS}"
+  kicker: "{HERO_KICKER}"
+  lead: "{HERO_LEAD}"
+  layout: "split"  # split | centered | stacked | default
+  ctas:
+    - label: "{CTA_PRIMARY}"
+      href: "/"
+      variant: "primary"
+    - label: "{CTA_SECONDARY}"
+      href: "/"
+      variant: "secondary"
+---
+
+## 1. Visual Theme & Atmosphere
+
+{ONE_PARAGRAPH_DESCRIBING_THE_VISUAL_LANGUAGE}
+
+## 2. Color Palette & Roles
+
+{HOW_COLORS_PAIR_AND_WHEN_TO_USE_EACH_ROLE}
+
+## 3. Typography Rules
+
+{WHEN_TO_USE_DISPLAY_VS_HEADING_VS_BODY_VS_MONO}
+
+## 4. Components
+
+{BUTTONS_CARDS_INPUTS_BADGES_NAV_BEHAVIOR_AND_SIGNATURE_DETAILS}
+
+## 4b. Patterns
+
+{MOTION_FOCUS_ELEVATION_Z_INDEX_PATTERNS_WITH_PATTERN_ID_AND_2_CANONICAL_USES_WHEN_PRESENT}
+
+## 5. Layout Principles
+
+{GRID_CONTAINERS_BREAKPOINTS_RHYTHM}
+
+## 6. Depth & Elevation
+
+{WHEN_TO_USE_FLAT_VS_RAISED_VS_FLOATING_VS_MODAL}
+
+## 7. Do's and Don'ts
+
+{HARD_RULES_THAT_OVERRIDE_FRAMEWORK_DEFAULTS}
+
+## 8. Responsive Behavior
+
+{HOW_THE_SYSTEM_REFLOWS_AT_EACH_BREAKPOINT}
+
+## 9. Agent Prompt Guide
+
+### Quick Color Reference
+
+- Primary CTA: {COLOR_NAME} (#{HEX})
+- Brand accent: {COLOR_NAME} (#{HEX})
+- Surface canvas: {COLOR_NAME} (#{HEX})
+
+### Example Component Prompts
+
+Generate a hero with {DS_NAME}'s {LAYOUT_TYPE} layout. Use:
+- Background: {SURFACE_TOKEN}
+- Headline: {DISPLAY_TYPOGRAPHY} in {INK_COLOR}
+- Lead: {BODY_TYPOGRAPHY} in {MUTED_COLOR}
+- Primary CTA: {BUTTON_PRIMARY_RECIPE}
+
+### Iteration Guide
+
+1. {BRAND_SPECIFIC_RULE_1}
+2. {BRAND_SPECIFIC_RULE_2}
+3. {BRAND_SPECIFIC_RULE_3}
+
+## 10. Fidelity Notes
+
+shadows_detected: {true|false}
+fonts_proprietary: ["{FONT_1}", "{FONT_2}"]
+icons_not_captured: true
+photography_not_captured: true
+alpha_lost: []  # tokens where 8-digit hex was normalized to 6-digit per spec
+
+## 11. Implementation
+
+Stack: {STACK_FRAMEWORK} + Tailwind v{TAILWIND_VERSION} + shadcn/ui
+Tailwind config: {TAILWIND_CONFIG}
+Components root: {COMPONENT_SOURCE_ROOT}
+Regenerate: {REGEN_CMD}
+
+### Token → Tailwind utility mapping
+
+| Token | Utility |
+|---|---|
+| `colors.primary` | `bg-primary text-primary-foreground` |
+| `colors.background` | `bg-background text-foreground` |
+| `rounded.button` | `rounded-md` (or custom) |
+| `spacing.4` | `p-4 / m-4 / gap-4` |

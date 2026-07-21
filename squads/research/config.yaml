@@ -1,0 +1,1091 @@
+# Research Squad v5.0.0 (renamed from spy 2026-05-16)
+# Unified research operations: competitive intelligence + deep technical research +
+# product discovery + benchmarking + marketing deep-dives.
+
+name: research
+version: "5.0.0"
+description: "Unified research operations: deep technical research (absorbed from /tech-research 2026-05-16), competitive intelligence, evidence-based research, marketing deep-dives, product discovery (JTBD/Mom Test/Villain/WTP), universal benchmarking, PICO/OSINT pipeline, systematic reviews, decision science, bias detection. Absorbed deep-research (v1.0.0) in 2026-04-13; renamed spy→research and absorbed tech-research v2.0.0 in 2026-05-16."
+author: "AIOX Team"
+upgraded_at: "2026-05-16"
+
+pack:
+  name: research
+  title: "Research Squad - Unified Intelligence & Discovery"
+  version: "5.0.0"
+  author: "AIOX Team"
+  description: "Unified research squad covering deep technical research, competitive intelligence, marketing deep-dives, product discovery, and benchmarking."
+  icon: "🔬"
+  slash_prefix: "research"
+
+metadata:
+  # MIGRATION-SCHEMA-001 backfill
+  status: active
+  domain: research
+  version: "5.0.0"
+  score: 64.25
+  absorbed:
+    - squad: deep-research
+      version: "1.0.0"
+      date: "2026-04-13"
+      reason: "Evidence-based research pipeline (11 agents, 17 tasks, 3 workflows) absorbed into spy (now research)"
+    - skill: tech-research
+      version: "2.0.0"
+      date: "2026-05-16"
+      reason: "Standalone /tech-research skill absorbed into squad as research-tech agent. 7 molecules, 17 atoms, full workflow pipeline + 14 scripts + templates. Source story: spy→research migration."
+  renamed:
+    - from: spy
+      to: research
+      date: "2026-05-16"
+      reason: "Squad scope expanded beyond competitive intelligence to encompass full research operations. 'spy' branding too narrow."
+  added:
+    - feature: product-discovery
+      version: "4.1.0"
+      date: "2026-05-11"
+      reason: "Wave 0 — 4 atoms + 1 molecule + 1 workflow + framework reference, ADAPT from Banco de Ideias Modelo (Fase 0). Source story: STORY-SPY-PD.1."
+
+entry_agent: research-chief
+
+domain_model:
+  Strategic:
+    label: "Estratégico"
+    scope: "Posicionamento competitivo, inteligência de mercado e decisões de benchmark"
+  Tactical:
+    label: "Tático"
+    scope: "Orquestração de benchmarks, síntese de evidências e análise comparativa"
+  Operational:
+    label: "Operacional"
+    scope: "Coleta, transcrição, publicação e automação de artefatos"
+
+logging:
+  runtime_audit: true
+  error_behavior: fail_loud
+  error_handling:
+    on_research_fail: emit_recovery_handoff
+    on_benchmark_fail: preserve_partial_artifacts
+    on_publish_fail: block_completion
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SQUAD TYPE & INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════════════
+squad_type: pipeline
+# pipeline = Sequential flow: Research → Analysis → Output
+
+mmos_integration:
+  enabled: false
+  fallback_behavior: "graceful"
+
+workspace_integration:
+  level: none
+  rationale: >-
+    Research não escreve artefatos canônicos em workspace. Publicações são
+    classificadas por tipo: deep-dives 1-player em docs/research/, comparativos
+    multi-player e benchmarks A-vs-B em docs/bench/, auditorias de framework
+    em docs/audits/. Dados efêmeros (raw API, transcripts, handoffs entre
+    skills) permanecem em outputs/research/.
+  read_paths: []
+  write_paths: []
+  readiness_owner: workspace-chief
+  readiness_resolver: null
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+agents:
+  - id: research-operator
+    name: "Research Operator"
+    role: "Human approval and strategic input"
+    tier: human
+    specialty: "Approval, scoping, executive decision"
+    executor_profile:
+      sinkra_type: "Human"
+      human_in_the_loop: true
+      output_schema: research-brief
+
+  - id: research-chief
+    name: "Research Chief"
+    role: "Main research orchestrator — dispatches to specialist modes (tech, marketing-deepdive, bench, competitive-intel)"
+    tier: orchestrator
+    specialty: "Research operations, competitive intelligence, mode dispatch"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: benchmark-routing-decision
+      story_role: "reviewer"
+      can_execute: false
+      can_review:
+        - competitive-intelligence
+        - market-analysis
+      work_contexts:
+        - player-analysis
+        - viral-content
+        - market-trends
+        - youtube-research
+        - instagram-research
+      core_replaces: null
+
+  - id: marketing-deepdive
+    name: "Marketing Deep-Dive Specialist"
+    role: "1-player marketing deep dive (audience, content, pricing, distribution, swipe files)"
+    tier: 1
+    specialty: "Deep research, data validation, strategic insights"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: deep-research-report
+      story_role: "executor"
+      can_execute: true
+      can_review:
+        - research-quality
+        - data-validation
+      work_contexts:
+        - deep-research
+        - data-analysis
+        - strategic-insights
+        - competitive-benchmarking
+        - content-analysis
+      core_replaces: "@analyst"
+
+  - id: tech-research-agent
+    name: "Tech Research Agent"
+    role: "Deep technical research pipeline (7 molecules, 11 atoms) with multi-wave search, coverage scoring, multi-LLM cross-reference, citation verification"
+    tier: 1
+    specialty: "Evidence-based research, COVERAGE_GATE compliance, CITATION_GATE verification, output-graded dossiers"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: research-output.v2
+      story_role: "executor"
+      can_execute: true
+      can_review:
+        - research-coverage
+        - citation-integrity
+      work_contexts:
+        - tech-research
+        - product-discovery
+        - evidence-graded-research
+      core_replaces: null
+      absorbed_from: ".claude/skills/tech-research/ (v2.0.0)"
+      slash_alias: "/tech-research"
+
+  - id: bench-analyst
+    name: "Bench Analyst"
+    role: "Universal benchmark specialist"
+    tier: 1
+    specialty: "Universal comparative benchmarking across codebases, LLMs, products, companies, and technologies"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: benchmark-analysis-report
+      story_role: "executor"
+      can_execute: true
+      can_review:
+        - benchmark-quality
+        - competitive-benchmark
+      work_contexts:
+        - codebase-benchmarking
+        - llm-benchmarking
+        - product-comparison
+        - company-analysis
+        - technology-evaluation
+      core_replaces: "@analyst"
+
+  - id: benchmark-runtime
+    name: "Benchmark Runtime"
+    role: "Worker for deterministic preparation, workspace setup and report publication"
+    tier: worker
+    specialty: "Filesystem preparation, normalization, artifact persistence"
+    executor_profile:
+      sinkra_type: "Worker"
+      human_in_the_loop: true
+      output_schema: runtime-execution-report
+
+  - id: reference-competitor-clone
+    name: "Reference Competitor Clone"
+    role: "Clone-based adaptation of benchmark patterns and competitor heuristics"
+    tier: clone
+    specialty: "Pattern transfer, competitor modeling, reusable benchmark framing"
+    executor_profile:
+      sinkra_type: "Clone"
+      human_in_the_loop: true
+      output_schema: competitor-pattern-brief
+
+  # ─── Deep Research Pipeline (absorbed from deep-research squad) ────────────
+  - id: dr-orchestrator
+    name: "DR Orchestrator"
+    role: "Research pipeline coordinator — classify, route, enforce QA gates, synthesize"
+    tier: orchestrator
+    specialty: "Query classification, pipeline routing, quality gates, report synthesis"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: research-pipeline-report
+
+  # Tier 0 — Diagnostic
+  - id: sackett
+    name: "Sackett"
+    role: "PICO question formulation, evidence levels, EBM 5-step workflow"
+    tier: 0
+    specialty: "Evidence-based medicine methodology"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: pico-question
+
+  - id: booth
+    name: "Booth"
+    role: "Review methodology selection (14 types), SALSA/STARLITE frameworks"
+    tier: 0
+    specialty: "Systematic review methodology"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: methodology-selection
+
+  - id: creswell
+    name: "Creswell"
+    role: "Qualitative/quantitative/mixed methods design, data integration strategy"
+    tier: 0
+    specialty: "Mixed methods research design"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: research-design
+
+  # Tier 1 — Execution
+  - id: forsgren
+    name: "Forsgren"
+    role: "Technical performance measurement, DORA metrics, DevOps assessment, SPACE framework"
+    tier: 1
+    specialty: "Engineering performance research"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: performance-assessment
+
+  - id: klein
+    name: "Klein"
+    role: "Pattern recognition, sensemaking, decision analysis, pre-mortem"
+    tier: 1
+    specialty: "Naturalistic decision making"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: decision-analysis
+
+  - id: gilad
+    name: "Gilad"
+    role: "Competitive intelligence, strategic early warning, blind spot detection"
+    tier: 1
+    specialty: "Strategic competitive intelligence"
+    executor_profile:
+      sinkra_type: "Agent"
+      human_in_the_loop: true
+      output_schema: competitive-intel-brief
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TASKS
+# ═══════════════════════════════════════════════════════════════════════════════
+tasks:
+  # ─── Content Analysis ──────────────────────────────────────────────────────
+  - id: quick-analysis
+    name: "Quick Analysis"
+    category: analysis
+    description: "8-minute player analysis"
+
+  - id: deep-research
+    name: "Deep Research"
+    category: research
+    description: "Composed deep-dive stub with 7 internal atoms"
+
+  # ─── Content Analysis: Internal Atoms ─────────────────────────────────────
+  - id: deep-research-collect
+    name: "Deep Research — Collect"
+    category: research-atom
+    description: "Collect raw data and metadata for the target player"
+
+  - id: deep-research-select
+    name: "Deep Research — Select"
+    category: research-atom
+    description: "Select the final analysis corpus"
+
+  - id: deep-research-transcribe
+    name: "Deep Research — Transcribe"
+    category: research-atom
+    description: "Extract and annotate transcripts"
+
+  - id: deep-research-patterns
+    name: "Deep Research — Patterns"
+    category: research-atom
+    description: "Identify replicable content patterns"
+
+  - id: deep-research-comments
+    name: "Deep Research — Comments"
+    category: research-atom
+    description: "Extract audience truth from comments"
+
+  - id: deep-research-synthesis
+    name: "Deep Research — Synthesis"
+    category: research-atom
+    description: "Consolidate content DNA and applications"
+
+  - id: deep-research-publish
+    name: "Deep Research — Publish"
+    category: research-atom
+    description: "Publish the deep dive and update KB/framework"
+
+  # ─── Benchmark: Legacy Codebase Tasks ──────────────────────────────────────
+  - id: bench-framework
+    name: "Full Framework Benchmark"
+    category: benchmark-legacy
+    description: "Composed public stub for the full benchmark pipeline"
+
+  - id: bench-quick-compare
+    name: "Quick Framework Comparison"
+    category: benchmark-legacy
+    description: "Fast structural comparison (agents/workflows) — deprecated, use bench-matrix"
+
+  - id: bench-inventory
+    name: "AIOX Self-Inventory"
+    category: benchmark
+    description: "Composed router for type-specific inventory atoms"
+
+  - id: bench-gap-analysis
+    name: "Gap Analysis & Feature Absorption"
+    category: benchmark-legacy
+    description: "Prioritized roadmap and executable gap backlog (legacy)"
+
+  - id: bench-deep-compare
+    name: "Deep Component Comparison"
+    category: benchmark-codebase
+    description: "Component-by-component deep comparison with config blocks and analysis tables"
+
+  - id: bench-absorb
+    name: "Feature Absorption"
+    category: benchmark-codebase
+    description: "Absorb competitor features into AIOX backlog with priority scoring"
+
+  - id: bench-hooks
+    name: "Benchmark Hooks"
+    category: benchmark-codebase
+    description: "Pre/post hooks for benchmark pipeline automation"
+
+  - id: bench-migrate
+    name: "Migration Playbook Generator"
+    category: benchmark-codebase
+    description: "Generate migration playbook from competitor framework to AIOX"
+
+  - id: bench-traceability
+    name: "Benchmark Traceability"
+    category: benchmark-codebase
+    description: "Trace benchmark findings to gap backlog and absorption actions"
+
+  # ─── Benchmark: Universal Core Tasks ───────────────────────────────────────
+  - id: bench-detect
+    name: "Benchmark Type Detection"
+    category: benchmark-core
+    description: "Auto-detect comparison type from subjects"
+
+  - id: bench-matrix
+    name: "Universal Comparison Matrix"
+    category: benchmark-core
+    description: "Composed router for type-specific matrix atoms"
+
+  - id: bench-matrix-codebase
+    name: "Bench Matrix — Codebase"
+    category: benchmark-matrix-atom
+    description: "Build matrix for codebase comparisons"
+
+  - id: bench-matrix-llm
+    name: "Bench Matrix — LLM"
+    category: benchmark-matrix-atom
+    description: "Build matrix for LLM comparisons"
+
+  - id: bench-matrix-product
+    name: "Bench Matrix — Product"
+    category: benchmark-matrix-atom
+    description: "Build matrix for product comparisons"
+
+  - id: bench-matrix-company
+    name: "Bench Matrix — Company"
+    category: benchmark-matrix-atom
+    description: "Build matrix for company comparisons"
+
+  - id: bench-matrix-technology
+    name: "Bench Matrix — Technology"
+    category: benchmark-matrix-atom
+    description: "Build matrix for technology comparisons"
+
+  - id: bench-score
+    name: "Universal Scoring"
+    category: benchmark-core
+    description: "Weighted multi-dimension quantitative scoring"
+
+  - id: bench-gap
+    name: "Universal Gap Analysis"
+    category: benchmark-core
+    description: "Composed router for type-specific gap analysis atoms"
+
+  - id: bench-gap-llm
+    name: "Bench Gap — LLM"
+    category: benchmark-gap-atom
+    description: "Derive bidirectional gaps for LLM comparisons"
+
+  - id: bench-gap-product
+    name: "Bench Gap — Product"
+    category: benchmark-gap-atom
+    description: "Derive bidirectional gaps for product comparisons"
+
+  - id: bench-gap-company
+    name: "Bench Gap — Company"
+    category: benchmark-gap-atom
+    description: "Derive bidirectional gaps for company comparisons"
+
+  - id: bench-gap-technology
+    name: "Bench Gap — Technology"
+    category: benchmark-gap-atom
+    description: "Derive bidirectional gaps for technology comparisons"
+
+  - id: bench-report
+    name: "Executive Report"
+    category: benchmark-core
+    description: "Composed executive report stub with 3 internal atoms"
+
+  - id: bench-report-load-evidence
+    name: "Bench Report — Load Evidence"
+    category: benchmark-report-atom
+    description: "Load and validate upstream benchmark evidence"
+
+  - id: bench-report-synthesize-findings
+    name: "Bench Report — Synthesize Findings"
+    category: benchmark-report-atom
+    description: "Turn evidence into executive narrative"
+
+  - id: bench-report-publish
+    name: "Bench Report — Publish"
+    category: benchmark-report-atom
+    description: "Persist the final executive report"
+
+  - id: bench-battle-card
+    name: "Battle Card"
+    category: benchmark-core
+    description: "1-page quick comparison for decision makers"
+
+  # ─── Benchmark: Type-Specific Tasks ────────────────────────────────────────
+  - id: bench-codebase-recon
+    name: "Codebase Reconnaissance"
+    category: benchmark-codebase
+    description: "Git clone + filesystem scan for codebase comparison"
+
+  - id: bench-llm-eval
+    name: "LLM Evaluation"
+    category: benchmark-llm
+    description: "LLM specs, benchmarks, pricing comparison"
+
+  - id: bench-product-research
+    name: "Product Research"
+    category: benchmark-product
+    description: "Product features, pricing, reviews comparison"
+
+  - id: bench-company-intel
+    name: "Company Intelligence"
+    category: benchmark-company
+    description: "Company competitive analysis"
+
+  - id: bench-tech-eval
+    name: "Technology Evaluation"
+    category: benchmark-technology
+    description: "Technology maturity, ecosystem, DX comparison"
+
+  # ─── Benchmark: Cross-Subject Analysis ────────────────────────────────────
+  - id: bench-synergy
+    name: "Synergy Analysis"
+    category: benchmark-core
+    description: "Analyze synergy potential between two previously benchmarked subjects"
+
+  # ─── Product Discovery (Wave 0 — added in v4.1.0, 2026-05-11) ─────────────
+  - id: validate-product-idea
+    name: "Validate Product Idea"
+    category: product-discovery
+    description: "Composed Wave-0 product validation molecule: JTBD → Mom Test → Villain → WTP Smoke Test → composite GO/NO-GO"
+
+  - id: pd-jtbd-validate
+    name: "Product Discovery — JTBD Validation"
+    category: product-discovery-atom
+    description: "Formulates and validates a JTBD statement targeting ≥80% understanding among 10 users"
+
+  - id: pd-mom-test-interview
+    name: "Product Discovery — Mom Test Interview"
+    category: product-discovery-atom
+    description: "Conducts ≥10 Mom Test behavioral interviews and synthesizes behavioral patterns"
+
+  - id: pd-villain-mapping
+    name: "Product Discovery — Villain Root Cause Mapping"
+    category: product-discovery-atom
+    description: "Maps root cause via ≥20 OSINT evidences with sentiment + severity + frequency scoring"
+
+  - id: pd-wtp-smoke-test
+    name: "Product Discovery — Willingness-to-Pay Smoke Test"
+    category: product-discovery-atom
+    description: "Validates real payment intent via landing+tracking with ≥10% click-to-payment-attempt threshold"
+
+  # ─── Evidence-Based Research Tasks (absorbed from deep-research) ───────────
+  - id: classify-research-query
+    name: "Classify Research Query"
+    category: evidence-research
+    description: "Classify incoming query into use cases (UC-001~004)"
+
+  - id: formulate-pico-question
+    name: "Formulate PICO Question"
+    category: evidence-research
+    description: "Formulate structured PICO question from research query"
+
+  - id: select-review-methodology
+    name: "Select Review Methodology"
+    category: evidence-research
+    description: "Select review type from 14 methodologies (SALSA/STARLITE)"
+
+  - id: design-research-plan
+    name: "Design Research Plan"
+    category: evidence-research
+    description: "Design mixed-methods research plan"
+
+  - id: assess-technical-performance
+    name: "Assess Technical Performance"
+    category: evidence-research
+    description: "DORA/SPACE metrics assessment"
+
+  - id: conduct-systematic-review
+    name: "Conduct Systematic Review"
+    category: evidence-research
+    description: "PRISMA/GRADE systematic review"
+
+  - id: investigate-osint
+    name: "Investigate OSINT"
+    category: evidence-research
+    description: "Open-source investigation with source verification"
+
+  - id: analyze-decision-patterns
+    name: "Analyze Decision Patterns"
+    category: evidence-research
+    description: "NDM/RPD pattern recognition and sensemaking"
+
+  - id: analyze-competitive-intelligence
+    name: "Analyze Competitive Intelligence"
+    category: evidence-research
+    description: "Strategic early warning and blind spot detection"
+
+  - id: audit-evidence-reliability
+    name: "Audit Evidence Reliability"
+    category: evidence-research-qa
+    description: "PPV calculation, bias detection, research quality audit"
+
+  - id: audit-decision-quality
+    name: "Audit Decision Quality"
+    category: evidence-research-qa
+    description: "Cognitive bias audit, 12-question checklist, pre-mortem"
+
+  - id: synthesize-final-report
+    name: "Synthesize Final Report"
+    category: evidence-research
+    description: "Synthesize pipeline outputs into final research report"
+
+  - id: execute-web-search
+    name: "Execute Web Search"
+    category: evidence-research
+    description: "Structured web search for research evidence"
+
+  - id: validate-source-credibility
+    name: "Validate Source Credibility"
+    category: evidence-research
+    description: "Source credibility and reliability validation"
+
+  - id: build-activation-plan
+    name: "Build Activation Plan"
+    category: evidence-research
+    description: "Convert research findings into actionable activation plan"
+
+  - id: update-deep-research
+    name: "Update Deep Research"
+    category: evidence-research
+    description: "Update existing deep research configuration"
+
+  - id: delete-deep-research
+    name: "Delete Deep Research"
+    category: evidence-research
+    description: "Remove deep research configuration"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORKFLOWS
+# ═══════════════════════════════════════════════════════════════════════════════
+workflows:
+  - id: bench-comparison-pipeline
+    name: "Universal Benchmark Comparison Pipeline"
+    category: benchmark
+    description: "10-phase universal pipeline: detect → inventory → matrix → score → gap → deep dive → report → battle card → quality gate"
+
+  # ─── Evidence-Based Research Workflows (absorbed from deep-research) ───────
+  - id: wf-deep-research
+    name: "Deep Research Pipeline"
+    category: evidence-research
+    description: "Full 3-tier pipeline: Diagnostic (Tier 0) → Execution (Tier 1) → QA"
+
+  - id: wf-competitive-intel
+    name: "Competitive Intelligence Workflow"
+    category: evidence-research
+    description: "Focused competitive intelligence with OSINT and strategic early warning"
+
+  - id: wf-quick-research
+    name: "Quick Research"
+    category: evidence-research
+    description: "Abbreviated research pipeline for time-sensitive queries"
+
+  # ─── Product Discovery Workflows (Wave 0 — added in v4.1.0) ───────────────
+  - id: wf-product-discovery
+    name: "Product Discovery Pipeline (Wave 0)"
+    category: product-discovery
+    description: "Sequential 4-atom validation: JTBD → Mom Test → Villain → WTP Smoke Test → composite GO/NO-GO gate"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TEMPLATES
+# ═══════════════════════════════════════════════════════════════════════════════
+templates:
+  # ─── Content Analysis Templates ────────────────────────────────────────────
+  - id: player-analysis-tmpl
+    name: "Player Analysis Template"
+
+  # ─── Legacy Codebase Templates ─────────────────────────────────────────────
+  - id: bench-comparativo-tmpl
+    name: "Benchmark Comparative Template (deprecated — use bench-matrix-tmpl)"
+
+  - id: bench-scores-tmpl
+    name: "Benchmark Scores Template (deprecated — use bench-scorecard-tmpl)"
+
+  - id: bench-deep-compare-tmpl
+    name: "Benchmark Deep Comparison Template"
+
+  - id: bench-migration-tmpl
+    name: "Benchmark Migration Playbook Template"
+
+  # ─── Codebase-Specific Renamed Templates ───────────────────────────────────
+  - id: bench-codebase-comparativo-tmpl
+    name: "Codebase Comparative Template"
+
+  - id: bench-codebase-scores-tmpl
+    name: "Codebase Scores Template"
+
+  # ─── Universal Templates ───────────────────────────────────────────────────
+  - id: bench-matrix-tmpl
+    name: "Universal Comparison Matrix Template"
+
+  - id: bench-scorecard-tmpl
+    name: "Universal Scorecard Template"
+
+  - id: bench-battle-card-tmpl
+    name: "Battle Card Template"
+
+  - id: bench-report-tmpl
+    name: "Executive Report Template"
+
+  - id: bench-quadrant-tmpl
+    name: "Gartner-Style Quadrant Template"
+
+  - id: bench-gap-tmpl
+    name: "Gap Analysis Template"
+
+  - id: bench-synergy-tmpl
+    name: "Synergy Analysis Template"
+
+  # ─── Cross-Domain Templates ────────────────────────────────────────────────
+  - id: cross-domain-handoff-tmpl
+    name: "Cross-Domain Handoff Template"
+
+  # ─── Evidence-Based Research Templates (absorbed from deep-research) ───────
+  - id: research-report-tmpl
+    name: "Research Report Template"
+
+  - id: evidence-synthesis-tmpl
+    name: "Evidence Synthesis Template"
+
+  - id: competitive-intel-tmpl
+    name: "Competitive Intelligence Template"
+
+  # ─── Product Discovery Templates (added in v4.1.0) ────────────────────────
+  - id: product-discovery-report-tmpl
+    name: "Product Discovery Dossier Template"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECKLISTS
+# ═══════════════════════════════════════════════════════════════════════════════
+checklists:
+  - id: content-creation-checklist
+    name: "Content Creation Checklist"
+
+  - id: bench-quality-checklist
+    name: "Benchmark Quality Checklist"
+
+  # ─── Evidence-Based Research Checklists (absorbed from deep-research) ──────
+  - id: pico-quality-checklist
+    name: "PICO Quality Checklist"
+
+  - id: evidence-reliability-checklist
+    name: "Evidence Reliability Checklist"
+
+  - id: decision-quality-checklist
+    name: "Decision Quality Checklist"
+
+  - id: pipeline-execution-checklist
+    name: "Pipeline Execution Checklist"
+
+  - id: report-completeness-checklist
+    name: "Report Completeness Checklist"
+
+  - id: source-credibility-checklist
+    name: "Source Credibility Checklist"
+
+  # ─── Product Discovery Checklists (added in v4.1.0) ───────────────────────
+  - id: product-discovery-gates
+    name: "Product Discovery Gates (Quantitative GO/NO-GO)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA (Knowledge Bases)
+# ═══════════════════════════════════════════════════════════════════════════════
+data:
+  - id: viral-content-framework
+    name: "Viral Content Framework"
+    description: "5 title formulas, 4 video structures, proven hooks"
+
+  - id: knowledge-base
+    name: "General Knowledge Base"
+
+  - id: bench-skeleton
+    name: "Benchmark Skeleton"
+    description: "Reference scaffold for universal output structure"
+
+  - id: bench-dimension-packs
+    name: "Dimension Packs"
+    description: "Weighted scoring dimensions per comparison type"
+
+  - id: bench-data-sources
+    name: "Data Sources"
+    description: "Data acquisition strategy per comparison type"
+
+  - id: bench-output-formats
+    name: "Output Formats"
+    description: "Available output formats for benchmark reports"
+
+  - id: capability-tools
+    name: "Capability Tools Map"
+    description: "Internal-first tool routing and fallbacks for Spy use cases"
+
+  - id: token-registry
+    name: "Token Registry"
+    description: "12 SINKRA tokens across 9 families governing benchmark and research"
+
+  - id: quality-gates
+    name: "Quality Gates"
+    description: "Numeric thresholds for benchmark, deep-research, reporting, and governance gates"
+
+  - id: research-infrastructure-map
+    name: "Infrastructure Map"
+    description: "Infrastructure services and capabilities for the research squad"
+
+  - id: research-service-catalog
+    name: "Service Catalog"
+    description: "Local service catalog for research squad operations"
+
+  - id: deviation-registry
+    name: "Deviation Registry"
+    description: "Formal deviation tracking from SINKRA methodology (Mandamento 7)"
+
+  - id: pipeline-execution-log
+    name: "Pipeline Execution Log"
+    description: "Tracks execution runs for observability (Mandamento 10)"
+
+  - id: product-discovery-framework
+    name: "Product Discovery Framework"
+    description: "Canonical reference for 8 product-validation protocols (Lean Startup + Mom Test + JTBD + Sean Ellis PMF + Concierge MVP) — distilled from Banco de Ideias Modelo Fase 0"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+apis:
+  - name: "YouTube Data v3"
+    env_var: "YOUTUBE_API_KEY"
+    status: "configured"
+
+  - name: "Meta Graph (Instagram)"
+    env_var: "META_ACCESS_TOKEN"
+    status: "configured"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEPENDENCIES & TAGS
+# ═══════════════════════════════════════════════════════════════════════════════
+dependencies:
+  runtime:
+    - aiox-core
+  squads:
+    - etl-ops
+  services:
+    - services/etl
+  credentials:
+    - name: YOUTUBE_API_KEY
+      type: env_var
+      required: false
+    - name: META_ACCESS_TOKEN
+      type: env_var
+      required: false
+
+tags:
+  - competitive-intelligence
+  - content-analysis
+  - framework-benchmark
+  - universal-benchmark
+  - llm-comparison
+  - product-comparison
+  - company-analysis
+  - technology-evaluation
+  - youtube
+  - instagram
+  - viral-content
+  - research
+  - market-analysis
+  # Absorbed from deep-research
+  - deep-research
+  - evidence-based
+  - systematic-review
+  - osint
+  - decision-science
+  - bias-detection
+  - pico
+  - dora-metrics
+  - sensemaking
+  # Added in v4.1.0 — Product Discovery Wave 0
+  - product-discovery
+  - jtbd
+  - mom-test
+  - villain-mapping
+  - wtp-smoke-test
+  - lean-startup
+  - product-validation
+
+# SINKRA v3.1 (Story 54.11)
+bu_mapping: "hub-framework"
+
+process_token_contract:
+  path: "data/token-registry.yaml"
+  scope: "research-core"
+  tokens_declared: 12
+
+sinkra:
+  hierarchy_mapping:
+    root: "research"
+    atoms_count: 57
+    molecules_count: 7
+    organisms_count: 3
+    molecule_ids: [bench-framework, bench-inventory, bench-matrix, bench-gap, bench-report, deep-research, validate-product-idea]
+    organism_ids: [org-bench-comparison, org-deep-research, org-product-discovery]
+    notes:
+      - "Evidence-based research tasks absorbed from deep-research are modeled as atoms unless explicitly marked as Molecule."
+      - "Public orchestration stubs remain Molecules when they route child atoms rather than execute directly."
+      - "Product Discovery Wave 0 added in v4.1.0 (2026-05-11): 1 molecule (validate-product-idea) + 4 atoms (pd-*) + 1 organism (org-product-discovery)."
+  contract_aliases:
+    task: ["task", "task_name"]
+    responsavel: ["responsavel", "responsible_executor"]
+    responsavel_type: ["responsavel_type", "execution_type"]
+    inputs: ["Inputs", "Entrada", "input"]
+    outputs: ["Outputs", "Saida", "output"]
+    pre_conditions: ["Pre-conditions", "pre_condition"]
+    post_conditions: ["Post-conditions", "post_condition"]
+    performance: ["Performance", "performance"]
+    error_handling: ["Error Handling", "error_handling"]
+    completion_criteria: ["Completion Criteria", "acceptance_criteria", "Acceptance Criteria"]
+
+composition_mapping:
+  tokens:
+    source: "data/token-registry.yaml"
+    count: 12
+    description: "Tokens que governam benchmark, pesquisa e publicação."
+  atoms:
+    description: "Tasks atômicas de coleta, análise, scoring, QA, utilidades e publicação"
+    mapping:
+      - pattern: "tasks/bench-*-recon.md"
+        role: inventory
+      - pattern: "tasks/bench-*-intel.md"
+        role: company-intelligence
+      - pattern: "tasks/bench-*-eval.md"
+        role: evaluation
+      - pattern: "tasks/deep-research-*.md"
+        role: content-analysis
+      - pattern: "tasks/classify-*.md"
+        role: query-classification
+      - pattern: "tasks/formulate-*.md"
+        role: question-structuring
+      - pattern: "tasks/select-*.md"
+        role: methodology-selection
+      - pattern: "tasks/design-*.md"
+        role: research-design
+      - pattern: "tasks/assess-*.md"
+        role: technical-assessment
+      - pattern: "tasks/conduct-*.md"
+        role: evidence-synthesis
+      - pattern: "tasks/investigate-*.md"
+        role: osint-investigation
+      - pattern: "tasks/analyze-*.md"
+        role: strategic-analysis
+      - pattern: "tasks/audit-*.md"
+        role: qa-audit
+      - pattern: "tasks/synthesize-*.md"
+        role: report-synthesis
+      - pattern: "tasks/execute-web-search.md"
+        role: research-utility
+      - pattern: "tasks/validate-source-credibility.md"
+        role: research-utility
+      - pattern: "tasks/build-activation-plan.md"
+        role: orchestration
+      - pattern: "tasks/update-deep-research.md"
+        role: lifecycle-maintenance
+      - pattern: "tasks/delete-deep-research.md"
+        role: lifecycle-maintenance
+      - pattern: "tasks/pd-*.md"
+        role: product-discovery
+    count: 57
+  molecules:
+    description: "Agrupamentos recorrentes de 2+ atoms"
+    declared:
+      - id: mol-benchmark-core
+        atoms: [bench-detect, bench-inventory, bench-matrix, bench-score, bench-gap, bench-report, bench-battle-card]
+      - id: mol-deep-research
+        atoms: [deep-research-collect, deep-research-select, deep-research-transcribe, deep-research-patterns, deep-research-comments, deep-research-synthesis, deep-research-publish]
+      - id: mol-benchmark-legacy
+        atoms: [bench-framework, bench-quick-compare, bench-gap-analysis]
+      - id: mol-bench-report
+        atoms: [bench-report-load-evidence, bench-report-synthesize-findings, bench-report-publish]
+      - id: mol-product-discovery
+        atoms: [pd-jtbd-validate, pd-mom-test-interview, pd-villain-mapping, pd-wtp-smoke-test]
+  organisms:
+    description: "Workflow completo com state machine"
+    mapping:
+      - id: org-bench-comparison
+        workflow: bench-comparison-pipeline
+        molecules: [mol-benchmark-core, mol-bench-report]
+        state_machine: true
+        phases: 10
+      - id: org-deep-research
+        workflow: null
+        molecules: [mol-deep-research]
+        state_machine: false
+        phases: 7
+      - id: org-product-discovery
+        workflow: wf-product-discovery
+        molecules: [mol-product-discovery]
+        state_machine: true
+        phases: 6
+  templates:
+    description: "Templates de benchmark e análise"
+    source: "templates/"
+  instances:
+    description: "Publicações persistidas em docs/{research,bench,audits}/; ephemeral em outputs/research/"
+    persistence: "docs/research/, docs/bench/, docs/audits/ (publications); outputs/research/ (ephemeral raw/transcripts/handoffs)"
+    lifecycle: [draft, validated, approved, published, archived]
+
+artifact_contracts:
+  - artifact_id: "competitive-analysis"
+    template_path: "templates/bench-report-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "player-analysis"
+    template_path: "templates/player-analysis-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "benchmark-scorecard"
+    template_path: "templates/bench-scorecard-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "battle-card"
+    template_path: "templates/bench-battle-card-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "cross-domain-handoff"
+    template_path: "templates/cross-domain-handoff-tmpl.yaml"
+    lifecycle_states: [draft, validated, approved]
+  # Absorbed from deep-research
+  - artifact_id: "research-report"
+    template_path: "templates/research-report-tmpl.md"
+    lifecycle_states: [draft, validated, approved]
+  - artifact_id: "evidence-synthesis"
+    template_path: "templates/evidence-synthesis-tmpl.yaml"
+    lifecycle_states: [draft, validated, approved]
+  # Added in v4.1.0 — Product Discovery Wave 0
+  - artifact_id: "product-discovery-dossier"
+    template_path: "templates/product-discovery-report-tmpl.md"
+    lifecycle_states: [draft, in-progress, completed, needs-rework, halted]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEEP RESEARCH PIPELINE (absorbed from deep-research squad)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+research_pipeline:
+  description: |
+    3-tier evidence-based research pipeline (absorbed from deep-research):
+    1. dr-orchestrator classifies query into use cases (UC-001~004)
+    2. Tier 0 runs sequentially: Sackett → Booth → Creswell
+    3. Tier 1 runs in parallel: selected agents based on use case
+    4. QA runs sequentially: Ioannidis → Kahneman
+    5. dr-orchestrator synthesizes final report
+
+  tiers:
+    tier_0_diagnostic:
+      agents: [sackett, booth, creswell]
+      purpose: "Formulate question, select methodology, design plan"
+    tier_1_execution:
+      agents: [forsgren, tech-research-agent, bench-analyst, klein, gilad]
+      purpose: "Deep specialist analysis — parallel, selected by use case"
+    qa:
+      agents: [tech-research-agent, klein]
+      purpose: "Mandatory QA gate — evidence reliability + decision quality"
+
+  use_cases:
+    UC-001:
+      label: "Technical Deep Dive"
+      primary_agents: [forsgren, tech-research-agent]
+    UC-002:
+      label: "Strategic Decision Support"
+      primary_agents: [klein, gilad]
+    UC-003:
+      label: "Competitive Intelligence"
+      primary_agents: [gilad, bench-analyst]
+    UC-004:
+      label: "Evidence Synthesis"
+      primary_agents: [tech-research-agent, forsgren]
+
+  quality_gates:
+    QG-001: { name: "Question Quality", agent: sackett }
+    QG-002: { name: "Methodology Fit", agent: booth }
+    QG-003: { name: "Evidence Reliability", agent: tech-research-agent }
+    QG-004: { name: "Decision Quality", agent: klein }
+
+supported_modes:
+  - ENTENDER
+  - EXPLORAR
+  - VALIDAR
+
+metrics:
+  tracking_enabled: true
+  kpis:
+    - id: benchmark_validation_score
+      label: "Validation score baseline"
+      baseline: 80
+      unit: score
+    - id: critical_findings
+      label: "Critical findings baseline"
+      baseline: 0
+      unit: count
+    - id: benchmark_publish_success
+      label: "Benchmark publish success baseline"
+      baseline: 1.0
+      unit: ratio
+
+
+# --- MIGRATION-SCHEMA-001 (top-level schema backfill) ---
+capabilities:
+  - research-default
+# --- /MIGRATION-SCHEMA-001 ---
+
+# Production evidence: squad has been executed in real scenarios
+tested: true

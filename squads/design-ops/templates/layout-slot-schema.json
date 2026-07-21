@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sinkra.local/schemas/layout-slot-schema.json",
+  "title": "Design Ops Layout Slot Contract",
+  "type": "object",
+  "required": ["schema_version", "slots"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "slots": {
+      "type": "object",
+      "description": "Named layout slots detected from source HTML. Only extracted slots are emitted.",
+      "propertyNames": {
+        "enum": ["header", "rail", "main", "aside", "footer"]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["source", "evidence", "responsive_rules"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["html", "css", "render-contract"]
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "responsive_rules": {
+            "type": "object",
+            "required": ["breakpoints", "adaptation"],
+            "properties": {
+              "breakpoints": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "adaptation": {
+                "type": "string",
+                "description": "Extracted adaptation strategy or an explicit extraction_gap(...) marker."
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "slot_contract_gap": {
+      "type": "string",
+      "pattern": "^extraction_gap\\(.+\\)$"
+    }
+  },
+  "additionalProperties": true
+}

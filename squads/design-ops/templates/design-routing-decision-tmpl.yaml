@@ -1,0 +1,37 @@
+---
+# Template — Design Routing Decision
+# Owner squad: design-ops
+# Purpose: Document routing decisions for design work between design-ops (provider) and design-system (frozen legacy).
+# Lifecycle: draft → validated → approved
+
+id: TEMPLATE
+title: "Design Routing Decision — <decision-slug>"
+version: "1.0.0"
+status: draft  # draft | validated | approved
+created: "YYYY-MM-DD"
+decided_by: "@agent-handle"
+
+context:
+  problem: ""
+  scope: ""
+  constraints: []
+
+options_evaluated:
+  - option: ""
+    pros: []
+    cons: []
+    route: ""  # design-ops | design-system | hybrid | external
+
+decision:
+  chosen_option: ""
+  routed_to: ""  # design-ops | design-system
+  rationale: ""
+  impact_on_legacy: ""
+  impact_on_provider: ""
+
+follow_ups:
+  - action: ""
+    owner: ""
+    due: ""
+
+references: []

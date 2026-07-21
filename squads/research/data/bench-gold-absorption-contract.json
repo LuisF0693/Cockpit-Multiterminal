@@ -1,0 +1,294 @@
+{
+  "schema": "sinkra.bench-intelligence-contract.v1",
+  "updated_at": "2026-05-18",
+  "reference_benchmark": "docs/bench/slides-creator-open-source-absorption/",
+  "reference_benchmarks": [
+    {
+      "path": "docs/bench/slides-creator-open-source-absorption/",
+      "strength": "profundidade matricial, rubrica por persona, micro-capability matrix e apresentação"
+    },
+    {
+      "path": "docs/bench/deepresearch-absorption-benchmark/",
+      "strength": "decisão executiva, evidence ledger, scenario winners, readiness gate, adoption map e anti-decisões"
+    }
+  ],
+  "benchmark_contract_file": "bench-contract.json",
+  "customization_policy": {
+    "rule": "Cada benchmark deve declarar seu próprio desenho quando o padrão base não representa bem a solicitação.",
+    "local_contract": "docs/bench/{slug}/bench-contract.json",
+    "local_contract_can_override": [
+      "benchmark_kind",
+      "objective",
+      "taxonomy",
+      "thresholds",
+      "required_files",
+      "required_file_groups",
+      "required_artifact_roles",
+      "matrix_cell_required_fields",
+      "scoring_model",
+      "evidence_model",
+      "dashboard_value_model",
+      "decision_intelligence_model"
+    ],
+    "non_negotiable": [
+      "score semantics explícito",
+      "fórmula ou método de cálculo declarado",
+      "categorias/dimensões rastreáveis à solicitação",
+      "células ou unidades de avaliação com evidência",
+      "gaps com resolução ou ação explícita",
+      "limitações e readiness separados da nota do bench",
+      "anti-decisões documentadas quando o benchmark orientar adoção, absorção ou roadmap"
+    ]
+  },
+  "benchmark_kind": "custom_decision_benchmark",
+  "objective": "Gerar inteligência de decisão para uma solicitação específica, com matriz, cálculo, categorias e artefatos customizados conforme o problema.",
+  "score_semantics": {
+    "bench_score_means": "completude do benchmark como inteligência de decisão, dashboard e apresentação",
+    "bench_score_does_not_mean": "produto, migração ou implementação final entregue",
+    "required_terms": ["produto", "implement"]
+  },
+  "thresholds": {
+    "players": { "minimum": 2, "preferred": 6 },
+    "macro_rows": { "minimum": 0, "preferred": 12 },
+    "micro_rows": { "minimum": 6, "preferred": 24 },
+    "personas": { "minimum": 0, "preferred": 4 },
+    "graph_nodes": { "minimum": 8, "preferred": 20 },
+    "graph_edges": { "minimum": 12, "preferred": 40 },
+    "artifacts": { "minimum": 12, "preferred": 30 }
+  },
+  "required_files": {
+    "root": [
+      "bench-contract.json",
+      "INDEX.md",
+      "README.md",
+      "MANIFEST.json",
+      "metadata.json",
+      "metadata.canonical.json",
+      "bench-output-dash.json",
+      "dashboard-intelligence.md",
+      "comparison-matrix.json",
+      "comparison-matrix.md",
+      "scorecard.json",
+      "scorecard.md",
+      "scenario-scorecards.json",
+      "scenario-scorecards.md",
+      "segmented-comparisons.json",
+      "segmented-comparisons.md",
+      "gap-analysis.json",
+      "gap-analysis.md",
+      "evidence-ledger.json",
+      "evidence-ledger.md",
+      "bench-completeness-rubric.json",
+      "bench-completeness-rubric.md",
+      "implementation-readiness-gate.json",
+      "implementation-readiness-gate.md",
+      "presentation-brief.json",
+      "presentation-brief.md",
+      "risk-register.json",
+      "risk-register.md",
+      "story-ready-backlog.md"
+    ],
+    "deep": [
+      "deep/matrix-methodology.md",
+      "deep/scoring-transparency.md",
+      "deep/evidence-by-dimension.md",
+      "deep/evidence-strength-map.json",
+      "deep/evidence-strength-map.md",
+      "deep/intelligence-graph.json",
+      "deep/intelligence-graph.md",
+      "deep/implementation-playbook.md",
+      "deep/acceptance-test-plan.md"
+    ]
+  },
+  "required_file_groups": [
+    {
+      "id": "dashboard_intelligence",
+      "description": "Projeção executiva do benchmark para o dashboard: KPIs, top players, vencedores por cenário e gaps críticos.",
+      "any_of": [
+        "dashboard-intelligence.json",
+        "dashboard-intelligence.md",
+        "bench-output-dash.json"
+      ]
+    },
+    {
+      "id": "primary_matrix_json",
+      "description": "Matriz principal estruturada. Pode ser micro, macro, scenario, temporal, TCO, risk, capability ou outro modelo declarado no bench-contract.json.",
+      "any_of": [
+        "comparison-matrix.json",
+        "deep/micro-capability-matrix.json",
+        "deep/macro-comparison-matrix.json",
+        "deep/scenario-matrix.json",
+        "deep/tco-matrix.json",
+        "deep/risk-matrix.json"
+      ]
+    },
+    {
+      "id": "primary_matrix_md",
+      "description": "Versão humana da matriz principal.",
+      "any_of": [
+        "comparison-matrix.md",
+        "deep/micro-capability-matrix.md",
+        "deep/macro-comparison-matrix.md",
+        "deep/scenario-matrix.md",
+        "deep/tco-matrix.md",
+        "deep/risk-matrix.md"
+      ]
+    },
+    {
+      "id": "decision_table",
+      "description": "Tabela que transforma achados em decisão, absorção, recomendação, roteiro ou trade-off.",
+      "any_of": [
+        "deep/decision-table.json",
+        "deep/absorption-decision-table.json",
+        "deep/recommendation-decision-table.json",
+        "deep/tradeoff-decision-table.json"
+      ]
+    },
+    {
+      "id": "decision_table_md",
+      "description": "Versão humana da tabela de decisão.",
+      "any_of": [
+        "deep/decision-table.md",
+        "deep/absorption-decision-table.md",
+        "deep/recommendation-decision-table.md",
+        "deep/tradeoff-decision-table.md"
+      ]
+    },
+    {
+      "id": "adoption_or_implementation_map",
+      "description": "Mapa que transforma recomendação em adoção, implementação, playbook, waves ou acceptance plan.",
+      "any_of": [
+        "deep/sinkra-adoption-map.md",
+        "deep/adoption-map.md",
+        "deep/implementation-playbook.md",
+        "deep/acceptance-test-plan.md"
+      ]
+    }
+  ],
+  "required_artifact_roles": [
+    "overview",
+    "manifest",
+    "dashboard",
+    "matrix",
+    "evidence",
+    "quality-gate",
+    "risk",
+    "planning",
+    "analysis"
+  ],
+  "required_dashboard_blocks": [
+    "summary.score_semantics",
+    "matrix.rows",
+      "matrix.scoring_guide",
+      "personas",
+      "gaps",
+      "sources",
+      "source_summary",
+      "artifacts",
+      "readiness",
+      "categorical",
+      "tiebreakers",
+      "cliffs",
+      "decision_tree"
+  ],
+  "decision_intelligence_model": {
+    "dashboard_intelligence": {
+      "recommended_files": ["dashboard-intelligence.json", "dashboard-intelligence.md"],
+      "minimum_fields": ["kpis", "top_players_or_top_5", "scenario_winners_or_persona_winners", "critical_gaps"]
+    },
+    "scenario_winners": {
+      "required_when": "Benchmark avalia múltiplas perguntas, cenários, personas ou jobs-to-be-done.",
+      "acceptable_sources": [
+        "scenario-scorecards.json#scenarios[].top[0]",
+        "scenario-scorecards.json#personas[].winner",
+        "bench-output-dash.json#dashboard.scenario_winners"
+      ]
+    },
+    "gap_resolution": {
+      "required": true,
+      "acceptable_fields": ["resolution", "recommended_action", "action", "absorption", "acceptance", "next_step"]
+    },
+    "battle_card": {
+      "required_sections": ["melhor escolha por pergunta ou posição", "anti-decisões ou objeções", "próxima jogada"]
+    },
+    "decision_aids": {
+      "required": true,
+      "minimum_blocks": {
+        "categorical": 1,
+        "source_summary": 2,
+        "tiebreakers": 2,
+        "cliffs": 2,
+        "decision_tree": 2
+      },
+      "reason": "Gold precisa renderizar uma decisão útil no dash, não apenas uma matriz completa."
+    },
+    "readiness_gate": {
+      "required": true,
+      "must_separate": "qualidade/completude do benchmark vs prontidão de implementação"
+    }
+  },
+  "matrix_cell_required_fields": [
+    "score",
+    "confidence",
+    "notes",
+    "source"
+  ],
+  "scoring_model": {
+    "required": true,
+    "allowed_method_families": [
+      "weighted_sum",
+      "weighted_average",
+      "multi_criteria_decision_analysis",
+      "scenario_weighted",
+      "rubric_score",
+      "pairwise_duel",
+      "cost_benefit",
+      "risk_adjusted",
+      "tco_model",
+      "custom"
+    ],
+    "required_fields": [
+      "method_family",
+      "formula",
+      "scale",
+      "weight_policy",
+      "normalization",
+      "tie_break_policy"
+    ],
+    "source_priority": [
+      "bench-contract.json#scoring_model",
+      "bench-output-dash.json#matrix.scoring_guide"
+    ]
+  },
+  "taxonomy_model": {
+    "required": true,
+    "required_fields": [
+      "categories",
+      "row_unit",
+      "player_model",
+      "dimension_source"
+    ],
+    "category_policy": "Categorias devem nascer da solicitação e do tipo de decisão. Não usar categorias fixas quando o problema pedir outro recorte."
+  },
+  "generic_intelligence_pack": {
+    "completeness_rubric": "bench-completeness-rubric.json/md",
+    "implementation_gate": "implementation-readiness-gate.json/md",
+    "presentation_storyline": "presentation-brief.json/md",
+    "dashboard_intelligence": "dashboard-intelligence.json/md",
+    "battle_card": "battle-card.md com escolhas por pergunta, anti-decisões e próxima jogada",
+    "evidence_ledger": "evidence-ledger.json/md",
+    "evidence_strength_map": "deep/evidence-strength-map.json/md",
+    "intelligence_graph": "deep/intelligence-graph.json/md",
+    "decision_table": "deep/decision-table.json/md ou variante declarada",
+    "story_backlog": "story-ready-backlog.md"
+  },
+  "domain_extension_policy": {
+    "description": "Domain-specific files are allowed and encouraged, but they cannot replace the generic intelligence pack.",
+    "examples": [
+      "slide-creator-skill-blueprint.json/md for slides",
+      "migration-playbook.md for codebase migration",
+      "pricing-model.md for product bench",
+      "regulatory-risk-map.md for market/company bench"
+    ]
+  }
+}

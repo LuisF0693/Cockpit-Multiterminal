@@ -1,0 +1,169 @@
+dependencies:
+  templates:
+    - deep-research-prompt-template.md
+    - output-structure.md
+  prompts:
+    - decompose.md
+    - evaluate.md
+    - page-extract.md
+    - tech-discovery.md
+    - verify-citations.md
+    - tool-strategy.md       # Exa/Context7/ETL/WebSearch hierarchy with fallbacks
+    - executor-matrix.md     # Worker vs Agent classification (deterministic vs LLM)
+    - playwright-deep-research.md  # NEW: Multi-LLM browser automation workflow
+  config:
+    - config.yaml            # NEW: Playwright deep research configuration
+
+  infrastructure:
+    etl_service: "services/etl/"
+    etl_youtube_cli: "node services/etl/bin/youtube-transcript.js {videoId}"
+    etl_blog_cli: "node services/etl/bin/fetch-page.js {url}"
+    etl_blog_api: "ETLService.collectBlog(url)"
+
+  worker_scripts:
+    base_path: "squads/research/scripts/tech-research/"
+    scripts:
+      - id: scaffold
+        path: "squads/research/scripts/tech-research/scaffold.py"
+        atoms: [atm_scaffold_output]
+        cli: "python3 squads/research/scripts/tech-research/scaffold.py --slug {slug} --title \"{title}\" --query \"{query}\" --date {YYYY-MM-DD}"
+        stdin: "echo '{\"slug\":\"...\",\"title\":\"...\",\"query\":\"...\"}' | python3 squads/research/scripts/tech-research/scaffold.py --stdin"
+        behavior: "Creates folder + 4 stub files (README, 00, 02, 03) with correct templates. Idempotent — never overwrites existing files."
+      - id: url_detector
+        path: "squads/research/scripts/tech-research/url_detector.py"
+        atoms: [atm_classify_urls, atm_parse_query]
+        cli: "python3 squads/research/scripts/tech-research/url_detector.py {url}"
+        batch: "echo '[\"url1\",\"url2\"]' | python3 squads/research/scripts/tech-research/url_detector.py --stdin"
+      - id: credibility_scorer
+        path: "squads/research/scripts/tech-research/credibility_scorer.py"
+        atoms: [atm_pattern_match]
+        cli: "python3 squads/research/scripts/tech-research/credibility_scorer.py {url}"
+        batch: "echo '[{\"url\":\"...\",\"title\":\"...\"}]' | python3 squads/research/scripts/tech-research/credibility_scorer.py --stdin"
+      - id: coverage_calculator
+        path: "squads/research/scripts/tech-research/coverage_calculator.py"
+        atoms: [atm_calc_coverage, atm_calc_newinfo, atm_stopping_decision]
+        cli_coverage: "echo '{dimensions_json}' | python3 squads/research/scripts/tech-research/coverage_calculator.py coverage"
+        cli_newinfo: "python3 squads/research/scripts/tech-research/coverage_calculator.py newinfo --new {N} --total {M}"
+        cli_stop: "echo '{state_json}' | python3 squads/research/scripts/tech-research/coverage_calculator.py stop"
+      - id: metrics_collector
+        path: "squads/research/scripts/tech-research/metrics_collector.py"
+        atoms: [atm_compute_metrics, atm_save_state]
+        cli_compute: "echo '{data_json}' | python3 squads/research/scripts/tech-research/metrics_collector.py compute"
+        cli_save: "echo '{state_json}' | python3 squads/research/scripts/tech-research/metrics_collector.py save --dir {output_dir}"
+      - id: logger
+        path: "squads/research/scripts/tech-research/logger.py"
+        atoms: [all_worker_atoms]
+        cli: "python3 squads/research/scripts/tech-research/logger.py {atom_id} {level} {event} '{data_json}'"
+        python: "from infrastructure.services.tech_research.logger import ResearchLogger"
+      - id: output_validator
+        path: "squads/research/scripts/tech-research/output_validator.py"
+        atoms: [QG-PROD-6]
+        cli: "python3 squads/research/scripts/tech-research/output_validator.py {output_dir}"
+      - id: claim_extractor
+        path: "squads/research/scripts/tech-research/claim_extractor.py"
+        atoms: [atm_extract_claims, atm_match_sources]
+        cli_extract: "python3 squads/research/scripts/tech-research/claim_extractor.py extract < {report.md}"
+        cli_match: "echo '{claims_and_sources_json}' | python3 squads/research/scripts/tech-research/claim_extractor.py match"
+      - id: research_graph
+        path: "squads/research/scripts/tech-research/research_graph.py"
+        atoms: [atm_build_graph]
+        cli: "python3 squads/research/scripts/tech-research/research_graph.py {output_dir}"
+        check: "python3 squads/research/scripts/tech-research/research_graph.py {output_dir} --check"
+        behavior: |
+          Derives research-graph.json from filesystem (node types: root/query/prompt/report/
+          recommendations/followup/wave/quick_wins/evolving/curiosity/log/metrics/pipeline_state;
+          edge relations: contains/produces/spawns_followup/checkpoint/derives/describes).
+          Inspired by btahir/open-deep-research "Flow" / Visual Research Mapping. Zero LLM, zero
+          network, deterministic. Run as last step of Phase 5 (after metrics_collector save).
+      - id: research_kb_index
+        path: "squads/research/scripts/tech-research/research_kb_index.py"
+        atoms: [atm_index_kb]
+        cli: "python3 squads/research/scripts/tech-research/research_kb_index.py --root docs/research"
+        check: "python3 squads/research/scripts/tech-research/research_kb_index.py --root docs/research --check"
+        behavior: |
+          Scans docs/research/* and emits docs/research/_index.json with cross-research catalog
+          (slug, topic, date, coverage_score, sources, decision, status, tags). Knowledge-Base
+          pattern from btahir/open-deep-research (filesystem-backed instead of localStorage).
+          Fallback chain (QF-3.1): canonical YAML/README → folder-name date → filesystem mtime
+          → first '#' heading → URL counting in references. Each field carries an `inferred`
+          flag so downstream consumers know what came from canonical vs heuristic source.
+          Idempotent — run after every Phase 5 completion to keep the index fresh.
+      - id: sources_extractor
+        path: "squads/research/scripts/tech-research/sources_extractor.py"
+        atoms: [atm_extract_sources]
+        cli: "python3 squads/research/scripts/tech-research/sources_extractor.py {output_dir}"
+        check: "python3 squads/research/scripts/tech-research/sources_extractor.py {output_dir} --check"
+        behavior: |
+          Parses 02-research-report.md and any followup files in the same research folder,
+          emitting {output_dir}/sources.yaml — an artifact-first source manifest with
+          id, url, title, date (inline annotation or 'date_unknown'), credibility
+          (delegated to credibility_scorer.py), first_seen_in (filename), first_seen_section
+          (nearest markdown heading), kind (markdown_link|bare_url), and totals.
+          QF-4 from btahir parity quick-fix set; consumer for verify-citations + Observatory
+          "Source evidence drawer" pattern. Dedup is per-URL keeping the earliest occurrence.
+          Idempotent, atomic write, zero LLM, zero network.
+      - id: players_extractor
+        path: "squads/research/scripts/tech-research/players_extractor.py"
+        atoms: [atm_extract_players]
+        cli: "python3 squads/research/scripts/tech-research/players_extractor.py {output_dir}"
+        check: "python3 squads/research/scripts/tech-research/players_extractor.py {output_dir} --check"
+        behavior: |
+          QF-D1. Parses `### N.N Name` deep-dive blocks (matching the canonical
+          "DEEP DIVES ON TOP PLAYERS" template enforced by phase-5-document.yaml)
+          into players.yaml with what_it_does, what_it_does_not, insight, source
+          (title+url+date+optional additional sources), tier, category, role, fit,
+          action, and excluded flag (scans narrative for EXCLUÍDO/EXCLUDED tokens).
+          Explicit deep-dive fields are authoritative; heuristic fallback is only
+          used when a legacy report lacks those fields. Idempotent; zero LLM; zero network.
+      - id: comparison_matrix_extractor
+        path: "squads/research/scripts/tech-research/comparison_matrix_extractor.py"
+        atoms: [atm_extract_matrices]
+        cli: "python3 squads/research/scripts/tech-research/comparison_matrix_extractor.py {output_dir}"
+        check: "python3 squads/research/scripts/tech-research/comparison_matrix_extractor.py {output_dir} --check"
+        behavior: |
+          QF-D2. Every markdown table sitting under a `## N. ...` heading becomes a
+          structured matrix entry in matrices.yaml (columns + cells as {col: value}).
+          Tables inside `### N.N` player blocks are ignored (those belong to players.yaml).
+          Unlocks sortable/filterable comparison UI in the Observatory without parsing
+          markdown at view time. Idempotent; zero LLM; zero network.
+      - id: ux_patterns_extractor
+        path: "squads/research/scripts/tech-research/ux_patterns_extractor.py"
+        atoms: [atm_extract_patterns]
+        cli: "python3 squads/research/scripts/tech-research/ux_patterns_extractor.py {output_dir}"
+        check: "python3 squads/research/scripts/tech-research/ux_patterns_extractor.py {output_dir} --check"
+        behavior: |
+          QF-D3. Scans `##` sections whose title matches /padr(ões|ão|ao)|pattern/i
+          and parses numbered bold items (`N. **Name:** Description`) into a UX
+          patterns catalog (id, number, name, description, reference, section).
+          Cross-research aggregate `docs/research/_ux-patterns.json` is a separate
+          future enhancement (tracked in curiosity_queue). Idempotent; zero LLM;
+          zero network.
+
+  mcp_servers:
+    context7:
+      tools: ["mcp__context7__resolve-library-id", "mcp__context7__query-docs"]
+      fallback: "WebSearch with site:{library}.dev"
+    exa:
+      tools: ["mcp__exa__web_search_exa", "mcp__exa__research_paper_search", "mcp__exa__github_search", "mcp__exa__crawling"]
+      fallback: "WebSearch (native)"
+
+  # ---------------------------------------------------------------------------
+  # rate_limits — adopted from btahir/open-deep-research lib/config.ts pattern
+  # (docs/research/2026-05-11-visual-deep-research-apps/02-research-report.md §1.1)
+  # Advisory in this skill: the orchestrator reads these knobs to pace tool
+  # dispatch within a phase. There is no enforcement daemon; on_breach controls
+  # behavior when the budget is exceeded during a wave.
+  # ---------------------------------------------------------------------------
+  rate_limits:
+    enabled: true
+    search_per_minute: 10           # WebSearch + Exa + Context7 search combined
+    content_fetch_per_minute: 20    # WebFetch + ETL fetch-page + curl downloads
+    synthesis_per_minute: 5         # Phase 4 LLM-heavy synthesis calls
+    deep_read_per_minute: 6         # Phase 3.2 page-extract WebFetch budget
+    on_breach: log_warning_continue # log_warning_continue | sleep_until_window | abort_wave
+    window_seconds: 60
+    burst_factor: 1.5               # short-lived bursts allowed up to 1.5x rate
+    notes:
+      - "Workers (Python scripts under squads/research/scripts/tech-research/) are exempt: zero network."
+      - "Multi-LLM (Phase 3.7 Playwright) is also exempt: browser automation pacing is handled by playwright config.yaml."
+      - "When on_breach=log_warning_continue (default), the orchestrator emits a structured log line via scripts/logger.py and proceeds."

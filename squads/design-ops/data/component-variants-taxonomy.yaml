@@ -1,0 +1,507 @@
+title: "Component Variants Taxonomy — Cross-DS Canonical Reference"
+version: "1.0.0"
+generated_at: "2026-04-27"
+generated_by: "design-ops via meta-analysis"
+purpose: |
+  Canonical taxonomy of component variants extracted from 9 reference DS.
+  Used by tasks `ds-build-component`, `ds-compose-molecule`,
+  `f3-derive-components`, `f2-adapt-shadcn-components` to know WHICH variants
+  to generate when building components for sinkra-hub apps.
+
+  Without this taxonomy, each agent invents variants ad-hoc — leading to
+  inconsistent button APIs cross-app (one app has `solid/outline`,
+  another has `primary/secondary`, another has `default/destructive`).
+
+  This file declares the canonical sinkra-hub variants per component,
+  with cross-DS frequency analysis as evidence.
+
+method: |
+  - Inspected real implementations in <external-ds-checkout>/:
+    - shadcn-ui/apps/v4/styles/base-vega/ui/button.tsx (cva)
+    - mantine/packages/@mantine/core/src/components/Button/Button.tsx
+    - chakra-ui/packages/react/src/theme/recipes/button.ts (defineRecipe)
+    - heroui/packages/styles/src/components/button/button.styles.ts (tv)
+    - carbon/packages/react/src/components/Button/Button.tsx (ButtonKinds)
+    - fluentui/packages/react-components/react-button/library/src/components/Button/Button.types.ts (appearance)
+    - material-ui/packages/mui-material/src/Button/Button.d.ts (variant)
+    - ant-design/components/button (ButtonType + danger flag)
+    - polaris-react/polaris-react/src/components/Button/Button.tsx (variant)
+
+  Extracted exact variant names. Counted modal frequency across 9 DS.
+  Mapped synonyms (e.g., shadcn "default" ≈ MUI "contained" ≈ ant "primary"
+  ≈ heroui "primary" ≈ carbon "primary" ≈ fluent "primary" ≈ mantine "filled"
+  ≈ chakra "solid").
+
+# =============================================================================
+# BUTTON — most universal component, deepest cross-DS analysis
+# =============================================================================
+button:
+
+  cross_ds_matrix:
+    shadcn:        ["default", "outline", "secondary", "ghost", "destructive", "link"]
+    mantine:       ["filled", "light", "outline", "transparent", "white", "subtle", "default", "gradient"]
+    chakra:        ["solid", "subtle", "surface", "outline", "ghost", "plain"]
+    heroui:        ["primary", "secondary", "tertiary", "ghost", "outline", "danger", "danger-soft"]
+    carbon:        ["primary", "secondary", "tertiary", "ghost", "danger", "danger--primary", "danger--ghost", "danger--tertiary"]
+    fluentui_v9:   ["primary", "secondary", "outline", "subtle", "transparent"]
+    material_ui:   ["contained", "outlined", "text"]
+    ant:           ["primary", "default", "dashed", "link", "text"]    # + danger as flag
+    polaris:       ["primary", "secondary", "tertiary", "plain", "monochromePlain"]
+
+  synonym_groups:
+    "filled bg + brand color":
+      synonyms: ["default", "filled", "solid", "primary", "contained"]
+      frequency: 9       # all 9 DS have this concept
+      sinkra_canonical: "primary"
+    "transparent bg + border":
+      synonyms: ["outline", "outlined", "secondary (carbon)", "tertiary (heroui)"]
+      frequency: 8
+      sinkra_canonical: "outline"
+    "transparent bg + no border + bg-on-hover":
+      synonyms: ["ghost", "subtle (fluent/chakra/mantine)", "transparent (mantine)", "plain (chakra/polaris)", "text (mui/ant)"]
+      frequency: 9       # different names, same concept
+      sinkra_canonical: "ghost"
+    "filled bg + secondary brand":
+      synonyms: ["secondary", "default (ant/mantine)", "tertiary (heroui — soft variant)"]
+      frequency: 7
+      sinkra_canonical: "secondary"
+    "destructive intent":
+      synonyms: ["destructive (shadcn)", "danger (carbon/heroui/fluent — when destructive)", "warning"]
+      frequency: 7        # shadcn/heroui/carbon/ant (flag)/fluent (theming)/polaris (theming)/mui (color)
+      sinkra_canonical: "destructive"
+    "navigation-style underline":
+      synonyms: ["link (shadcn/ant)", "plain underline (polaris monochromePlain)"]
+      frequency: 4        # less universal
+      sinkra_canonical: "link"
+
+  sinkra_canonical_variants:
+    primary:
+      description: "Filled background with primary brand color. Default action emphasis."
+      use_when: "Most prominent CTA. ONE per view typically."
+      tokens:
+        background: "{semantic.color.primary}"
+        text: "{semantic.color.primary-foreground}"
+        background-hover: "opacity-90 of background"
+      reference_implementations:
+        - shadcn:default
+        - mantine:filled
+        - chakra:solid
+        - heroui:primary
+        - mui:contained
+    secondary:
+      description: "Filled background with secondary/neutral surface. Supporting actions."
+      use_when: "Secondary CTA next to primary. Multiple per view OK."
+      tokens:
+        background: "{semantic.color.secondary}"
+        text: "{semantic.color.secondary-foreground}"
+        background-hover: "opacity-80"
+      reference_implementations:
+        - shadcn:secondary
+        - heroui:secondary
+        - polaris:secondary
+        - carbon:secondary
+    outline:
+      description: "Transparent bg + visible border. Tertiary actions, dialogs."
+      use_when: "Cancel buttons, deselected states, secondary group actions."
+      tokens:
+        background: "transparent"
+        border: "{semantic.color.border}"
+        text: "{semantic.color.foreground}"
+        background-hover: "{semantic.color.muted}"
+      reference_implementations:
+        - shadcn:outline
+        - mantine:outline
+        - chakra:outline
+        - mui:outlined
+    ghost:
+      description: "No bg, no border. Background appears only on hover."
+      use_when: "Toolbar buttons, icon buttons in tight UI, low-emphasis actions."
+      tokens:
+        background: "transparent"
+        text: "{semantic.color.foreground}"
+        background-hover: "{semantic.color.muted}"
+      reference_implementations:
+        - shadcn:ghost
+        - chakra:ghost
+        - mantine:subtle
+        - fluent:subtle
+        - mui:text
+    destructive:
+      description: "Red/error tones. Deletion, irreversible actions."
+      use_when: "Delete, remove, archive, cancel-with-data-loss."
+      tokens:
+        background: "{semantic.color.destructive}"
+        text: "{semantic.color.destructive-foreground}"
+        background-hover: "opacity-90"
+      reference_implementations:
+        - shadcn:destructive
+        - heroui:danger
+        - carbon:danger
+    link:
+      description: "Underlined text in primary color. No background or border."
+      use_when: "Inline navigation actions, in-text CTAs."
+      tokens:
+        background: "transparent"
+        text: "{semantic.color.primary}"
+        text-decoration: "underline-offset"
+        text-decoration-hover: "underline"
+      reference_implementations:
+        - shadcn:link
+        - ant:link
+        - mui:text + custom underline
+
+  excluded_variants:
+    - name: "gradient (mantine)"
+      reason: "Brand-specific; not generic enough"
+    - name: "white (mantine)"
+      reason: "Niche; can be modeled as outline + foreground=white"
+    - name: "transparent (mantine)"
+      reason: "Effectively same as ghost (no bg)"
+    - name: "dashed (ant)"
+      reason: "Ant-specific aesthetic; not present elsewhere"
+    - name: "danger--primary/ghost/tertiary (carbon)"
+      reason: "Carbon's matrix of danger × kind. Sinkra uses single 'destructive' + theming"
+    - name: "monochromePlain (polaris)"
+      reason: "Polaris-specific; equivalent to ghost in practice"
+    - name: "tertiary (heroui)"
+      reason: "Subset of secondary in sinkra naming"
+
+  sinkra_canonical_sizes:
+    description: "4-step + icon variants. Mantine/shadcn alignment."
+    sizes:
+      sm:
+        height: "2rem"      # 32px — Carbon sm, shadcn sm
+        padding-inline: "0.625rem"
+        font-size: "{core.typography.sizes.sm}"
+        use_when: "Dense layouts, toolbars, secondary contexts"
+      md:
+        height: "2.25rem"   # 36px — shadcn default
+        padding-inline: "0.75rem"
+        font-size: "{core.typography.sizes.sm}"
+        use_when: "Default; 90% of buttons"
+        is_default: true
+      lg:
+        height: "2.5rem"    # 40px — shadcn lg
+        padding-inline: "1rem"
+        font-size: "{core.typography.sizes.base}"
+        use_when: "Hero CTAs, marketing pages"
+      icon:
+        width_height: "2.25rem"  # square, matches md height
+        padding: 0
+        use_when: "Icon-only buttons (e.g., toolbar)"
+
+  cross_ds_size_matrix:
+    shadcn:    ["xs", "sm", "default", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"]  # 8 sizes — overkill
+    mantine:   ["xs", "sm", "md", "lg", "xl"]    # 5
+    chakra:    ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"]  # 7 — too granular
+    heroui:    ["sm", "md", "lg"]                # 3 — minimalist
+    carbon:    ["sm", "md", "lg", "xl", "2xl"]   # 5 — B2B dense
+    fluentui:  ["small", "medium", "large"]      # 3
+    mui:       ["small", "medium", "large"]      # 3
+    ant:       ["small", "middle", "large"]      # 3
+    polaris:   ["micro", "slim", "medium", "large"]  # 4
+    sinkra:    ["sm", "md", "lg", "icon"]        # 4 — pragmatic
+
+  sinkra_canonical_states:
+    description: "States that EVERY button MUST handle"
+    required:
+      default: "rest state"
+      hover: "background-hover or opacity shift"
+      focus-visible: "ring-2 ring-{ring}; WCAG 2.4.7"
+      active: "translate-y-px (shadcn pattern)"
+      disabled: "opacity-50, pointer-events-none"
+      loading: "spinner replaces icon, text remains, pointer-events-none"
+    optional:
+      pressed: "for toggle buttons (aria-pressed)"
+      indeterminate: "rare; only for state-aware buttons"
+
+# =============================================================================
+# INPUT — second most universal
+# =============================================================================
+input:
+  cross_ds_matrix:
+    shadcn:        ["default"]               # single variant; states differentiate
+    mantine:       ["default", "filled", "unstyled"]
+    chakra:        ["outline", "subtle", "filled", "flushed"]
+    heroui:        ["bordered", "flat", "underlined", "faded"]
+    carbon:        ["default", "fluid"]      # fluid is no-border
+    fluentui_v9:   ["outline", "underline", "filled-darker", "filled-lighter"]
+    material_ui:   ["outlined", "filled", "standard"]
+    ant:           ["outlined", "filled", "borderless", "underlined"]
+    polaris:       ["default"]               # textfield only
+
+  synonym_groups:
+    "border around input":
+      synonyms: ["default (shadcn)", "outlined (mui/ant)", "outline (chakra/fluent)", "bordered (heroui)"]
+      frequency: 9
+      sinkra_canonical: "outline"
+    "filled bg, no border":
+      synonyms: ["filled (mantine/mui/chakra/ant)", "subtle (chakra)", "filled-darker (fluent)", "flat (heroui)"]
+      frequency: 7
+      sinkra_canonical: "filled"
+    "underline only":
+      synonyms: ["flushed (chakra)", "underline (fluent)", "underlined (ant/heroui)", "standard (mui)"]
+      frequency: 6
+      sinkra_canonical: "underlined"
+    "no chrome (text only)":
+      synonyms: ["unstyled (mantine)", "borderless (ant)"]
+      frequency: 2
+      sinkra_canonical: null  # excluded — uncommon
+
+  sinkra_canonical_variants:
+    outline:
+      description: "Border around input. Standard form field."
+      is_default: true
+      tokens:
+        background: "{semantic.color.background}"
+        border: "{semantic.color.input}"
+        border-focus: "{semantic.color.ring}"
+    filled:
+      description: "Filled background, no border. Compact forms."
+      tokens:
+        background: "{semantic.color.muted}"
+        border: "transparent"
+        border-focus: "{semantic.color.ring}"
+    underlined:
+      description: "Underline only. Material-style, minimalist."
+      tokens:
+        background: "transparent"
+        border-bottom: "{semantic.color.input}"
+        border-bottom-focus: "{semantic.color.ring}"
+
+  sinkra_canonical_sizes:
+    sm:
+      height: "2rem"     # 32px
+      use_when: "Compact forms, table inline edit"
+    md:
+      height: "2.25rem"  # 36px — matches button md
+      use_when: "Default forms"
+      is_default: true
+    lg:
+      height: "2.5rem"   # 40px
+      use_when: "Hero search, primary CTA fields"
+
+  sinkra_canonical_states:
+    default: "rest"
+    hover: "border slightly darker"
+    focus-visible: "ring-2 ring-{ring}"
+    invalid: "border-destructive (aria-invalid='true')"
+    disabled: "opacity-50, cursor-not-allowed"
+    readonly: "opacity-70, no border-focus"
+
+# =============================================================================
+# CARD — third universal; mostly contains other components
+# =============================================================================
+card:
+  cross_ds_matrix:
+    shadcn:        ["default"]    # single; class extends
+    mantine:       ["default"]    # withBorder boolean
+    chakra:        ["elevated", "outline", "subtle"]
+    heroui:        ["shadow", "bordered", "flat"]
+    carbon:        ["default"]    # no variants
+    fluentui_v9:   ["filled", "filled-alternative", "outline", "subtle"]
+    material_ui:   ["elevation", "outlined"]   # via variant
+    ant:           ["default", "borderless", "inner"]
+    polaris:       ["default", "subdued"]      # via background
+
+  synonym_groups:
+    "shadow elevation":
+      synonyms: ["elevated (chakra)", "shadow (heroui)", "elevation (mui)", "filled (fluent)", "default (shadcn)"]
+      frequency: 9
+      sinkra_canonical: "elevated"
+    "border, no shadow":
+      synonyms: ["outline (chakra/fluent)", "bordered (heroui)", "outlined (mui)", "default (mantine withBorder)"]
+      frequency: 8
+      sinkra_canonical: "outlined"
+    "subtle bg, no border, no shadow":
+      synonyms: ["subtle (chakra/fluent)", "flat (heroui)", "subdued (polaris)", "borderless (ant)"]
+      frequency: 7
+      sinkra_canonical: "subtle"
+
+  sinkra_canonical_variants:
+    elevated:
+      description: "White bg + shadow. Default Material-influenced."
+      is_default: true
+      tokens:
+        background: "{semantic.color.surface}"
+        shadow: "{core.shadow.base}"
+        border: "transparent"
+    outlined:
+      description: "Bordered, no shadow. Minimalist, dense layouts."
+      tokens:
+        background: "{semantic.color.surface}"
+        border: "{semantic.color.border}"
+        shadow: "none"
+    subtle:
+      description: "Soft bg, no border, no shadow. Background grouping."
+      tokens:
+        background: "{semantic.color.muted}"
+        border: "transparent"
+        shadow: "none"
+
+  sinkra_canonical_states:
+    default: "rest"
+    hover: "shadow-md (only if interactive — onClick/asLink)"
+    focus-visible: "ring-2 (only if interactive)"
+
+# =============================================================================
+# DIALOG / MODAL — interactive, ARIA-heavy
+# =============================================================================
+dialog:
+  cross_ds_matrix:
+    shadcn:        ["default"]              # single + variant via composition
+    mantine:       ["default"]              # via Modal props
+    chakra:        ["alert-dialog", "drawer", "modal"]   # different components actually
+    heroui:        ["default", "scroll-behavior=normal/inside/outside"]
+    carbon:        ["passive", "transactional", "danger"]
+    fluentui_v9:   ["modal", "non-modal", "alert"]
+    material_ui:   ["dialog", "alert-dialog"]
+    ant:           ["confirm", "info", "success", "error", "warning", "modal"]
+    polaris:       ["default", "small", "large", "fullScreen"]
+
+  synonym_groups:
+    "blocking modal":
+      synonyms: ["modal (default)", "transactional (carbon)", "default (most)"]
+      frequency: 9
+      sinkra_canonical: "modal"
+    "confirmation":
+      synonyms: ["alert-dialog (shadcn/chakra/mui)", "alert (fluent)", "confirm (ant)", "danger (carbon)"]
+      frequency: 8
+      sinkra_canonical: "alert"
+    "non-modal popup":
+      synonyms: ["non-modal (fluent)", "passive (carbon)"]
+      frequency: 2
+      sinkra_canonical: null  # excluded — composed via Popover instead
+
+  sinkra_canonical_variants:
+    modal:
+      description: "Standard blocking modal. Backdrop + escape-to-close."
+      is_default: true
+      tokens:
+        background: "{semantic.color.surface}"
+        backdrop: "rgba(0,0,0,0.5)"
+        shadow: "{core.shadow.lg}"
+        radius: "{core.radius.lg}"
+        z-index: "{core.z-index.modal}"
+    alert:
+      description: "Confirmation dialog. Smaller, focused on action choice. Inherits modal tokens + extras below."
+      inherits_from: "modal"
+      tokens:
+        max-width: "30rem"
+        confirm-button-variant: "primary"
+        cancel-button-variant: "outline"
+
+  sinkra_canonical_sizes:
+    sm:
+      max-width: "30rem"   # 480px — alert
+    md:
+      max-width: "40rem"   # 640px — default
+      is_default: true
+    lg:
+      max-width: "50rem"   # 800px
+    xl:
+      max-width: "65rem"   # 1040px
+    full:
+      max-width: "100vw"
+      max-height: "100vh"
+      use_when: "Mobile or full-screen takeover"
+
+  sinkra_canonical_states:
+    closed: "display:none / unmounted"
+    open: "rendered + animation in"
+    closing: "animation out"
+  required_a11y:
+    - "role=dialog or role=alertdialog"
+    - "aria-modal=true"
+    - "aria-labelledby pointing to title"
+    - "aria-describedby pointing to body"
+    - "trap focus when open"
+    - "restore focus on close"
+    - "escape key closes (unless prevented)"
+
+# =============================================================================
+# CROSS-COMPONENT INVARIANTS
+# =============================================================================
+invariants:
+  size_alignment:
+    description: "Components must align on same size scale to compose well"
+    rule: "button.md height === input.md height === select.md height === 2.25rem"
+    affected: [button, input, select, combobox, toggle]
+
+  border_radius_consistency:
+    description: "Within one app, all components share base radius (component override allowed)"
+    rule: "components inherit {core.radius.md} unless explicit override"
+
+  focus_ring_uniformity:
+    description: "Focus ring uses same color/offset cross-component"
+    rule: "ring-2 ring-{semantic.color.ring}; offset-2; appears on focus-visible only"
+    related_rule: "squads/design-ops/rules/wcag-focus-policy.md"
+
+  destructive_consistency:
+    description: "Destructive intent uses same color across components"
+    rule: "{semantic.color.destructive} for buttons, dialogs, toasts, badges"
+
+  variant_naming_uniformity:
+    description: "Same variant name across components when applicable"
+    rule_example: "outline button has outline input has outline card — all transparent bg + visible border"
+
+# =============================================================================
+# DECISION TREES
+# =============================================================================
+decision_trees:
+  which_button_variant:
+    description: "Help agents choose Button variant when generating UI"
+    questions:
+      1: "Is this the PRIMARY action of the view? → primary"
+      2: "Is this a SECONDARY but visible action? → secondary"
+      3: "Is this a CANCEL or ALTERNATIVE? → outline"
+      4: "Is this a TOOLBAR or LOW-EMPHASIS action? → ghost"
+      5: "Does this DELETE / REMOVE / ARCHIVE? → destructive"
+      6: "Is this an INLINE navigation? → link"
+
+  which_input_variant:
+    questions:
+      1: "Is this in a STANDARD form? → outline (default)"
+      2: "Is this in a DENSE/COMPACT form (e.g., toolbar)? → filled"
+      3: "Is this a MATERIAL-INSPIRED design? → underlined"
+
+  which_dialog_variant:
+    questions:
+      1: "Is this asking for CONFIRMATION (yes/no)? → alert"
+      2: "Is this for content/forms/data? → modal"
+      3: "Is this non-blocking inline? → use Popover, not Dialog"
+
+# =============================================================================
+# WHAT THIS REPLACES
+# =============================================================================
+replaces:
+  - description: "Implicit variant choices in tasks"
+    affected:
+      - squads/design-ops/tasks/ds-build-component.md
+      - squads/design-ops/tasks/ds-compose-molecule.md
+      - squads/design-ops/tasks/f3-derive-components.md
+      - squads/design-ops/tasks/f2-adapt-shadcn-components.md
+    issue: |
+      Tasks instruct agents to "build Button variants" without specifying WHICH.
+      Each agent invents variants — leading to incompatible APIs cross-app.
+
+# =============================================================================
+# CONSUMERS — tasks/workflows/rules that should reference this
+# =============================================================================
+consumed_by:
+  tasks:
+    - squads/design-ops/tasks/ds-build-component.md         # which variants to scaffold
+    - squads/design-ops/tasks/ds-compose-molecule.md        # composition rules
+    - squads/design-ops/tasks/f3-derive-components.md       # F3 variant derivation
+    - squads/design-ops/tasks/f2-adapt-shadcn-components.md # F2 adapter mapping
+    - squads/design-ops/tasks/dops-generate-variants.md     # variant generator
+    - squads/design-ops/tasks/ds-extend-pattern.md          # adding new variants
+    - squads/design-ops/tasks/ds-consolidate-patterns.md    # collapsing duplicate variants
+  workflows:
+    - squads/design-ops/workflows/foundations-pipeline.yaml
+    - squads/design-ops/workflows/wf-generative-component-pipeline.yaml
+  rules:
+    - squads/design-ops/rules/ds-consistency-policy.md
+    - squads/design-ops/rules/extension-vocabulary-match.md
+  templates:
+    - squads/design-ops/templates/component-visual-spec-tmpl.md

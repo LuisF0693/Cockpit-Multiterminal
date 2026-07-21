@@ -1,0 +1,74 @@
+workflow:
+  id: dops-style-dictionary-token-pipeline
+  name: Style Dictionary Token Pipeline
+  description: |
+    Build and validate token artifacts from the workspace canonical contracts.
+
+    Source-of-truth chain:
+      1. workspace/businesses/{biz}/L2-tactical/design/tokens.yaml  (instance)
+      2. squads/design-ops/templates/ds-tokens-defaults-tmpl.yaml   (defaults — used to bootstrap (1) when missing)
+      3. squads/design-ops/templates/ds-tokens-schema-tmpl.yaml      (contract — shape validation)
+
+    Generates outputs in workspace/businesses/{biz}/L2-tactical/design/build/:
+      tokens.json (DTCG), tokens.css, globals.css (Tailwind v4), tokens.scss, tokens.ts
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-token-pipeline {business}"
+  references:
+    schema_contract: "squads/design-ops/templates/ds-tokens-schema-tmpl.yaml"
+    defaults_template: "squads/design-ops/templates/ds-tokens-defaults-tmpl.yaml"
+    justification_matrix: "squads/design-ops/data/tier-1-token-defaults-justification.yaml"
+  sequence:
+    - step: step-1-validate-contracts
+      id: step-1-validate-contracts
+      phase: 1
+      phase_name: Validar contratos canônicos
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-workspace-contracts.cjs --business={business} --strict --format=json
+      next: step-2-build-token-artifacts
+    - step: step-2-build-token-artifacts
+      id: step-2-build-token-artifacts
+      phase: 2
+      phase_name: Gerar artefatos de tokens
+      agent: design-chief
+      action: node squads/design-ops/scripts/build-token-pipeline.cjs --business={business}
+      next: step-3-validate-token-artifacts
+    - step: step-3-validate-token-artifacts
+      id: step-3-validate-token-artifacts
+      phase: 3
+      phase_name: Validar artefatos gerados
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-token-pipeline.cjs --business={business}
+      next: step-4-yaml
+    - step: step-4-yaml
+      id: step-4-yaml
+      phase: 4
+      phase_name: Validar YAML alterado
+      agent: design-chief
+      action: npm run validate:yaml:changed
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  required:
+    - name: business
+      description: "Slug da business unit (ex.: aiox)"
+
+outputs:
+  - outputs/design-ops/token-pipeline/{business}/tokens.json
+  - outputs/design-ops/token-pipeline/{business}/tokens.css
+  - outputs/design-ops/token-pipeline/{business}/manifest.json
+
+quality_gates:
+  - id: DOPS-GATE-001
+    check: validate-workspace-contracts
+    blocking: true
+  - id: DOPS-GATE-008
+    check: validate-token-pipeline
+    blocking: true
+  - id: DOPS-GATE-002
+    check: "validate:yaml:changed"
+    blocking: true

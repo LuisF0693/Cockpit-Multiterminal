@@ -1,0 +1,38 @@
+---
+# Template — Design System Health Report
+# Owner squad: design-ops
+# Purpose: Periodic health snapshot of the design provider (tokens, foundations, components, a11y).
+# Lifecycle: draft → validated → approved
+
+id: TEMPLATE
+title: "DS Health Report — <period>"
+version: "1.0.0"
+status: draft
+period: "YYYY-MM"
+reported_by: "@agent-handle"
+reported_at: "YYYY-MM-DDTHH:MM:SSZ"
+
+scope:
+  surfaces_covered: []
+  squads_dependent: []
+
+metrics:
+  tokens:
+    total: 0
+    published: 0
+    drift_count: 0
+  foundations:
+    total: 0
+    validated: 0
+  components:
+    total: 0
+    documented: 0
+    accessibility_pass: 0
+  a11y:
+    wcag_level: ""
+    known_violations: 0
+
+drift_findings: []
+recommendations: []
+follow_ups: []
+references: []

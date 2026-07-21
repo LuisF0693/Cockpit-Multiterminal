@@ -1,0 +1,941 @@
+{
+  "metadata": {
+    "totalWorkflows": 180,
+    "totalUniqueNodeTypes": 69,
+    "totalNodeInstances": 3057,
+    "generatedAt": "2026-02-10T14:29:52.590Z"
+  },
+  "categories": {
+    "trigger": [
+      "n8n-nodes-base.webhook",
+      "n8n-nodes-base.respondToWebhook",
+      "n8n-nodes-base.scheduleTrigger",
+      "n8n-nodes-base.executeWorkflowTrigger",
+      "n8n-nodes-base.manualTrigger",
+      "n8n-nodes-base.googleSheetsTrigger",
+      "n8n-nodes-base.errorTrigger",
+      "n8n-nodes-base.slackTrigger",
+      "n8n-nodes-base.formTrigger",
+      "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "n8n-nodes-base.gmailTrigger",
+      "n8n-nodes-base.whatsAppTrigger"
+    ],
+    "action": [
+      "n8n-nodes-base.httpRequest",
+      "n8n-nodes-base.googleBigQuery",
+      "n8n-nodes-base.executionData",
+      "n8n-nodes-base.postgres",
+      "n8n-nodes-base.supabase",
+      "n8n-nodes-base.googleSheets",
+      "n8n-nodes-base.whatsApp",
+      "@n8n/n8n-nodes-langchain.informationExtractor",
+      "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "n8n-nodes-base.slack",
+      "@n8n/n8n-nodes-langchain.agent",
+      "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "n8n-nodes-base.dataTable",
+      "n8n-nodes-base.emailSend",
+      "n8n-nodes-base.gmail",
+      "@n8n/n8n-nodes-langchain.openAi",
+      "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "n8n-nodes-base.hubspot",
+      "n8n-nodes-base.googleDocsTool",
+      "n8n-nodes-base.dataTableTool",
+      "n8n-nodes-base.notion",
+      "n8n-nodes-base.n8n",
+      "n8n-nodes-base.clickUp",
+      "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "n8n-nodes-base.github",
+      "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "n8n-nodes-base.supabaseTool",
+      "n8n-nodes-base.redis",
+      "n8n-nodes-base.timeSaved",
+      "n8n-nodes-base.telegram",
+      "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "n8n-nodes-base.discord",
+      "n8n-nodes-base.homeAssistant",
+      "n8n-nodes-base.mySql"
+    ],
+    "logic": [
+      "n8n-nodes-base.if",
+      "n8n-nodes-base.switch",
+      "n8n-nodes-base.splitInBatches",
+      "n8n-nodes-base.merge",
+      "n8n-nodes-base.filter",
+      "n8n-nodes-base.limit",
+      "n8n-nodes-base.removeDuplicates",
+      "n8n-nodes-base.compareDatasets"
+    ],
+    "transform": [
+      "n8n-nodes-base.set",
+      "n8n-nodes-base.code",
+      "n8n-nodes-base.splitOut",
+      "n8n-nodes-base.aggregate",
+      "n8n-nodes-base.extractFromFile",
+      "n8n-nodes-base.convertToFile",
+      "n8n-nodes-htmlcsstopdf.htmlcsstopdf",
+      "n8n-nodes-base.summarize",
+      "n8n-nodes-base.markdown"
+    ],
+    "utility": [
+      "n8n-nodes-base.stickyNote",
+      "n8n-nodes-base.executeWorkflow",
+      "n8n-nodes-base.wait",
+      "n8n-nodes-base.noOp",
+      "n8n-nodes-base.stopAndError"
+    ]
+  },
+  "nodeTypes": {
+    "n8n-nodes-base.set": {
+      "type": "n8n-nodes-base.set",
+      "count": 417,
+      "category": "transform",
+      "usedInWorkflows": 133,
+      "operations": [
+        "mode:raw"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.httpRequest": {
+      "type": "n8n-nodes-base.httpRequest",
+      "count": 328,
+      "category": "action",
+      "usedInWorkflows": 74,
+      "operations": [
+        "auth:genericCredentialType",
+        "auth:predefinedCredentialType"
+      ],
+      "resources": [],
+      "methods": [
+        "DELETE",
+        "PATCH",
+        "POST",
+        "PUT"
+      ]
+    },
+    "n8n-nodes-base.stickyNote": {
+      "type": "n8n-nodes-base.stickyNote",
+      "count": 322,
+      "category": "utility",
+      "usedInWorkflows": 73,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.if": {
+      "type": "n8n-nodes-base.if",
+      "count": 251,
+      "category": "logic",
+      "usedInWorkflows": 110,
+      "operations": [
+        "has_conditions"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.code": {
+      "type": "n8n-nodes-base.code",
+      "count": 175,
+      "category": "transform",
+      "usedInWorkflows": 56,
+      "operations": [
+        "mode:runOnceForEachItem"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.executeWorkflow": {
+      "type": "n8n-nodes-base.executeWorkflow",
+      "count": 128,
+      "category": "utility",
+      "usedInWorkflows": 36,
+      "operations": [
+        "mode:each"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.webhook": {
+      "type": "n8n-nodes-base.webhook",
+      "count": 120,
+      "category": "trigger",
+      "usedInWorkflows": 103,
+      "operations": [
+        "auth:basicAuth",
+        "path:/arsenal/invite-sent",
+        "path:/autm/liberar-acesso",
+        "path:/circle/member/add",
+        "path:/invite-sent",
+        "path:/lab-lendario/register",
+        "path:/lab-lendario/revoke",
+        "path:/lab-pro/register",
+        "path:/lab-pro/revoke",
+        "path:/sa/register",
+        "path:/sa/revoke",
+        "path:1dd56f14-9bf6-4459-9ccb-fd88e46a5381",
+        "path:3e42fe42-ff43-428e-9a3b-007582e1cec6",
+        "path:4a0cbbd7-73f1-4485-bace-ceea39210d6e",
+        "path:4cb28e0c-100f-41e3-8203-689d77088404",
+        "path:630ed382-8640-4f16-9a02-0b56e3f245b4",
+        "path:82ac9ab5-9345-4623-89e7-14b3355bd0f2",
+        "path:941f4b69-6835-4c53-a7a7-4d950320d74f",
+        "path:a1814f7d-eb4e-4a63-9e25-bd5946a35855",
+        "path:acao_ps",
+        "path:alteracao-de-numero-17a4e0f165a0",
+        "path:aluno/create",
+        "path:arsenal-2.0",
+        "path:arsenal/send-email",
+        "path:black/liberacao/hotmart",
+        "path:black/liberacao/pagtrust",
+        "path:black_boas_vindas_d0",
+        "path:black_boas_vindas_d1",
+        "path:black_boas_vindas_d3",
+        "path:black_boas_vindas_d5",
+        "path:boas_vindas",
+        "path:business_go-live_12h",
+        "path:business_go-live_24h",
+        "path:business_go-live_6h",
+        "path:business_go-live_d0",
+        "path:cbf9515d-0a80-4c7b-992b-3536d16af865",
+        "path:circle/member/add",
+        "path:circle/member/remoke",
+        "path:clickup-b4s3-f0rms",
+        "path:clickup-s3c-f0rms",
+        "path:compra/obsdn",
+        "path:comunidade-sa-chat",
+        "path:comunidade_boas_vindas_d0",
+        "path:comunidade_boas_vindas_d1",
+        "path:comunidade_boas_vindas_d3",
+        "path:comunidade_boas_vindas_d5",
+        "path:comunidade_onboarding160802",
+        "path:comunidade_onboardingpag160802",
+        "path:convite-circle-arsenal2",
+        "path:cs_business_onboarding_aovivo",
+        "path:cs_imersao_certificado",
+        "path:cs_makers_onboarding_aovivo",
+        "path:cursoeduca/member/add",
+        "path:cursoeduca/revoke",
+        "path:data-lake/hotmart",
+        "path:e507d46a-dd9c-4a8d-aeb4-55dd4d4eafba",
+        "path:evowoot",
+        "path:formacao-renovacao-sa-chat",
+        "path:formacao_boas_vindas_d0",
+        "path:formacao_boas_vindas_d1",
+        "path:formacao_boas_vindas_d3",
+        "path:formacao_boas_vindas_d5",
+        "path:formacao_ia_onboarding_d0",
+        "path:forms-captacao-054342",
+        "path:gestor_ia/liberacao",
+        "path:gestor_ia/liberacao/hotmart",
+        "path:gestor_ia_onboarding_d0",
+        "path:gestor_ia_onboarding_d1",
+        "path:gestor_ia_onboarding_d3",
+        "path:gestor_ia_onboarding_d5",
+        "path:hackathon-hotmart",
+        "path:hackathon-pagtrust",
+        "path:hotmart/agentes-lendarios/compra-aprovada",
+        "path:hu8_add",
+        "path:hubs-lendarios-v2",
+        "path:hubs-lendarios-v2-admin",
+        "path:hubs-lendarios-v2-embaixador",
+        "path:inadimplencia/hotmart/wbhk",
+        "path:lab-ai/regiter",
+        "path:lab-ai/revoke",
+        "path:libera-formacao-black-tmb",
+        "path:libera-formacao-outros-hotmart",
+        "path:libera-formacao-outros-pagtrust",
+        "path:libera-formacao-outros-tmb",
+        "path:liberacao-acesso-clickup",
+        "path:liberacao-tmb-black213123",
+        "path:maestro_ia/liberacao",
+        "path:maestro_ia/liberacao/hotmart",
+        "path:maestro_ia_onboarding_d0",
+        "path:maestro_ia_onboarding_d1",
+        "path:makers_go-live_12h",
+        "path:makers_go-live_24h",
+        "path:makers_go-live_6h",
+        "path:makers_go-live_d0",
+        "path:mkt-mente-lendaria-free",
+        "path:pagtrust/agentes-lendarios/compra-aprovada",
+        "path:pagtrust/data",
+        "path:pagtrust/sachat/compra-aprovada",
+        "path:renovacao/comunidade-lendaria",
+        "path:sa-chat/liberar",
+        "path:saas-optimizer-cadastro",
+        "path:segundo_cerebro_ia_boas_vindas_d0",
+        "path:segundo_cerebro_ia_boas_vindas_d1",
+        "path:segundo_cerebro_ia_boas_vindas_d3",
+        "path:segundo_cerebro_ia_boas_vindas_d5",
+        "path:send-invite",
+        "path:support-data",
+        "path:sync-ofertai",
+        "path:tmb/data",
+        "path:transcricao-campanha",
+        "path:univer5al/hotm4r7",
+        "path:univer5al/pagtrus7",
+        "path:versioning/git",
+        "path:whatsun1quec0de",
+        "path:wpp/:code",
+        "path:zapi-retencao"
+      ],
+      "resources": [],
+      "methods": [
+        "DELETE",
+        "POST"
+      ]
+    },
+    "n8n-nodes-base.switch": {
+      "type": "n8n-nodes-base.switch",
+      "count": 87,
+      "category": "logic",
+      "usedInWorkflows": 55,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.googleBigQuery": {
+      "type": "n8n-nodes-base.googleBigQuery",
+      "count": 87,
+      "category": "action",
+      "usedInWorkflows": 32,
+      "operations": [
+        "auth:serviceAccount",
+        "insert"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.splitInBatches": {
+      "type": "n8n-nodes-base.splitInBatches",
+      "count": 77,
+      "category": "logic",
+      "usedInWorkflows": 71,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.executionData": {
+      "type": "n8n-nodes-base.executionData",
+      "count": 66,
+      "category": "action",
+      "usedInWorkflows": 54,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.wait": {
+      "type": "n8n-nodes-base.wait",
+      "count": 63,
+      "category": "utility",
+      "usedInWorkflows": 56,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.postgres": {
+      "type": "n8n-nodes-base.postgres",
+      "count": 60,
+      "category": "action",
+      "usedInWorkflows": 21,
+      "operations": [
+        "executeQuery",
+        "select",
+        "update",
+        "upsert"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.merge": {
+      "type": "n8n-nodes-base.merge",
+      "count": 56,
+      "category": "logic",
+      "usedInWorkflows": 26,
+      "operations": [
+        "mode:combine"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.respondToWebhook": {
+      "type": "n8n-nodes-base.respondToWebhook",
+      "count": 53,
+      "category": "trigger",
+      "usedInWorkflows": 21,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.splitOut": {
+      "type": "n8n-nodes-base.splitOut",
+      "count": 51,
+      "category": "transform",
+      "usedInWorkflows": 19,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.supabase": {
+      "type": "n8n-nodes-base.supabase",
+      "count": 50,
+      "category": "action",
+      "usedInWorkflows": 19,
+      "operations": [
+        "delete",
+        "get",
+        "getAll",
+        "update"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.scheduleTrigger": {
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "count": 49,
+      "category": "trigger",
+      "usedInWorkflows": 41,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.googleSheets": {
+      "type": "n8n-nodes-base.googleSheets",
+      "count": 46,
+      "category": "action",
+      "usedInWorkflows": 18,
+      "operations": [
+        "append",
+        "appendOrUpdate",
+        "update"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.whatsApp": {
+      "type": "n8n-nodes-base.whatsApp",
+      "count": 43,
+      "category": "action",
+      "usedInWorkflows": 40,
+      "operations": [
+        "send"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.aggregate": {
+      "type": "n8n-nodes-base.aggregate",
+      "count": 40,
+      "category": "transform",
+      "usedInWorkflows": 17,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.executeWorkflowTrigger": {
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "count": 37,
+      "category": "trigger",
+      "usedInWorkflows": 37,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.filter": {
+      "type": "n8n-nodes-base.filter",
+      "count": 35,
+      "category": "logic",
+      "usedInWorkflows": 26,
+      "operations": [
+        "has_conditions"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.informationExtractor": {
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "count": 35,
+      "category": "action",
+      "usedInWorkflows": 35,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi": {
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "count": 35,
+      "category": "action",
+      "usedInWorkflows": 35,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.noOp": {
+      "type": "n8n-nodes-base.noOp",
+      "count": 33,
+      "category": "utility",
+      "usedInWorkflows": 22,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.slack": {
+      "type": "n8n-nodes-base.slack",
+      "count": 32,
+      "category": "action",
+      "usedInWorkflows": 18,
+      "operations": [
+        "auth:oAuth2",
+        "sendAndWait"
+      ],
+      "resources": [
+        "file"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.manualTrigger": {
+      "type": "n8n-nodes-base.manualTrigger",
+      "count": 30,
+      "category": "trigger",
+      "usedInWorkflows": 29,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.stopAndError": {
+      "type": "n8n-nodes-base.stopAndError",
+      "count": 25,
+      "category": "utility",
+      "usedInWorkflows": 17,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.agent": {
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "count": 21,
+      "category": "action",
+      "usedInWorkflows": 14,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.lmChatOpenAi": {
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "count": 20,
+      "category": "action",
+      "usedInWorkflows": 11,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.dataTable": {
+      "type": "n8n-nodes-base.dataTable",
+      "count": 19,
+      "category": "action",
+      "usedInWorkflows": 8,
+      "operations": [
+        "deleteRows",
+        "get",
+        "update",
+        "upsert"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.emailSend": {
+      "type": "n8n-nodes-base.emailSend",
+      "count": 14,
+      "category": "action",
+      "usedInWorkflows": 8,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.extractFromFile": {
+      "type": "n8n-nodes-base.extractFromFile",
+      "count": 14,
+      "category": "transform",
+      "usedInWorkflows": 7,
+      "operations": [
+        "binaryToPropery",
+        "fromJson",
+        "text"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.gmail": {
+      "type": "n8n-nodes-base.gmail",
+      "count": 14,
+      "category": "action",
+      "usedInWorkflows": 8,
+      "operations": [
+        "auth:serviceAccount",
+        "getAll",
+        "sendAndWait"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.openAi": {
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "count": 13,
+      "category": "action",
+      "usedInWorkflows": 5,
+      "operations": [
+        "analyze",
+        "transcribe"
+      ],
+      "resources": [
+        "audio",
+        "image"
+      ],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.outputParserStructured": {
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "count": 11,
+      "category": "action",
+      "usedInWorkflows": 8,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.convertToFile": {
+      "type": "n8n-nodes-base.convertToFile",
+      "count": 11,
+      "category": "transform",
+      "usedInWorkflows": 5,
+      "operations": [
+        "toBinary"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.limit": {
+      "type": "n8n-nodes-base.limit",
+      "count": 7,
+      "category": "logic",
+      "usedInWorkflows": 4,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.hubspot": {
+      "type": "n8n-nodes-base.hubspot",
+      "count": 7,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [
+        "auth:appToken"
+      ],
+      "resources": [
+        "ticket"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.googleDocsTool": {
+      "type": "n8n-nodes-base.googleDocsTool",
+      "count": 6,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [
+        "auth:serviceAccount",
+        "get"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.dataTableTool": {
+      "type": "n8n-nodes-base.dataTableTool",
+      "count": 6,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [
+        "get"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.notion": {
+      "type": "n8n-nodes-base.notion",
+      "count": 5,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [
+        "getAll",
+        "update"
+      ],
+      "resources": [
+        "databasePage"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.googleSheetsTrigger": {
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "count": 5,
+      "category": "trigger",
+      "usedInWorkflows": 1,
+      "operations": [
+        "event:rowAdded"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.errorTrigger": {
+      "type": "n8n-nodes-base.errorTrigger",
+      "count": 4,
+      "category": "trigger",
+      "usedInWorkflows": 4,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.n8n": {
+      "type": "n8n-nodes-base.n8n",
+      "count": 4,
+      "category": "action",
+      "usedInWorkflows": 4,
+      "operations": [
+        "get"
+      ],
+      "resources": [
+        "execution"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.clickUp": {
+      "type": "n8n-nodes-base.clickUp",
+      "count": 3,
+      "category": "action",
+      "usedInWorkflows": 3,
+      "operations": [
+        "get"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.lmChatGoogleGemini": {
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "count": 3,
+      "category": "action",
+      "usedInWorkflows": 3,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.slackTrigger": {
+      "type": "n8n-nodes-base.slackTrigger",
+      "count": 3,
+      "category": "trigger",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.formTrigger": {
+      "type": "n8n-nodes-base.formTrigger",
+      "count": 3,
+      "category": "trigger",
+      "usedInWorkflows": 3,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.removeDuplicates": {
+      "type": "n8n-nodes-base.removeDuplicates",
+      "count": 3,
+      "category": "logic",
+      "usedInWorkflows": 3,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.github": {
+      "type": "n8n-nodes-base.github",
+      "count": 3,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [
+        "auth:oAuth2",
+        "edit",
+        "get"
+      ],
+      "resources": [
+        "file"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-htmlcsstopdf.htmlcsstopdf": {
+      "type": "n8n-nodes-htmlcsstopdf.htmlcsstopdf",
+      "count": 2,
+      "category": "transform",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.summarize": {
+      "type": "n8n-nodes-base.summarize",
+      "count": 2,
+      "category": "transform",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.mcpTrigger": {
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "count": 2,
+      "category": "trigger",
+      "usedInWorkflows": 2,
+      "operations": [
+        "path:a3a6f52f-c885-4fa5-9d24-lendari4-b4se",
+        "path:schemas"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.memoryPostgresChat": {
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.toolWorkflow": {
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.supabaseTool": {
+      "type": "n8n-nodes-base.supabaseTool",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [
+        "update"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.compareDatasets": {
+      "type": "n8n-nodes-base.compareDatasets",
+      "count": 2,
+      "category": "logic",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.redis": {
+      "type": "n8n-nodes-base.redis",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [
+        "keys",
+        "set"
+      ],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.timeSaved": {
+      "type": "n8n-nodes-base.timeSaved",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.telegram": {
+      "type": "n8n-nodes-base.telegram",
+      "count": 2,
+      "category": "action",
+      "usedInWorkflows": 2,
+      "operations": [],
+      "resources": [
+        "chat"
+      ],
+      "methods": []
+    },
+    "@n8n/n8n-nodes-langchain.mcpClientTool": {
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "count": 1,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.gmailTrigger": {
+      "type": "n8n-nodes-base.gmailTrigger",
+      "count": 1,
+      "category": "trigger",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.whatsAppTrigger": {
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "count": 1,
+      "category": "trigger",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.markdown": {
+      "type": "n8n-nodes-base.markdown",
+      "count": 1,
+      "category": "transform",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    },
+    "n8n-nodes-base.discord": {
+      "type": "n8n-nodes-base.discord",
+      "count": 1,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [
+        "message"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.homeAssistant": {
+      "type": "n8n-nodes-base.homeAssistant",
+      "count": 1,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [
+        "create"
+      ],
+      "resources": [
+        "event"
+      ],
+      "methods": []
+    },
+    "n8n-nodes-base.mySql": {
+      "type": "n8n-nodes-base.mySql",
+      "count": 1,
+      "category": "action",
+      "usedInWorkflows": 1,
+      "operations": [],
+      "resources": [],
+      "methods": []
+    }
+  }
+}

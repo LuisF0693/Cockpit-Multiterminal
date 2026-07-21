@@ -1,0 +1,70 @@
+workflow:
+  phases:
+    4_5_verify_citations:
+      # MODEL TIER: MAIN MODEL (Opus/Sonnet) - requires semantic verification
+      name: "Citation Verification"
+      description: |
+        Verify all claims in the synthesized report have traceable sources.
+        Based on Anthropic's multi-agent research pattern where a dedicated
+        agent processes documents to attribute all claims to sources.
+
+      execution: |
+        1. Load prompts/verify-citations.md
+
+        2. Extract factual claims using Worker (deterministic regex extraction):
+           ```bash
+           python3 squads/research/scripts/tech-research/claim_extractor.py extract < {output_dir}/02-research-report.md
+           ```
+           Returns claims with type (statistic, numeric, comparison, benchmark, ranking, market, count).
+           The Worker handles regex extraction. The LLM handles semantic verification below.
+
+        3. Match claims to sources using Worker (string matching):
+           ```bash
+           echo '{"claims":[...],"sources":[...]}' | python3 squads/research/scripts/tech-research/claim_extractor.py match
+           ```
+           Returns MATCHED/UNSOURCED per claim + match_score.
+
+        4. Cross-reference each claim against search_results (LLM semantic verification):
+           - For MATCHED claims: verify source actually says what we claim
+           - For UNSOURCED claims: add caveat or remove
+           - Check for paraphrasing that changes meaning
+
+        4. Classify each claim:
+           - VERIFIED: Source found, claim accurate
+           - PARAPHRASED: Meaning slightly altered
+           - MISATTRIBUTED: Source says something different
+           - UNSOURCED: No source in collection
+           - OUTDATED: Source older than 2 years on changing topic
+
+        5. Calculate integrity_score:
+           integrity_score = (verified + paraphrased) / total_claims * 100
+
+        6. TAG CLAIMS WITH CONFIDENCE (Q3):
+           For each factual claim in the report that includes numbers, comparisons,
+           or definitive statements, add an inline confidence tag:
+           - [HIGH — N sources]: Claim supported by 2+ HIGH credibility sources
+           - [MEDIA — N sources]: Claim supported by 1 HIGH or 2+ MEDIUM sources
+           - [LOW — N sources]: Claim supported by 1 MEDIUM or only LOW sources
+           - [UNSOURCED]: No supporting source found (add caveat or remove)
+           Example: "Custo estimado de $0.06-$0.12 [MEDIA — baseado em token budgets, não medição real]"
+           Example: "Playwright é o padrão dominante [HIGH — 3 projetos + npm 3.1M/week]"
+
+        7. Generate fixes:
+           - IF integrity_score < 70%: Flag report as "LOW INTEGRITY - Review Required"
+           - FOR each MISATTRIBUTED/UNSOURCED: Add caveat or remove
+           - FOR each PARAPHRASED: Suggest rewrite
+
+        8. Pass verified_report + integrity_score + claim counts to Phase 5 (Document)
+
+      output: |
+        {
+          "integrity_score": 0-100,
+          "total_claims": N,
+          "verified": N,
+          "issues": [...],
+          "verified_report": "report with fixes applied"
+        }
+
+      skip_when:
+        - "Quick mode (*quick command)"
+        - "Report has fewer than 5 factual claims"

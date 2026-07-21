@@ -1,0 +1,39 @@
+id: dops-workspace-contract-bridge
+version: "1.0.0"
+status: active
+mode: workspace-first
+owner: design-ops
+
+source_of_truth:
+  type: workspace
+  root: workspace/businesses/{business}/L2-tactical/design
+  required_contracts:
+    - tokens.yaml
+    - foundations.yaml
+    - component-contracts.yaml
+    - motion-primitives.yaml
+
+optional_integrations:
+  figma_tokens_studio:
+    enabled: true
+    required: false
+    authority_rule: never_overrides_workspace_contracts
+  storybook:
+    enabled: true
+    required: false
+    authority_rule: never_overrides_workspace_contracts
+
+pipeline_binding:
+  context_injector:
+    script: squads/design-ops/scripts/context-injector.cjs
+    behavior: prioritize_workspace_contracts_then_legacy_curated_snippets
+  diagnostics:
+    script: squads/design-ops/scripts/resolve-workspace-contracts.cjs
+    output: json_or_yaml
+
+consumer_policy:
+  design_pages: consume_workspace_contracts_only
+  design_app: consume_workspace_contracts_only
+  dev: consume_workspace_contracts_only
+  qa: validate_against_workspace_contracts
+

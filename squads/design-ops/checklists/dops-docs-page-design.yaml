@@ -1,0 +1,176 @@
+id: dops-docs-page-design
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: documentation-page-design
+origin: outputs/analysis/sinkra-hub-prd-v2.2-buildout-postmortem (7 iterações)
+
+# Validation gate para páginas de documentação técnica densa
+# (PRDs visualizados, specs arquiteturais, guides, references).
+# Aplicar antes de "ready for review" e antes de promote-to-production.
+
+quality_dimensions:
+
+  layout:
+    required_checks:
+      - three_column_structure_present       # sidebar 260-280px · main 820-960px · TOC 200-220px
+      - sticky_or_fixed_header_at_top
+      - sidebar_bg_differs_from_main_bg      # contraste de hierarquia "trás vs frente"
+      - main_max_width_between_820_and_960px
+      - mobile_drawer_for_sidebar_below_lg
+      - right_toc_optional_below_xl
+      - overflow_x_hidden_compatibility_verified  # sticky breaks with overflow-x:hidden in parents
+    rationale: |
+      Layout 3-col é padrão consolidado (Anthropic, Stripe, Mintlify, Vercel docs).
+      Tentar reinventar custa retrabalho; tentar usar sticky em parent com overflow-x:hidden quebra.
+
+  navigation:
+    required_checks:
+      - sidebar_sections_grouped_thematically  # max 7 groups, 3-5 items each
+      - active_state_via_intersection_observer  # NOT window.scrollY listener
+      - active_root_margin_calibrated           # default "-96px 0px -55% 0px"
+      - smooth_scroll_on_click_with_hash_update
+      - cmd_k_search_with_highlight
+      - esc_clears_search
+      - search_filters_sections_inplace
+    rationale: |
+      Scroll-spy via IntersectionObserver é 10x mais performante que listeners.
+      Sidebar sem agrupamento temático vira lista plana de 15-20 items ilegível.
+
+  typography:
+    required_checks:
+      - body_prose_at_least_16px              # idealmente 17px
+      - body_line_height_between_1.7_and_1.85
+      - h1_or_section_hero_36_to_48px         # mobile clamp
+      - h2_section_titles_30_to_38px
+      - h3_subsections_22_to_28px
+      - h4_24_or_below_with_clear_hierarchy
+      - tracking_negative_for_large_headings  # -0.02 to -0.03em
+      - max_prose_width_60_to_68ch
+      - mono_code_inline_14_to_15px
+      - small_meta_text_no_less_than_11px     # avoid micro-type
+    rationale: |
+      Docs body abaixo de 16px é sales-page tipográfica.
+      Saltos de hierarquia menores que 4px embaralham percepção.
+
+  content_structure:
+    required_checks:
+      - each_section_has_kicker_title_lead    # SectionHero pattern
+      - each_section_has_conceptual_h3        # "Por que existe / O que é"
+      - each_section_has_technical_h3         # spec, code, schema
+      - each_section_has_concrete_example     # code block ou flow real
+      - each_section_has_status_or_state      # StatusBadge ou tabela de cobertura
+      - callouts_used_for_warnings_and_blockers
+      - no_invented_claims                     # toda info citada do SOT
+      - source_citation_present                # §X.Y, ADR-NAME, Track N
+    rationale: |
+      Documentação sem 3-layer (conceitual + spec + exemplo) vira ou slide ou spec árido.
+      "No invention" é constitutional — toda claim deve ser auditável.
+
+  semantic_tokens:
+    required_checks:
+      - no_hardcoded_dark_colors              # bg-bb-dark, text-bb-cream rejected
+      - tokens_semantic_only                  # bg-background, text-foreground, bg-card, bg-muted
+      - border_tokens_semantic                # border-border, border-border-subtle
+      - primary_accent_via_token              # text-primary, bg-primary
+      - tokens_resolve_in_both_themes         # tested in light AND dark
+    rationale: |
+      Tokens semânticos AIOX (--background, --foreground, --card) trocam de tema sem repaint
+      de árvore React. Hardcoded dark-only quebra ao adicionar theme toggle.
+
+  theme_toggle:
+    required_checks:
+      - theme_provider_uses_useSyncExternalStore  # not useEffect+setState
+      - inline_anti_fouc_script_present           # before React hydration
+      - script_strategy_beforeInteractive
+      - localStorage_persistence_with_namespace   # "{app}-theme" key
+      - prefers_color_scheme_fallback_on_first_visit
+      - storage_event_syncs_across_tabs
+      - icon_swaps_on_state_change                # Sun ↔ Moon
+      - suppressHydrationWarning_on_root          # extension/script compatibility
+    rationale: |
+      useEffect(setState) lints como cascading render anti-pattern em React 19.
+      Sem script anti-FOUC, flash de tema errado por 1+ frame.
+
+  code_blocks:
+    required_checks:
+      - syntax_highlighting_per_language      # tokenizer ou shiki, não plain
+      - copy_button_with_visual_feedback      # "Copiado" ≥1.5s
+      - language_label_in_header
+      - title_or_filename_when_relevant
+      - background_distinct_from_card         # darker bg for parsing
+      - monospace_font_at_14_to_15px
+      - line_height_at_least_1.65
+    rationale: |
+      Plain mono blocks parecem 1995. Syntax highlighting é o que separa docs polidas.
+      Copy button sem feedback faz usuário clicar 3x desconfiado.
+
+  charts_and_diagrams:
+    required_checks:
+      - charts_deferred_to_client_render      # useSyncExternalStore "is client"
+      - no_recharts_responsive_in_ssr         # width=-1 warnings eliminated
+      - svg_diagrams_inline_when_static       # state machines, pyramids, flows
+      - alt_text_on_visualizations            # aria-label or role="img"
+      - colors_work_in_both_themes            # or theme-aware via CSS vars
+    rationale: |
+      Recharts ResponsiveContainer no SSR sempre gera width=-1 warnings.
+      Hardcoded colors em charts ficam ok-ish nos 2 temas mas ideal é CSS var-driven.
+
+  performance:
+    required_checks:
+      - section_files_modular                 # sections/*.tsx, 100-400 LOC cada
+      - shared_primitives_extracted           # Callout, StatusBadge, CodeBlock reused
+      - data_separated_from_views             # data.ts vs views
+      - layout_separated_from_content         # docs-layout.tsx orchestrates
+      - intersection_observers_disconnected_on_unmount
+    rationale: |
+      Arquivo único de 2000+ linhas vira inviável (editar, lint, hot reload).
+      Section modular permite paralelizar autoria com swarm.
+
+  accessibility:
+    required_checks:
+      - keyboard_navigation_full_page         # tab traverses sidebar → main → toc
+      - visible_focus_indicators
+      - skip_to_content_link_optional
+      - cmd_k_documented_via_kbd_element
+      - aria_labels_on_icon_only_buttons
+      - reduce_motion_respected
+      - contrast_wcag_aa_in_both_themes
+    rationale: |
+      Docs sem teclado completo excluem power users. Skip-to-content é low-cost, high-impact.
+
+  github_integration:
+    required_checks:
+      - source_links_point_to_github_main     # SOT files, repo, PRD source
+      - target_blank_with_noopener            # security
+      - external_link_icon_when_offsite
+      - copy_link_per_h2_h3_optional          # Mintlify-style anchor hover
+    rationale: |
+      "Edit on GitHub" reduz fricção para correções. Sem isso, devs reportam via Slack/email.
+
+enforcement:
+  mode: advisory     # advisory until v2; blocking after team validates
+  validators:
+    typecheck: "tsc --noEmit"
+    lint: "eslint"
+    ssr_smoke: "curl status=200 + grep no 'warn|invalid|hydrat'"
+    theme_smoke: "html class toggles between 'dark' and 'light' on button click"
+
+artifact_outputs:
+  - source: "apps/{app}/src/app/{route}/"
+    structure:
+      - "page.tsx"                            # SSR entry + theme init script
+      - "prd-dashboard.tsx | dashboard.tsx"   # orchestrator
+      - "docs-layout.tsx"                     # header + sidebar + RightToc
+      - "docs-primitives.tsx"                 # Callout · StatusBadge · CodeBlock · H3/H4 · Prose · SectionHero · SpecTable
+      - "theme-provider.tsx"                  # ThemeProvider + useTheme + ThemeInitScript
+      - "nav-sections.ts"                     # sidebar groups
+      - "data.ts"                             # content data
+      - "sections/*.tsx"                      # one file per section
+      - "charts.tsx (optional)"               # Recharts
+      - "diagrams.tsx (optional)"             # inline SVGs
+
+references:
+  - "outputs/analysis/sinkra-hub-prd-v2.2-rich.html (HTML reference, no Next dep)"
+  - "apps/aiox-brandbook/src/app/sinkra-hub-prd/ (Next + React reference)"
+  - "apps/anthropic-ds/src/pages/kits/docs/DocsLayout.tsx (visual reference)"

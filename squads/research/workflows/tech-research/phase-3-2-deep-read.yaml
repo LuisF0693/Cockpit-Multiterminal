@@ -1,0 +1,161 @@
+workflow:
+  phases:
+    3_2_deep_read:
+      toc:
+        - "1. Select sources for deep read"
+        - "2. Route by URL/content type"
+        - "3. Extract relevant content"
+        - "4. Append progress checkpoint rows"
+        - "5. Return enriched results"
+      name: "Deep Page Reading (ETL + WebFetch)"
+      # MODEL TIER: HAIKU (via Task tool or within subagent context)
+      # In v3, deep reads are typically performed WITHIN each subagent
+      # during Phase 3 dispatch. This phase is used as a SUPPLEMENTAL pass
+      # for the orchestrator if additional deep reads are needed after
+      # subagent results are aggregated, or as FALLBACK if subagent dispatch fails.
+      description: |
+        For top 3-5 most relevant search results, extract full content.
+        Uses ETL service for YouTube and blogs (FREE, PRIMARY), WebFetch for others.
+        This provides deeper information than search snippets alone.
+        In v3.2, deep reads happen in the main runtime by default. Optional
+        subagents may assist only when the runtime exposes them.
+        This phase runs supplementally if the orchestrator needs more depth.
+
+      execution: |
+        1. IDENTIFY TOP RESULTS to read deeply:
+           - Sort search_results by:
+             a. Credibility level (HIGH > MEDIUM > LOW)
+             b. Relevance to query (title/snippet match)
+             c. Content promise (looks detailed, has code)
+           - Select top 5 results (or fewer if <5 HIGH/MEDIUM available)
+
+        2. CATEGORIZE URLS BY EXTRACTION METHOD:
+
+           a. YOUTUBE URLS (use ETL - FREE):
+              - Detect: youtube.com/watch, youtu.be/
+              - Extract videoId from URL
+              - Use CLI: node services/etl/bin/youtube-transcript.js {videoId} --format json
+              - OR if Node available: ETL.extractYouTube(videoId)
+              - Benefits: Free, 100% success, full transcript with timestamps
+
+           b. PDF URLS (use ETL PDFCollector - FREE):
+              - Detect: *.pdf, arxiv.org/pdf/, research papers
+              - Download: curl -sL "{url}" -o /tmp/research_{slug}.pdf
+              - Extract: node -e "
+                const {PDFCollector} = require('./services/etl/collectors/pdf-collector');
+                new PDFCollector().collect('/tmp/research_{slug}.pdf', '/tmp').then(r => console.log(JSON.stringify(r)));
+                "
+              - Benefits: FREE, pdftotext (poppler) primary, pdf-parse fallback
+              - If scanned PDF (content < 50 chars): skip, note in gaps
+
+           c. BLOG/ARTICLE URLS (use ETL CLI - FREE, PRIMARY):
+              - Detect domains: dev.to, medium.com, marktechpost.com, hashnode.dev,
+                hackernoon.com, freecodecamp.org/news, blog.*, *.blog.*, any article URL
+              - PRIMARY: ETL fetch-page CLI:
+                ```bash
+                node services/etl/bin/fetch-page.js {url}
+                ```
+              - FALLBACK 1: mcp__exa__crawling(url) (if Exa available)
+              - FALLBACK 2: WebFetch
+              - Benefits: Platform detection (WordPress/Medium/generic), clean markdown,
+                blocklist filtering (257 domains), no API costs
+              - Exit code 1 = blocked domain → skip (do NOT retry with WebFetch)
+              - Exit codes 2-4 → try fallbacks
+
+           d. OTHER URLS (use ETL fetch-page PRIMARY):
+              - All remaining URLs
+              - PRIMARY: node services/etl/bin/fetch-page.js {url}
+              - FALLBACK: WebFetch with prompts/page-extract.md
+              - Timeout: 30s per page
+
+        3. EXECUTE EXTRACTIONS:
+
+           FOR YouTube URLs:
+           ```bash
+           # CLI method (always works)
+           node services/etl/bin/youtube-transcript.js {videoId} --format json > /tmp/transcript_{videoId}.json
+           ```
+
+           FOR PDF URLs:
+           ```bash
+           curl -sL "{url}" -o /tmp/research_{slug}.pdf && node -e "
+             const {PDFCollector} = require('./services/etl/collectors/pdf-collector');
+             new PDFCollector().collect('/tmp/research_{slug}.pdf', '/tmp').then(r => console.log(JSON.stringify(r)));
+           "
+           ```
+
+           FOR Blog/Article URLs (ETL CLI PRIMARY):
+           ```bash
+           # PRIMARY: fetch-page CLI (outputs markdown to stdout, status to stderr)
+           node services/etl/bin/fetch-page.js {url} > /tmp/article_{slug}.md
+           # JSON format with metadata:
+           node services/etl/bin/fetch-page.js {url} --format json
+           ```
+           ```
+           # Exit code 1 = blocked domain → skip entirely
+           # Exit codes 2-4 → FALLBACK 1: mcp__exa__crawling(url) if Exa available
+           #                → FALLBACK 2: WebFetch(url)
+           ```
+
+           FOR Other URLs:
+           - PRIMARY: node services/etl/bin/fetch-page.js {url}
+           - FALLBACK: Load prompts/page-extract.md + WebFetch
+
+        3b. BLOG DISCOVERY (conditional, after initial reads):
+           - IF a blog source is HIGH credibility AND covers research topic:
+             → Use BlogDiscovery.discoverPosts(blogRootUrl) to find more posts
+             → Filter by keyword relevance, take top 5
+             → Only trigger if coverage < 70% and blog is authoritative
+           - IF coverage already > 85%: skip discovery
+
+        3c. LONG CONTENT CHUNKING (for content > 5000 chars):
+           - Use SemanticChunker with strategy: paragraph (default)
+           - Keep only chunks relevant to research query
+           - Discard boilerplate, ads, unrelated sections
+
+        4. EXTRACT STRUCTURED CONTENT:
+           - Key findings with specific data
+           - Code examples (preserved exactly, not paraphrased)
+           - Expert quotes with attribution
+           - For YouTube: speaker identification, timestamps for key points
+           - Cross-reference notes (confirms/contradicts/adds vs other sources)
+
+        5. HANDLE FAILURES:
+           - YouTube: Should not fail (ETL has 100% success rate)
+           - Blogs: Try ETL CLI (fetch-page.js) → WebFetch → skip
+           - Exit code 1 = blocked domain (skip, don't retry with WebFetch)
+           - Exit code 2-4 = try WebFetch fallback
+           - Other: WebFetch → skip
+           - Minimum 2 successful reads to proceed
+
+        6. MERGE with search_results:
+           - Enrich entries with extracted content
+           - Tag extraction_method: "etl_youtube" | "etl_pdf" | "etl_blog_cli" | "webfetch"
+           - Update credibility based on actual content quality
+
+        7. Pass enriched_results to Phase 3.5 (evaluate coverage)
+
+      tool_selection:
+        youtube: "ETL.extractYouTube (FREE, 100% success)"
+        blogs: "ETL fetch-page.js CLI (FREE, platform detection) → WebFetch fallback"
+        docs: "WebFetch with page-extract.md prompt"
+        other: "WebFetch"
+
+      skip_when:
+        - "Quick mode (*quick command)"
+        - "All search results are LOW relevance"
+        - "Coverage already at 80%+ from Context7/Exa alone"
+
+      max_pages: 5
+      timeout_per_page: 30000
+
+      output: |
+        {
+          "enriched_results": [...],
+          "extraction_stats": {
+            "youtube_transcripts": N,
+            "blog_etl": N,
+            "webfetch": N,
+            "failed": N
+          }
+        }

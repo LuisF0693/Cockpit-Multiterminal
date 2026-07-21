@@ -1,0 +1,144 @@
+{
+  "schema": "sinkra.research-intelligence-contract.v1",
+  "updated_at": "2026-05-18",
+  "local_contract_file": "research-contract.json",
+  "reference_research": [
+    "docs/research/2026-05-06-tech-research-pipeline-improvements/",
+    "docs/research/2026-05-17-codex-full-sdc-orchestration/",
+    "docs/research/2026-05-16-quais-os-melhores-projetos-de-deepresearch-opensource-atuais/"
+  ],
+  "customization_policy": {
+    "rule": "Cada pesquisa Gold deve declarar seu próprio desenho quando a solicitação pede outro tipo de inteligência.",
+    "local_contract": "docs/research/{slug}/research-contract.json",
+    "local_contract_can_override": [
+      "research_kind",
+      "objective",
+      "decision_context",
+      "taxonomy",
+      "thresholds",
+      "capability_groups",
+      "rubric_model",
+      "evidence_model",
+      "stop_rules",
+      "dashboard_value_model"
+    ],
+    "non_negotiable": [
+      "decisão ou utilidade explícita",
+      "escopo e limites explícitos",
+      "taxonomia ou decomposição rastreável à solicitação",
+      "fontes/evidências ligadas a claims ou achados",
+      "perguntas abertas ou justificativa de saturação",
+      "crítica, lacunas ou limitações documentadas",
+      "ações, próximos passos ou decisão final",
+      "método de avaliação/completude declarado"
+    ]
+  },
+  "research_kind": "custom_research_intelligence",
+  "objective": "Gerar inteligência rastreável e acionável para uma solicitação específica, sem impor taxonomia, rubrica ou forma de cálculo fixa.",
+  "thresholds": {
+    "files": { "minimum": 12, "preferred": 20 },
+    "words": { "minimum": 5000, "preferred": 12000 },
+    "sources": { "minimum": 8, "preferred": 20 },
+    "waves": { "minimum": 0, "preferred": 3 },
+    "graph_nodes": { "minimum": 8, "preferred": 30 },
+    "graph_edges": { "minimum": 8, "preferred": 30 },
+    "gold_artifacts": { "minimum": 3, "preferred": 9 }
+  },
+  "core_files": [
+    "README.md",
+    "00-query-original.md",
+    "01-deep-research-prompt.md",
+    "02-research-report.md",
+    "03-recommendations.md",
+    "metrics.yaml",
+    "pipeline-state.yaml",
+    "execution-log.jsonl",
+    "sources.yaml"
+  ],
+  "capability_groups": [
+    {
+      "id": "mission_contract",
+      "description": "A pesquisa declara a pergunta, decisão, restrições e interpretação do pedido.",
+      "any_of": ["research-contract.json", "00-query-original.md", "README.md"]
+    },
+    {
+      "id": "scope_and_decomposition",
+      "description": "A pesquisa decompõe o território em dimensões, subperguntas, hipóteses ou categorias.",
+      "any_of": ["decomposition_matrix.yaml", "scope_contract.yaml", "01-deep-research-prompt.md", "matrices.yaml"]
+    },
+    {
+      "id": "evidence_system",
+      "description": "A pesquisa mantém fontes, claims, evidência, força e limitações de prova.",
+      "any_of": ["source_ledger.yaml", "claims.yaml", "07-evidence-ledger.md", "06-gold-evidence-ledger.yaml", "sources.yaml"]
+    },
+    {
+      "id": "claim_or_signal_graph",
+      "description": "A pesquisa conecta query, waves, fontes, claims, decisões e artefatos.",
+      "any_of": ["claim_graph.json", "research-graph.json"]
+    },
+    {
+      "id": "curiosity_or_saturation",
+      "description": "A pesquisa registra perguntas abertas, follow-ups, lacunas ou regra de parada.",
+      "any_of": ["curiosity_queue.yaml", "gap_findings.yaml", "validation-report.yaml", "dashboard-manifest.yaml"]
+    },
+    {
+      "id": "critique_or_limitations",
+      "description": "A pesquisa documenta crítica adversarial, limitações, caveats ou riscos.",
+      "any_of": ["critique_report.md", "risk-register.yaml", "08-risk-register.md", "validation-report.yaml", "README.md"]
+    },
+    {
+      "id": "rubric_or_completeness_model",
+      "description": "A pesquisa declara como qualidade, completude ou decisão são avaliadas.",
+      "any_of": ["research-completeness-rubric.yaml", "decision-rubric.yaml", "06-gold-evaluation-rubric.yaml", "metrics.yaml", "validation-report.yaml"]
+    },
+    {
+      "id": "action_or_decision",
+      "description": "A pesquisa vira decisão, plano, recomendações ou backlog acionável.",
+      "any_of": ["action-plan.yaml", "decision-ledger.yaml", "03-recommendations.md", "11-yolo-mode-backlog-package.md", "quick-wins.md"]
+    }
+  ],
+  "gold_artifacts": [
+    "research-profile.yaml",
+    "decision-rubric.yaml",
+    "validation-report.yaml",
+    "dashboard-manifest.yaml",
+    "action-plan.yaml",
+    "claims.yaml",
+    "decision-ledger.yaml",
+    "risk-register.yaml",
+    "research-graph.json",
+    "players.yaml",
+    "matrices.yaml"
+  ],
+  "local_contract_required_fields": [
+    "research_kind",
+    "objective",
+    "decision_context",
+    "taxonomy",
+    "rubric_model",
+    "evidence_model",
+    "stop_rules"
+  ],
+  "taxonomy_required_fields": [
+    "categories",
+    "unit_of_analysis",
+    "dimension_source"
+  ],
+  "rubric_required_fields": [
+    "method_family",
+    "score_semantics",
+    "dimensions_or_criteria",
+    "pass_or_saturation_rule"
+  ],
+  "allowed_method_families": [
+    "coverage_gate",
+    "citation_gate",
+    "weighted_rubric",
+    "scenario_presets",
+    "decision_readiness",
+    "operating_system_blueprint",
+    "benchmark_absorption",
+    "actionability_score",
+    "custom"
+  ]
+}

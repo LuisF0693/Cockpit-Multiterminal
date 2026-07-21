@@ -1,0 +1,215 @@
+id: export-contracts-spec
+version: "1.0.0"
+status: active_contract_forward_declared
+owner: design-ops
+scope: provider-contract
+origin: "agenmod/claw-design — gen_pptx, open_for_print, super_inline_html (2026-04-18)"
+
+# Export contracts for design-ops deliverables. Covers three pipelines:
+#   1. PPTX export (editable native shapes or screenshot-based)
+#   2. PDF export via browser print
+#   3. Self-contained HTML bundling (deterministic offline artifact)
+#
+# Contract only — implementations live under the Wave C artifact-creation
+# capability (ADR-018). The contract is frozen at v1.0.0 so consumers
+# (slides-creator, external pitch-deck squad) can instrument artifacts to
+# be export-ready now.
+
+forward_declaration_notice:
+  runtime_status: pending_wave_c
+  adr: "docs/adrs/ADR-018-design-ops-artifact-creation-capability.md"
+
+# =============================================================================
+# PPTX EXPORT
+# =============================================================================
+pptx_export:
+  tool_name: "*dops-export-pptx"
+  source_kind: deck  # must conform to deck-contracts-spec.yaml
+
+  prerequisite:
+    requirement: "The deck MUST be currently shown in the user's preview"
+    rationale: >-
+      The runtime captures the deck from the user's preview pane. No preview
+      means no capture source. This is a runtime constraint enforced at tool
+      invocation time.
+
+  modes:
+    editable:
+      default: true
+      description: "Emit native PowerPoint text boxes, shapes, and images per slide"
+      pros:
+        - "Recipient can edit text, colors, layout in PowerPoint"
+        - "Smaller file size than screenshot mode"
+        - "Fonts preserved (when PowerPoint has them) instead of rasterized"
+      cons:
+        - "Complex layouts may lose fidelity"
+        - "Some CSS effects (advanced gradients, filters) do not map"
+      use_when: "Default choice — especially when the recipient will edit or reuse content"
+
+    screenshots:
+      description: "Emit one full-bleed PNG per slide"
+      pros:
+        - "Pixel-perfect fidelity"
+        - "All visual effects preserved"
+      cons:
+        - "Recipient cannot edit — artifact is frozen"
+        - "Large file size"
+        - "Text is not searchable"
+      use_when: "Complex visuals that editable mode cannot reproduce AND recipient acknowledges non-editable output"
+      policy_reference: "squads/design-ops/rules/ds-consistency-policy.md#rejection-4"
+
+  capture_mechanics:
+    - "Synthetic DOM capture per slide — agent does NOT write the capture script"
+    - "Runtime handles slide isolation, screenshot timing, and asset collection"
+
+  speaker_notes_handling:
+    source: '<script type="application/json" id="speaker-notes">'
+    schema: squads/design-ops/data/deck-contracts-spec.yaml#speaker_notes_protocol
+    behavior: "Auto-read by index — attached to the corresponding slide's notes pane in PowerPoint"
+    opt_in_rule: "Speaker notes are OPT-IN per deck-contracts-spec; if absent, exported PPTX has empty notes"
+
+  validation_output:
+    returns: "Validation flags detecting bad captures"
+    rationale: >-
+      Agent can detect quality issues (missing slides, rasterization failures,
+      text overflow) without opening the PPTX file. Validation flags are the
+      contract surface between capture runtime and agent.
+
+# =============================================================================
+# PDF EXPORT (VIA BROWSER PRINT)
+# =============================================================================
+pdf_export:
+  tool_name: "*dops-export-pdf"
+  source_kind: [html_prototype, deck, page]
+
+  mechanics:
+    action: "Open the HTML file in a new browser tab; user saves via browser print dialog"
+    user_action_required: true
+    keyboard_shortcut:
+      mac: "Cmd+P"
+      windows: "Ctrl+P"
+
+  print_stylesheet_requirement:
+    rule: >-
+      Any artifact intended for PDF export MUST include a print-media stylesheet
+      that optimizes layout for page-sized output.
+    required_css:
+      - "@media print { ... }"
+      - "page-break-inside: avoid for critical content blocks"
+      - "@page { size: A4 portrait; margin: 1in; } (or letter)"
+
+  minimum_text_sizes:
+    body: "12pt"
+    rationale: "Print legibility floor per ai-trope-guardrails.md#minimum-sizing"
+
+  deliverable_kind_binding:
+    source: squads/design-ops/data/deliverable-kinds-registry.yaml#pdf
+
+# =============================================================================
+# SELF-CONTAINED HTML BUNDLING
+# =============================================================================
+super_inline_bundle:
+  tool_name: "*dops-bundle-html"
+  source_kind: [html_prototype, deck]
+
+  purpose: >-
+    Bundle an HTML file and all referenced assets (images, CSS, JS, fonts,
+    ext-resource-dependency meta tags) into a single self-contained HTML file
+    that works offline.
+
+  mechanics:
+    bundler_type: "deterministic browser-side bundler"
+    output: "Single HTML file written to project, openable via show_html equivalent or downloadable"
+
+  thumbnail_template_requirement:
+    rule: "The input HTML MUST contain a <template> tag with id __bundler_thumbnail"
+    required_form: |
+      <template id="__bundler_thumbnail">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- colorful-bg iconographic SVG preview -->
+          <!-- 30% padding on each side -->
+          <!-- A simple icon, glyph, or 1-2 letters will do -->
+        </svg>
+      </template>
+    purposes:
+      - "Shown as a splash while the bundle unpacks"
+      - "Serves as no-JS fallback"
+    validation:
+      must_be_present: true
+      padding: "~30% on each side of content"
+      recommendation: "Simple icon, glyph, or 1-2 letters"
+
+  binding_to_security:
+    reference: squads/design-ops/rules/self-contained-artifact-security.md
+    key_rules:
+      - "Pinned CDN versions with integrity hashes"
+      - "No eval, new Function, document.write"
+      - "Namespaced window and localStorage keys"
+
+  size_considerations:
+    reference: squads/design-ops/data/artifact-file-governance.yaml#size_limits
+    typical_bundle_size: "50-500KB (depending on images and fonts)"
+    strategy_on_large_bundle: "Split into smaller artifacts or use external CDN for large binary assets with SRI"
+
+# =============================================================================
+# EXPORT DECISION MATRIX
+# =============================================================================
+export_decision_matrix:
+  decks:
+    primary: pptx_editable
+    secondary: pdf_print
+    fallback: pptx_screenshots
+    standalone: super_inline_bundle  # for sharing as self-contained HTML
+
+  html_prototypes:
+    primary: super_inline_bundle
+    secondary: pdf_print  # static capture of prototype state
+    not_applicable: pptx_export
+
+  pages:
+    primary: pdf_print
+    secondary: super_inline_bundle
+    not_applicable: pptx_export
+
+  animation_videos:
+    primary: null  # video export pipeline is Wave C-beyond; not in this contract
+    interim: super_inline_bundle  # with controls preserved for playback
+
+# =============================================================================
+# TOOL CONTRACT (forward-declared for Wave C)
+# =============================================================================
+planned_tool_contracts:
+
+  pptx_export:
+    command: "*dops-export-pptx {mode}"
+    modes: [editable, screenshots]
+    precondition: "deck currently shown in preview pane"
+    returns: [pptx_file_path, validation_flags]
+
+  pdf_export:
+    command: "*dops-export-pdf {source_path}"
+    returns: [browser_tab_opened, user_action_required]
+
+  bundle:
+    command: "*dops-bundle-html {source_path}"
+    precondition: "source has valid __bundler_thumbnail template"
+    returns: [bundle_path, manifest_path, size_bytes]
+
+# =============================================================================
+# ENFORCEMENT
+# =============================================================================
+enforcement:
+  current_mode: advisory  # Wave B.2.2
+  runtime_planned: Wave C (ADR-018)
+  gate: design-chief
+  validators_planned:
+    - "squads/design-ops/scripts/validate-export-readiness.cjs"
+
+related:
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/deck-contracts-spec.yaml
+  - squads/design-ops/data/starter-components-catalog.yaml
+  - squads/design-ops/data/artifact-file-governance.yaml
+  - squads/design-ops/rules/self-contained-artifact-security.md
+  - squads/design-ops/rules/ds-consistency-policy.md
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

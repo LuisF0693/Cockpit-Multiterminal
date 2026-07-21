@@ -1,0 +1,38 @@
+# Quick Security Check Workflow
+# Fast, passive check of the most common issues
+name: quick-check
+description: "Quick passive security check: headers, CORS, OpenAPI exposure. Results in ~10 minutes."
+version: "1.0.0"
+trigger: "*quick-check"
+orchestrator: shield
+duration: "10-15 minutes"
+
+phases:
+  - id: scan
+    name: "Quick Scan"
+    description: "Parallel passive checks"
+    parallel: true
+    tasks:
+      - agent: header-analyzer
+        task: header-analyzer-analyze
+        input: App URL or response headers
+      - agent: config-sentinel
+        task: config-sentinel-audit-cors
+        input: CORS headers
+      - agent: config-sentinel
+        task: config-sentinel-audit-openapi-exposure
+        input: OpenAPI endpoint
+    outputs:
+      - header_report
+      - cors_findings
+      - openapi_findings
+
+  - id: summary
+    name: "Summary"
+    agent: shield
+    tasks:
+      - Consolidate findings from scan phase
+      - Score overall security posture
+      - List quick wins (easy fixes)
+    outputs:
+      - quick_check_summary

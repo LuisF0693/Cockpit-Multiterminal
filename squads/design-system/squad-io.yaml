@@ -1,0 +1,126 @@
+# =============================================================================
+# Design System Squad — I/O Contracts
+# =============================================================================
+# Story: 60.8 — Import from AIOX stage as Hub shared squad
+# Transitional note: after the 2026-04-09 pivot this squad acts as frozen
+# `legacy_source`. Consumer page/app work may still appear here as brownfield
+# residue, but new ownership must point to `design-ops`, `design-pages` or
+# `design-app`.
+# Updated: 2026-04-09
+# =============================================================================
+
+squad: design-system
+version: "2.1.0"
+bu_mapping: "hub-framework"
+
+inputs:
+  - id: figma-tokens-raw
+    description: "Raw token export from Figma (JSON/DTCG format)"
+    source: "external/figma"
+    format: json
+    required: false
+
+  - id: brandbook-config
+    description: "Spoke-level brandbook configuration (colors, typography, spacing)"
+    source: "workspace/{spoke}/brandbook/"
+    format: yaml
+    required: false
+
+  - id: codebase-components
+    description: "Existing component source tree for audit/migration"
+    source: "{spoke}/src/components/"
+    format: filesystem
+    required: false
+
+  - id: design-brief
+    description: "Design brief for provider/core work or transitional brownfield page requests"
+    source: "human/agent"
+    format: markdown
+    required: false
+
+outputs:
+  - id: ds-health-report
+    description: "Design system health metrics report"
+    template: "templates/ds-health-report-tmpl.md"
+    consumers:
+      - "squad-creator-enterprise"
+      - "process-excellence-squad"
+
+  - id: ds-migration-strategy
+    description: "Migration strategy for brownfield/greenfield DS adoption"
+    template: "templates/ds-migration-strategy-tmpl.md"
+    consumers:
+      - "architect"
+
+  - id: ds-tokens-schema
+    description: "Curated design tokens in DTCG/W3C format"
+    template: "templates/ds-tokens-schema-tmpl.yaml"
+    consumers:
+      - "spoke/packages/tokens/"
+
+  - id: design-fidelity-report
+    description: "Fidelity comparison between design and implementation"
+    template: "templates/design-fidelity-report-tmpl.md"
+    consumers:
+      - "qa"
+
+  - id: critical-eye-cycle-report
+    description: "Visual quality scoring and comparison report"
+    template: "templates/critical-eye-cycle-report-tmpl.md"
+    consumers:
+      - "design-chief"
+      - "qa"
+
+  - id: component-metadata
+    description: "AI-readable component metadata (JSON schema)"
+    template: "templates/ds-ai-component-metadata-schema-tmpl.json"
+    consumers:
+      - "spoke/packages/ds/"
+
+  - id: page-composition
+    description: "Transitional legacy output for page composition; future owner is design-pages"
+    template: null
+    consumers:
+      - "dev"
+
+handoff_scopes:
+  intra_processo:
+    description: "Internal squad operations (token extraction, audit, build)"
+    signoff_required: false
+  intra_bu:
+    description: "Handoff to other hub-framework squads (e.g., squad-creator-enterprise, tools-squad)"
+    signoff_required: recommended
+  inter_bu:
+    description: "Handoff to spoke squads (e.g., spoke design-squad, spoke dev teams)"
+    signoff_required: true
+    approver: "spoke-owner"
+
+transition_boundaries:
+  acting_identity: "legacy_source (frozen after pivot)"
+  target_final_provider_shape:
+    resident_agents:
+      - "design-chief"
+    downstream_residue:
+      design_pages:
+        - "page-composer"
+      design_app: []
+  workflow_partition:
+    provider_core:
+      - "agentic-readiness"
+      - "audit-only"
+      - "brownfield-complete"
+      - "critical-eye"
+      - "dtcg-tokens-governance"
+      - "foundations-pipeline"
+      - "motion-quality"
+      - "ops-audit"
+      - "storybook-brownfield-migration"
+      - "storybook-full-setup"
+    consumer_residue:
+      design_pages:
+        - "page-composition"
+      design_app:
+        - "self-healing-workflow"
+  scope_notes:
+    - "Page composition pode continuar aparecendo aqui como brownfield, mas nao define o target final do provider."
+    - "Nao existe agent legacy claramente mapeado para a lane `design-app` no estado atual do repo."

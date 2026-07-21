@@ -1,0 +1,126 @@
+# Atomic-Section Taxonomy
+#
+# Canonical section ordering for design-system preview HTML files (e.g., the
+# medium-design.html gold standard). This is the GROUND TRUTH that the
+# design-ops scripts/atomic-section-tools.cjs validator and reorderer enforce.
+#
+# Origin: outputs/sinkra-squad/transform-html-tailwind-gold-standard/as_is_doc.md
+# (Phase 02, Phase 06). Promoted from inline session knowledge to canonical
+# data per the Wave 4 extraction-rule promotion path.
+#
+# Each section has:
+#   - n: section number (zero-padded 2-digit string used in HTML markers)
+#   - id: stable slug
+#   - layer: atomic design layer (atoms, molecules, organisms, templates, pages, extraction, guidelines)
+#   - title: human-readable
+#   - content_signature: prose pattern that identifies this section in HTML
+#                       (used by the reorder script to deduplicate after drift)
+
+version: "1.0.0"
+owner: design-ops
+created: "2026-05-06"
+
+sections:
+  - n: "01"
+    id: atoms-color-palette
+    layer: atoms
+    title: ATOMS · Color palette
+    content_signature: "Color palette"
+
+  - n: "02"
+    id: atoms-typography
+    layer: atoms
+    title: ATOMS · Typography
+    content_signature: "Typography"
+
+  - n: "03"
+    id: atoms-spacing-radius-elevation
+    layer: atoms
+    title: ATOMS · Spacing · Radius · Elevation
+    content_signature: "Spacing · Radius"
+
+  - n: "04"
+    id: molecules-buttons-inputs-tags-avatar
+    layer: molecules
+    title: MOLECULES · Buttons · Inputs · Tags · Avatar · Clap · Highlight
+    content_signature: "Buttons · Inputs · Tags"
+
+  - n: "05"
+    id: organisms-member-bar-paywall-read-deeper
+    layer: organisms
+    title: ORGANISMS · Member bar · Paywall · Read deeper
+    content_signature: "Member bar"
+
+  - n: "06"
+    id: organisms-story-cards-listing
+    layer: organisms
+    title: ORGANISMS · Story cards · listing
+    content_signature: "Story cards"
+
+  - n: "07"
+    id: templates-navigation-chrome
+    layer: templates
+    title: TEMPLATES · Navigation chrome
+    content_signature: "Navigation chrome"
+
+  - n: "08"
+    id: pages-story-article
+    layer: pages
+    title: PAGES · Story / Article page
+    content_signature: "Story / Article"
+
+  - n: "09"
+    id: pages-app-shell
+    layer: pages
+    title: PAGES · Full authenticated app shell
+    content_signature: "app shell"
+
+  - n: "10"
+    id: pages-profile
+    layer: pages
+    title: PAGES · Profile page
+    content_signature: "Profile page"
+
+  - n: "11"
+    id: pages-editor
+    layer: pages
+    title: PAGES · Editor / Writer surface
+    content_signature: "Editor"
+
+  - n: "12"
+    id: extraction-only-components
+    layer: extraction
+    title: EXTRACTION · components only the CSS reveals
+    content_signature: "EXTRACTION"
+
+  - n: "13"
+    id: do-and-dont
+    layer: guidelines
+    title: Do & Don't (guidelines, last)
+    content_signature: "Do & Don't"
+
+# ── Reorder protocol ──────────────────────────────────────────────────
+#
+# The reorder script (lib/atomic-section-tools.cjs#reorderSections) operates
+# on HTML where each section is preceded by an HTML comment marker like
+# `<!-- 01 ATOMS · Color palette -->` followed by `<section class="md-section">`.
+#
+# Critical bugfix encoded from the 30h session:
+#   DO NOT use `<section class="md-section">.*?</section>` (non-greedy)
+#   to extract section blocks. Inside Section 09 (app shell), the inner
+#   `<section class="md-feed">` close tag fires the non-greedy match
+#   prematurely, truncating Section 09 by ~4kB.
+#
+#   CORRECT: bound each section by next-marker-start position (or footer
+#   start) — NOT by `</section>`. See atomic-section-tools.cjs.
+#
+# The reorder also DEDUPLICATES — when the same content_signature matches
+# multiple blocks, take the LARGEST block (preserves the most-evolved version
+# after iterative composition).
+
+# ── Allowed deviations ────────────────────────────────────────────────
+# Brands without writer surfaces should drop section 11 (Editor). Brands
+# without a paywall should drop section 05's paywall sub-component but keep
+# the section for member-bar/read-deeper. The validator emits warnings for
+# missing sections, never errors. Sequence is enforced when sections ARE
+# present.

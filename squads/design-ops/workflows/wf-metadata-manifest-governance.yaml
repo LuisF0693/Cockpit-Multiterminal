@@ -1,0 +1,40 @@
+workflow:
+  id: dops-metadata-manifest-governance
+  name: Metadata Manifest Governance
+  description: Gera e valida metadata de componentes + sincronização de manifesto do design-ops.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-metadata-governance"
+  sequence:
+    - step: step-1-generate-components-metadata
+      id: step-1-generate-components-metadata
+      phase: 1
+      phase_name: Gerar metadata de componentes
+      agent: design-chief
+      action: node squads/design-ops/scripts/generate-components-metadata.cjs --business={business}
+      next: step-2-validate-components-metadata
+    - step: step-2-validate-components-metadata
+      id: step-2-validate-components-metadata
+      phase: 2
+      phase_name: Validar metadata de componentes
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-components-metadata.cjs
+      next: step-3-sync-manifest
+    - step: step-3-sync-manifest
+      id: step-3-sync-manifest
+      phase: 3
+      phase_name: Sincronizar manifesto
+      agent: design-chief
+      action: node squads/design-ops/scripts/sync-design-manifest.cjs
+      next: step-4-validate-manifest-drift
+    - step: step-4-validate-manifest-drift
+      id: step-4-validate-manifest-drift
+      phase: 4
+      phase_name: Validar drift de manifesto
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-design-manifest-drift.cjs
+    - workflow_end:
+        id: complete
+        action: workflow_complete

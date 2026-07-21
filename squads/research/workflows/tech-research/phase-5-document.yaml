@@ -1,0 +1,274 @@
+workflow:
+  phases:
+    5_document:
+      toc:
+        - "1. Scaffold output directory"
+        - "2. Write README metadata"
+        - "3. Write report and recommendations"
+        - "4. Save mandatory metrics/state"
+        - "5. Run blocking output validator"
+      # MODEL TIER: MAIN MODEL (Opus/Sonnet) - requires structured writing
+      name: "Documentar"
+      description: "Salvar estrutura completa com research metadata e quality indicators"
+      structure:
+        folder: "docs/research/{YYYY-MM-DD}-{slug}/"
+        files:
+          - "README.md (índice + research_metadata)"
+          - "00-query-original.md"
+          - "01-deep-research-prompt.md"
+          - "02-research-report.md"
+          - "03-recommendations.md"
+          - "quick-wins.md"
+      execution: |
+        ## PRE-STEP: Scaffold output directory (Worker — deterministic)
+
+        BEFORE writing any content, run the scaffold Worker to create the folder
+        and stub files with correct template structure:
+        ```bash
+        python3 squads/research/scripts/tech-research/scaffold.py --slug "{slug}" --title "{title}" --query "{query}" --date {YYYY-MM-DD}
+        ```
+        This guarantees identical structure every time, regardless of model or session.
+        The Worker is idempotent — safe to re-run (never overwrites existing files).
+        After scaffolding, OVERWRITE the stub files with actual content using Write/Edit tools.
+
+        ## QUALITY REQUIREMENTS (v4 improvements Q1-Q7)
+
+        ### README.md — MUST include Research Metadata block (Q1+Q7)
+        After the TL;DR section, include a ```yaml block with:
+        - workflow_version (must match SKILL.md workflow_version)
+        - runtime_contract with workflow_version, schema_version, skill_version, tool_contract_version
+        - coverage_score (total 0-100)
+        - coverage_breakdown with 6 dimensions from evaluate.md:
+          fundamentals, implementation, comparison, best_practices, real_world, current_state
+          Each scored 0-100 (convert from dimension_scores in Phase 3.5)
+        - integrity_score (from Phase 4.5 citation verification, or "N/A" if skipped)
+        - sources.total, sources.high_credibility, sources.medium_credibility
+        - sources.with_dates (count of sources where publication date was identified)
+        - sources.freshness_ratio (with_dates / total, as percentage)
+        - waves (number of search waves executed)
+        - citation_verified (true OR skipped_with_reason: "...")
+        - stop_reason (explicit reason from Phase 3.5)
+        - rubrics with information_recall, analysis, presentation passed/total counts
+        See templates/output-structure.md for exact format.
+
+        ### 02-research-report.md — Claims with confidence tags + source dates (Q2+Q3)
+        Factual claims that include numbers, comparisons, or definitive statements
+        MUST include inline confidence tags: [HIGH — N sources], [MEDIA — N sources], [LOW — N sources]
+        Example: "Framework X is used by 3 of 4 audited projects [HIGH — 3 sources]"
+        Example: "Custo estimado de $0.06-$0.12 por pesquisa [MEDIA — baseado em token budgets, não medição real]"
+
+        SOURCE DATES IN REFERENCES (Q2 enforcement):
+        In the References section at the end of the report, EVERY source MUST include
+        its publication date (year minimum, month if available) inline next to the URL.
+        Format: `[Title](url) — YYYY` or `[Title](url) — YYYY-MM` or `[Title](url) — date_unknown`
+        Example: `[Granted AI: 7 Tools Tested](https://grantedai.com/...) — 2026`
+        Example: `[DINGO Ontology](https://dcodings.github.io/DINGO/) — 2020`
+        Sources older than 24 months on fast-moving topics get an OUTDATED note.
+
+        DEEP DIVES ON TOP PLAYERS (Q8 enforcement):
+        When the research covers a MARKET, COMPETITIVE LANDSCAPE, or MULTIPLE FRAMEWORKS:
+        The report MUST include dedicated subsections for the top 3-5 most relevant players.
+        Each subsection follows this structure:
+        ```
+        ### N.N {Player/Framework Name}
+        **Tier:** {1|2|3} — 1 = build/use now; 2 = reference/pattern; 3 = monitor/defer
+        **Category:** {short-kebab-case category, e.g. native-runtime, reference-runtime, runner-foundation}
+        **Role:** {what role this player has in the decision, e.g. delegation-runtime, prior-art, supervisor-template}
+        **Fit:** {high|medium|low}
+        **Action:** {concrete action this player implies for the user's project}
+        **What it does:** {features, architecture, capabilities — 2-3 sentences}
+        **What it does NOT:** {limitations, gaps — 2-3 sentences}
+        **Insight for this context:** {how it relates to the user's question — 1-2 sentences}
+        **Source:** {URL} — {YYYY}
+        ```
+        If >10 players: Tier 1 (top 5, deep dive) vs Tier 2 (remaining, brief table).
+        Do NOT just list players in a comparison table without individual analysis.
+        Do NOT rely on the section number as the tier. `### 2.1 Foo` inside
+        `## 2. Players` is not automatically Tier 2; the explicit `**Tier:**`
+        field is the authority.
+
+        ### 03-recommendations.md — No overlap + effort estimates + domain mapping (Q5+Q6+Q9)
+        - DO NOT repeat findings already in 02-research-report.md (max 20% overlap)
+        - Sections: Decisão Recomendada, Ranking, Implementation Roadmap, Anti-Patterns, Próximos Passos
+        - Every actionable recommendation MUST include effort estimate: S (~2h), M (~4-8h), L (~2-3d), XL (~1w+)
+        - Implementation Roadmap table MUST include: Fase, Ação, Effort, Owner (@pm/@dev), Timeline
+        - DOMAIN MAPPING (Q9): When the user's query references a specific project/squad/system,
+          add a section "Mapping para o Projeto" with this EXACT table format:
+
+          | Componente do Projeto | Finding Relevante | Ação Recomendada | Effort |
+          |----------------------|-------------------|------------------|--------|
+          | {agent/component 1}  | {specific finding} | {concrete action} | S/M/L/XL |
+
+          Example rows:
+          | GATE agent | FRAPO has 16 eligibility properties | Incorporate hasHeadcount, hasCountryCode in gate checks | M (~4h) |
+          | CRITIC agent | D3 SAMRE uses iterative 4-round debate | Adapt SAMRE protocol for 4-mode specialized debate | L (~2d) |
+
+          This section bridges "what the market/research says" → "what YOUR system should do".
+          If no domain context in the query, skip this section entirely.
+        See templates/output-structure.md for exact format.
+
+        ### quick-wins.md — ROI-first subset (mandatory)
+        Standalone document with the Quick Wins set produced in Phase 4 step 5.5.
+        REQUIREMENTS:
+        - File MUST exist as `quick-wins.md` in the output directory.
+        - MUST contain `## Quick Wins Selecionados` with a markdown table; minimum 3 rows
+          (rows starting with `| QW-1 |`, `| QW-2 |`, `| QW-3 |` or `| 1 |`, `| 2 |`, `| 3 |`).
+        - Each QW row MUST list: name, target, type, value=high, effort=XS|S, time-to-value, evidence (§ of report), owner.
+        - MUST include `## Detalhamento por Quick Win` with one block per selected QW
+          (O quê, Onde, Por que alto valor, Por que baixo esforço, Evidência, Definition of Done, Riscos, Owner).
+        - If less than 3 qualifying candidates exist, MUST include `## Quick Wins Não Encontrados`
+          with the YAML diagnostics block (`quick_wins_minimum_met: false`, `candidates_evaluated`,
+          `candidates_qualified`, `reasoning`, `remediation`). NEVER pad the table with low-quality items.
+        - README.md Índice MUST list `quick-wins.md` (the scaffolder handles this; verify after writing).
+        - TL;DR in README.md SHOULD reference the count of Quick Wins identified
+          (e.g. "3 Quick Wins selecionados" or "0 Quick Wins — gap documentado").
+        See templates/output-structure.md for exact format.
+
+        ### POST-WRITE: Save metrics/state, then validate output (Workers)
+
+        Before metrics/state, ensure these mandatory state artifacts exist:
+        - curiosity_queue.yaml
+        - evolving_report.md
+        - execution-log.jsonl
+        If this is a follow-up, resolve the next number with:
+        ```bash
+        python3 squads/research/scripts/tech-research/next_followup_number.py {output_dir}
+        ```
+
+        After writing all files, run these Workers in this exact order:
+
+        1. SAVE METRICS + STATE (MANDATORY):
+           ```bash
+           echo '{"pipeline_id":"...","workflow_version":"1.1.0","runtime_contract":{"workflow_version":"1.1.0","schema_version":"research-output.v2","skill_version":"1.0.0","tool_contract_version":"manual"},"coverage_score":85,"coverage_breakdown":{...},"integrity_score":90,"citation_verified":true,"stop_reason":"decision_sufficiency: coverage threshold met and no high-impact open questions remain","rubrics":{"information_recall":{"passed":8,"total":10},"analysis":{"passed":5,"total":7},"presentation":{"passed":6,"total":6}},"sources":[...],"waves":1,"validator_result":"pending"}' | python3 squads/research/scripts/tech-research/metrics_collector.py save --dir {output_dir}
+           ```
+           Creates metrics.yaml and pipeline-state.yaml in the output directory.
+           These files are mandatory. If either file is missing, the run is incomplete.
+
+        2. VALIDATE OUTPUT (QG-PROD-6 — BLOCKING):
+           ```bash
+           python3 squads/research/scripts/tech-research/output_validator.py {output_dir}
+           ```
+           Checks: required files exist, confidence tags present, source dates in refs,
+           workflow_version present, citation_verified present, metrics.yaml present,
+           and pipeline-state.yaml present.
+           If valid=false, fix missing files before completing. Do not present a
+           completion message until the validator passes.
+
+        3. EXTRACT SOURCES MANIFEST (deterministic, advisory) — QF-4:
+           ```bash
+           python3 squads/research/scripts/tech-research/sources_extractor.py {output_dir}
+           ```
+           Emits {output_dir}/sources.yaml: artifact-first source manifest with
+           id, url, title, date, credibility (via credibility_scorer.py),
+           first_seen_in (file), first_seen_section (markdown heading), and totals
+           (by_credibility + with_date + date_coverage_ratio).
+           Adopted from §5 padrão #5 of 02-research-report.md ("Source evidence
+           drawer"). Allows downstream consumers (verify-citations, audit UI, the
+           Observatory's source drawer) to operate on structured data instead of
+           re-parsing markdown. Failure here is logged but does NOT block phase
+           completion (the report is still valid without the manifest).
+
+        4. EMIT UNIVERSAL RESEARCH PROFILE (deterministic, advisory) — EPIC-150:
+           ```bash
+           python3 squads/research/scripts/tech-research/research_profile.py {output_dir}
+           ```
+           Emits {output_dir}/research-profile.yaml with profile.type
+           (tech|bench|market|product|mapping), dashboard labels, artifact policy,
+           decision mode and Rubrica dimension pack. Must run before decision_rubric.py.
+           Advisory; failure logged but does not block.
+
+        5. EXTRACT PLAYERS MANIFEST (deterministic, advisory) — QF-D1:
+           ```bash
+           python3 squads/research/scripts/tech-research/players_extractor.py {output_dir}
+           ```
+           Emits {output_dir}/players.yaml: parses `### N.N Name` deep-dive blocks
+           from 02-research-report.md (matching the phase-5 "DEEP DIVES ON TOP
+           PLAYERS" template) into structured entries with what_it_does,
+           what_it_does_not, insight, source (title+url+date), explicit tier,
+           category, role, fit, action, and excluded flag. If explicit fields are
+           absent, the extractor uses conservative heuristics.
+           Allows the Observatory to render a filterable players grid instead of
+           re-parsing markdown headings. Advisory; failure is logged but does not
+           block phase completion.
+
+        6. EXTRACT COMPARISON MATRICES (deterministic, advisory) — QF-D2:
+           ```bash
+           python3 squads/research/scripts/tech-research/comparison_matrix_extractor.py {output_dir}
+           ```
+           Emits {output_dir}/matrices.yaml: every markdown table directly under a
+           `## N. ...` section becomes a structured matrix with `columns: [...]`
+           and `cells: [{col: value, ...}]`. Inline tables inside `### N.N`
+           player blocks are intentionally ignored. Unlocks heatmap / sortable
+           comparison UI in the Observatory without re-parsing tables at view
+           time. Advisory; failure logged but does not block.
+
+        7. EXTRACT UX PATTERNS CATALOG (deterministic, advisory) — QF-D3:
+           ```bash
+           python3 squads/research/scripts/tech-research/ux_patterns_extractor.py {output_dir}
+           ```
+           Emits {output_dir}/ux-patterns.yaml: scans `## ...` sections whose
+           title matches /padr(?:ões|ão|ao)|pattern/i and parses numbered bold
+           items (`N. **Name:** Description`) into id+number+name+description+
+           reference+section. Builds the per-research catalog. (Cross-research
+           aggregate as `docs/research/_ux-patterns.json` is a separate skill —
+           not yet wired here; tracked in curiosity_queue.) Advisory; failure
+           logged but does not block.
+
+        8. EXTRACT ACTION ASSETS (deterministic, advisory) — QF-D4:
+           ```bash
+           python3 squads/research/scripts/tech-research/action_assets_extractor.py {output_dir}
+           ```
+           Emits action-plan.yaml, claims.yaml, risk-register.yaml, decision-ledger.yaml.
+           MUST run before research_graph.py — the graph reads claims and decisions from
+           these artifacts to build richer edges. Advisory; failure logged but does not block.
+
+        9. EMIT DECISION RUBRIC (deterministic, advisory) — EPIC-150:
+           ```bash
+           python3 squads/research/scripts/tech-research/decision_rubric.py {output_dir}
+           ```
+           Emits {output_dir}/decision-rubric.yaml with domain-specific dimensions,
+           presets and rankings when at least two players exist. If fewer than two
+           players are detected, it still writes `status: not_applicable` rather
+           than inventing alternatives. Advisory; failure logged but does not block.
+
+        10. BUILD MACHINE-READABLE RESEARCH GRAPH (deterministic, advisory) — DEPENDS ON steps 3-9:
+           ```bash
+           python3 squads/research/scripts/tech-research/research_graph.py {output_dir}
+           ```
+           Emits {output_dir}/research-graph.json with nodes (root/query/prompt/report/
+           recommendations/followup/wave/quick_wins/evolving/curiosity/log/metrics/
+           pipeline_state/source/player/claim/decision/action/risk/question) and edges
+           (contains/produces/spawns_followup/checkpoint/derives/describes/indexes/
+           supports/cited_in/analyzed_in/documents/informs/drives/recommends/constrains/
+           open_item/raises/declares). Adopted from btahir/open-deep-research "Flow" pattern.
+           Filesystem-first, zero LLM, zero network. Run AFTER sources, players, matrices,
+           action_assets — graph quality improves with more artifacts present. Failure here
+           is logged but does NOT block phase completion.
+
+        11. EMIT LOCAL RESEARCH INTELLIGENCE CONTRACT (deterministic, advisory) — EPIC-150:
+           ```bash
+           python3 squads/research/scripts/tech-research/research_contract.py {output_dir}
+           ```
+           Emits {output_dir}/research-contract.json with research kind, decision
+           context, taxonomy, unit of analysis, rubric method, evidence model and
+           stop rules for this specific request. Must run after profile, rubric and
+           graph. Advisory; failure logged but does not block.
+
+        12. EMIT DASHBOARD MANIFEST + VALIDATION REPORT (deterministic, advisory) — EPIC-150:
+           ```bash
+           python3 squads/research/scripts/tech-research/dashboard_manifest.py {output_dir}
+           ```
+           Emits dashboard-manifest.yaml and validation-report.yaml. Must run after
+           research_contract.py so validation can report the local contract status.
+           Advisory; failure logged but does not block.
+
+        13. REFRESH CROSS-RESEARCH KNOWLEDGE-BASE INDEX (deterministic, advisory):
+           ```bash
+           python3 squads/research/scripts/tech-research/research_kb_index.py --root docs/research
+           ```
+           Regenerates docs/research/_index.json by scanning all sibling research
+           folders (slug, topic, date, coverage_score, sources, decision, status, tags).
+           Adopted from btahir/open-deep-research Knowledge Base sidebar pattern.
+           Idempotent (atomic write); failure here is logged but does NOT block phase
+           completion. Useful for any downstream UI (Observatory, dashboards) and for
+           detecting prior research before launching a new pipeline.

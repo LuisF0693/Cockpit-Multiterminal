@@ -1,0 +1,134 @@
+id: dops-ai-trope-guardrails
+version: "1.2.0"
+status: active
+owner: design-ops
+scope: all-visual-artifacts
+origin: squads/design-ops/rules/ai-trope-guardrails.md
+external_reference: "agenmod/claw-design — extracted 2026-04-18; reinforced 2026-04-19 from Claude Design HTML-artifact system prompt"
+
+quality_dimensions:
+  color_constraints:
+    required_checks:
+      - total_colors_between_3_and_5
+      - no_prominent_purple_without_business_rationale
+      - no_opposing_temperature_gradients
+      - no_aggressive_gradient_backgrounds_on_full_surfaces
+      - new_colors_via_oklch_harmonic_extension_not_invented
+      - foreground_overridden_when_background_overridden
+      - wcag_aa_contrast_4_5_body_text
+
+  typography_constraints:
+    required_checks:
+      - max_two_font_families
+      - body_line_height_between_1_4_and_1_6
+      - no_decorative_fonts_for_body
+      - body_text_min_14px
+      - font_choice_justified_not_default
+      - no_inter_roboto_arial_fraunces_system_without_rationale
+
+  sizing_minimums:
+    required_checks:
+      - deck_text_min_24px
+      - mobile_touch_target_min_44px
+      - ios_input_min_16px
+      - print_body_min_12pt
+      - interactive_hit_area_min_44x44
+
+  iconography:
+    required_checks:
+      - emoji_only_if_design_system_opts_in
+      - no_emoji_as_functional_icons_unless_ds_opts_in
+      - icon_sizes_16_20_or_24
+      - icons_from_registered_library
+
+  imagery:
+    required_checks:
+      - real_images_not_abstract_shapes
+      - no_svg_illustrations_as_placeholders
+      - maps_use_dedicated_library
+      - placeholder_better_than_bad_attempt_at_missing_asset
+      - missing_assets_flagged_in_readme_caveats_not_silently_invented
+      - source_code_read_first_then_screenshots_if_ambiguous
+
+  motion_interaction:
+    required_checks:
+      - no_scroll_into_view
+      - motion_durations_from_token_scale
+      - reduced_motion_respected
+
+  layout:
+    required_checks:
+      - flexbox_or_grid_no_floats
+      - no_mixed_margin_padding_gap
+      - no_space_star_classes
+      - uses_tailwind_spacing_scale
+      - titles_use_text_balance_or_pretty
+      - no_title_screen_on_prototype
+      - no_filler_content
+      - ask_user_before_adding_filler_material
+      - no_proactive_screenshots_without_verification_claim
+      - no_rounded_corner_left_border_accent_card_trope
+      - no_data_slop_decorative_stats_or_numbers_without_function
+      - system_vocalized_up_front_before_building_artifact
+
+  responsive_scaling:
+    required_checks:
+      - fixed_size_content_uses_transform_scale
+      - letterbox_applied_when_aspect_mismatch
+
+  copyright_compliance:
+    required_checks:
+      - no_third_party_ui_recreation_outside_own_domain
+
+  # Added 2026-04-19 from Redpine session playbook (GAP-DS-007). Framework-agnostic — CSS var discipline.
+  # Applies to ALL DSs on the archetype regardless of framework (next/vite/astro/remix/sveltekit).
+  token_naming_discipline:
+    applies_to_frameworks: all
+    description: >-
+      Silent bugs from token-name collisions between base and semantic layers.
+      These are invisible to visual review but break CSS var resolution at runtime.
+      Framework-agnostic — concerns pure CSS custom properties (archetype locks Tailwind + shadcn
+      so these var conventions are universal).
+    required_checks:
+      - semantic_tokens_use_distinct_prefix_from_base   # --feedback-*, --action-*, --state-* (NOT the same as --rp-*)
+      - no_self_referencing_css_var_declarations        # catches `--rp-success: var(--rp-success)` circular refs
+      - generated_tokens_css_has_zero_unresolved_vars   # scan exports/tokens.css → no value of form `var(--X): var(--X)`
+      - semantic_map_output_names_grep_distinct_from_base_output_names
+      - shadcn_slot_overrides_complete_in_dark_palettes # palette system must override all 8 shadcn slots (--background/--foreground/--card/etc), not just custom --bg/--fg
+
+  # Added 2026-04-19 from Redpine session playbook (GAP-DS-007). React-universal (any framework).
+  # Archetype locks React via Radix/shadcn/cva, so these concerns apply regardless of
+  # whether the chosen framework is Next.js, Vite+React, Remix, or Astro+React-island.
+  # (Icon library is BRAND-DRIVEN — see archetype.brand_driven.icons — and is irrelevant to React-prop concerns.)
+  react_prop_contracts:
+    applies_to_frameworks: all       # React is invariant in the archetype; concern is React-universal
+    react_universal: true            # Not Next.js-specific; any React-based framework hits these
+    description: >-
+      React reserved prop names cause silent runtime breaks. Severity varies by framework:
+        - Next.js App Router RSC: 'Refs cannot be used in Server Components' at runtime (not compile)
+        - Vite+React / Remix / Astro islands: collides with forwardRef / signals / hydration
+      Either way: reserved-prop naming is a bug class that requires audit regardless of framework chosen.
+    required_checks:
+      - no_prop_named_ref_on_any_component              # reserved across all React-based frameworks
+      - no_prop_named_key_on_any_component              # reserved — React list key
+      - no_prop_passing_functions_across_rsc_boundary   # applies_to: [next] — RSC-specific
+      - no_prop_passing_class_instances_or_maps_across_rsc  # applies_to: [next] — RSC-specific
+      - client_components_marked_use_client_only_when_needed  # applies_to: [next] — Next App Router directive
+      - no_forwardRef_conflict_with_custom_ref_prop     # applies_to: [vite, remix, astro, sveltekit] — non-RSC React
+
+scoring:
+  total_items: 56
+  pass_threshold_percent: 90
+  conditional_threshold_percent: 75
+
+validation:
+  required_for_component_publish: true
+  required_for_exploration_artifact: false
+  gate: design-chief
+  blocking: true
+
+related:
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - squads/design-ops/checklists/dops-component-quality.yaml
+  - squads/design-ops/rules/v0-frontend-quality.md
+  - squads/design-ops/rules/design-system-generation.md

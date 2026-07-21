@@ -1,0 +1,24 @@
+/* Focus indicators — WCAG 2.2 AAA compliant (RHDS spec).
+   =========================================================
+   Inject this block into apps/{target}/src/app/globals.css.
+   Dropped by scaffold-ds.sh.
+
+   Three non-negotiable rules:
+   1. `:is(*, :hover):focus-visible` — prevents hover state canceling focus ring
+   2. `outline: 3px solid` + `outline-offset: 3px` — WCAG 2.2 AAA minimum
+   3. `transition: none` — focus appears instantly (non-distracting for a11y)
+   4. `:focus:not(:focus-visible) { outline: none }` — only keyboard shows ring
+
+   Origin: Red Hat Design System foundations/interactions/focus-indicators.
+   Documented in: squads/design-ops/rules/extension-vocabulary-match.md (absorb contracts section)
+*/
+
+:is(*, :hover):focus-visible {
+  outline: 3px solid var(--focus, var(--ds-accent, currentColor));
+  outline-offset: 3px;
+  transition: none;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}

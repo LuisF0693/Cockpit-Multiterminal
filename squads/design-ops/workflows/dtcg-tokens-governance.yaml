@@ -1,0 +1,108 @@
+workflow:
+  id: design-system-dtcg-tokens-governance
+  name: DTCG Tokens Governance
+  description: |
+    Extract, normalize, and validate design tokens using W3C DTCG-compatible structures.
+
+    Atomic-layer scope (per ADR-052 — ACCEPTED-WITH-CONDITIONS):
+      - foundation_tokens: color, typography, spacing, grid, breakpoints, icons
+      - pattern_tokens (NEW): motion durations, easing curves, focus-ring specs,
+                              elevation shadows, z-index scale — guidance abstrata
+                              expressed as tokens, applied cross-cutting
+      - component_tokens: token-to-component bindings (e.g. button.padding-x → spacing.4)
+
+    Pattern tokens are separate from foundation tokens because they encode
+    behavioral guidance (motion patterns, focus patterns) rather than primitives.
+    See research doc 05 (mature DS taxonomy convergence: Material 3, Polaris, Carbon).
+  version: 1.1.0
+  adr_ref: ADR-052
+  type: sequential
+  sequence:
+    - step: step-1-extract-w3c-tokens
+      id: step-1-extract-w3c-tokens
+      phase: 1
+      phase_name: Extract W3C DTCG Tokens
+      agent: brad-frost
+      action: token-w3c
+      outputs:
+        - dtcg_tokens
+      next: step-2-model-token-modes
+    - step: step-2-model-token-modes
+      id: step-2-model-token-modes
+      phase: 2
+      phase_name: Model Token Modes
+      agent: brad-frost
+      action: token-modes
+      outputs:
+        - token_modes
+      next: step-3-emit-pattern-tokens
+    - step: step-3-emit-pattern-tokens
+      id: step-3-emit-pattern-tokens
+      phase: 3
+      phase_name: Emit Pattern Tokens (motion, focus, elevation)
+      agent: brad-frost
+      action: emit-pattern-tokens
+      description: |
+        Extract and emit pattern tokens separated from foundation tokens.
+        Pattern tokens encode cross-cutting behavioral guidance:
+          - motion: durations, easing curves
+          - focus: ring offset, ring width, ring color
+          - elevation: shadow scale, z-index scale
+        Per ADR-052 and the no-fallbacks doctrine,
+        emit only extracted/aliased values OR `extraction_gap` markers.
+        NEVER inject universal defaults (e.g. shadcn baseline shadow scale
+        when brand yielded zero shadow signal).
+      outputs:
+        - pattern_tokens
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+metadata:
+  author: Brad (Design System Architect)
+  created_date: "2026-02-17"
+  last_modified: "2026-02-17"
+  tags:
+    - design-system
+    - dtcg
+    - tokens
+    - governance
+inputs:
+  codebase_path:
+    type: string
+    description: Path of token sources or UI artifacts
+    required: true
+  project_name:
+    type: string
+    description: Project namespace for outputs
+    required: true
+    default: my-app
+steps:
+  - id: step_1_extract_w3c_tokens
+    name: Extract W3C DTCG Tokens
+    type: agent
+    agent: brad-frost
+    command: "*token-w3c"
+    inputs:
+      path: "{{codebase_path}}"
+    outputs:
+      dtcg_tokens: outputs/design-system/{{project_name}}/tokens/dtcg.tokens.json
+    error_handling:
+      strategy: fail
+  - id: step_2_model_token_modes
+    name: Model Token Modes
+    type: agent
+    agent: brad-frost
+    command: "*token-modes"
+    inputs:
+      tokens_file: "{{step_1_extract_w3c_tokens.dtcg_tokens}}"
+    outputs:
+      token_modes: outputs/design-system/{{project_name}}/tokens/modes.tokens.json
+    error_handling:
+      strategy: fail
+outputs:
+  dtcg_complete:
+    type: boolean
+    source: step_2_model_token_modes.success
+  tokens_file:
+    type: string
+    source: step_1_extract_w3c_tokens.dtcg_tokens

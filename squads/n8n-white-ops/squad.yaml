@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────
+# n8n-white-ops Squad Manifest
+# ─────────────────────────────────────────────────────
+name: n8n-white-ops
+version: 2.1.0
+description: "Squad whitelabel para operações, documentação, auditoria e governança de workflows n8n. Instance-agnostic — o ambiente é definido por env vars e config/instance.yaml."
+author: "SAIOS"
+license: MIT
+confidentiality: review
+slashPrefix: n8n
+
+aios:
+  minVersion: "2.1.0"
+  type: squad
+
+# ─────────────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────────────
+components:
+  agents:
+    - n8n-chief.md
+    - n8n-builder.md
+    - n8n-documenter.md
+    - n8n-auditor.md
+    - n8n-security.md
+    - n8n-ideator.md
+    - n8n-compliance.md
+
+  tasks:
+    - build-workflow.md
+    - document-workflow.md
+    - audit-workflow.md
+    - security-scan.md
+    - suggest-improvements.md
+    - check-compliance.md
+    - batch-document.md
+    - inventory-report.md
+
+  workflows: []
+  checklists: []
+  templates: []
+  tools:
+    - context7  # Live docs lookup via MCP
+  scripts: []
+
+# ─────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────
+config:
+  extends: extend
+  instance: config/instance.yaml        # Whitelabel: owners, sistemas, prefixos, integrações
+  coding-standards: config/coding-standards.md
+  tech-stack: config/tech-stack.md
+  source-tree: config/source-tree.md
+
+# ─────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────
+dependencies:
+  node: []
+  python: []
+  squads: []
+
+# ─────────────────────────────────────────────────────
+# API Configuration
+# ─────────────────────────────────────────────────────
+environment:
+  N8N_API_URL:
+    description: "URL da instância n8n (cloud ou self-hosted)"
+    required: true
+  N8N_API_KEY:
+    description: "API Key do n8n para autenticação"
+    required: true
+
+# ─────────────────────────────────────────────────────
+# Tags
+# ─────────────────────────────────────────────────────
+tags:
+  - n8n
+  - automation
+  - documentation
+  - audit
+  - security
+  - compliance
+  - governance
+  - workflows
+  - whitelabel

@@ -1,0 +1,99 @@
+workflow:
+  phases:
+    4_synthesize:
+      # MODEL TIER: MAIN MODEL (Opus/Sonnet) - requires deep reasoning for synthesis
+      name: "Sintetizar"
+      description: |
+        Consolidar todos os findings em recomendações práticas.
+        CRITICAL: Produz DOCUMENTAÇÃO ONLY, nunca código de produção.
+
+        In v3.1+: Reads wave summary files (from Phase 3.6) instead of raw results.
+        This keeps synthesis context clean and focused on key findings only.
+
+      execution: |
+        1. READ Markovian state and wave summaries:
+           - Read evolving_report.md first as the current operational state
+           - Read ALL wave-*-summary.md files from output directory
+           - If no summary files exist (backward compat): use raw results from context
+           - Merge findings across waves, noting which wave provided each finding
+
+        2. DEEP DIVE on top players/frameworks (Q8 — Depth):
+           When research covers a MARKET or COMPETITIVE LANDSCAPE:
+           - Identify the top 3-5 most relevant players, frameworks, or papers
+           - For each, provide a dedicated subsection with:
+             a. What it does (features, architecture, capabilities)
+             b. What it does NOT do (limitations, gaps)
+             c. Insight for the user's context (how it relates to their project/squad)
+           - This prevents "mention without depth" — every key player gets proper analysis
+           - If total players > 10, tier them: Tier 1 (deep analysis) vs Tier 2 (brief mention)
+
+        3. DOMAIN-AWARE synthesis (Q9 — Context Mapping):
+           When the user's query references a SPECIFIC PROJECT, SQUAD, or SYSTEM:
+           - Identify the user's domain entities (e.g., agents, components, modules)
+           - Map findings to those entities explicitly
+           - Example: if user has agents RADAR/GATE/THESIS/SCORER/CRITIC,
+             map each finding to the agent it informs
+           - This bridges "what exists in the market" → "what it means for YOUR system"
+           - If no domain context provided, skip this step
+
+        4. SCOPE DECLARATION (mandatory for category/comparison queries):
+           When the query implies a set of entities (alternatives, tools, builders,
+           frameworks, libraries, platforms, vendors, approaches), include a
+           `scope_declaration` block in `02-research-report.md`:
+           ```yaml
+           scope_declaration:
+             requested_category: "<category named or implied by user>"
+             inclusion_criteria: ["criterion 1", "criterion 2"]
+             included_in_report: ["entity 1", "entity 2"]
+             excluded_with_reason:
+               - entity: "<entity>"
+                 reason: "out_of_scope | low_corpus_coverage | different_subcategory | not_yet_evaluated"
+           ```
+           If the report narrows the universe without this block, Phase 5 validator
+           must fail the run.
+
+        5. Sintetizar em relatório completo
+
+        5.5 EXTRACT QUICK WINS (mandatory):
+           Pós-síntese, varrer todos os findings consolidados e selecionar
+           o subconjunto que satisfaça simultaneamente:
+             - value = high (com benefício observável: métrica, redução de custo,
+               eliminação de bug, ganho de coverage, etc.)
+             - effort ∈ {XS (~1h), S (~4-8h)} — NUNCA M, L, XL
+             - time_to_value ≤ 1 semana
+
+           Para cada Quick Win, registrar:
+             - target_type: squad | app | skill | agent | runner | rule | workflow | adr | doc
+             - target_path: caminho exato no hub (ex: `squads/sinkra-squad/`,
+               `.claude/skills/tech-research/`, `apps/squad-engine/`, etc.)
+             - evidence: § ou subseção de 02-research-report.md que ancora o QW
+             - definition_of_done: critério verificável binário
+             - action_owner: @pm | @dev | @architect | @qa | @devops
+
+           REGRAS DE INTEGRIDADE:
+             - Mínimo de 3 QW. Se < 3 candidatos legítimos, NÃO inventar —
+               documentar `## Quick Wins Não Encontrados` em quick-wins.md
+               com candidates_evaluated, candidates_qualified, reasoning.
+             - QW que não cabem no critério vão para 03-recommendations.md
+               §Implementation Roadmap (effort > S) ou §Ranking (value não-high).
+             - NÃO duplicar QW dentro de 03-recommendations.md — quick-wins.md
+               é o lar canônico do subconjunto ROI-first.
+
+        6. STOP REASON + OPEN QUESTIONS:
+           - Include `## Stop Reason` in 02-research-report.md
+           - State why research stopped using the Phase 3.5 stop_reason
+           - Include unresolved high-impact questions or explicitly state none remain
+           - If unresolved high-impact questions remain, status must be PASS_WITH_OPEN_ITEMS
+
+        7. SEMPRE terminar com "Próximos Passos" recomendando @pm, @architect, @dev, @qa ou @devops conforme autoridade
+
+      deliverables:
+        - Lista de técnicas rankeadas
+        - Deep dives nos top 3-5 players/frameworks (com limitações e insights)
+        - Código de REFERÊNCIA (apenas para documentação)
+        - Domain mapping (quando contexto de projeto/squad fornecido)
+        - Stop reason and unresolved open questions
+        - Próximos passos práticos
+        - Quick Wins set (≥3 OR documented gap) — feeds Phase 5 quick-wins.md
+
+      output: "draft_report + quick_wins_set (internal, passed to verification)"

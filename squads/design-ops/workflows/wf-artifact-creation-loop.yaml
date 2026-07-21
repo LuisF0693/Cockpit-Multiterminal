@@ -1,0 +1,228 @@
+workflow:
+  id: wf-artifact-creation-loop
+  name: Artifact Creation Loop — Q→E→B→V
+  description: >-
+    Workflow side of the /design-artifact-cycle skill. Orchestrates the full
+    artifact lifecycle (brief → ds-context → assumptions → build → show →
+    iterate → verify → handoff) with explicit gates. The skill owns the
+    user-facing conversation; this workflow owns the phase sequencing and
+    gate enforcement inside the pipeline.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "/design-artifact-cycle --kind {kind} --business {business} {surface_name}"
+  adr: docs/adrs/ADR-018-design-ops-artifact-creation-capability.md
+
+  inputs:
+    required:
+      - kind           # component | html_prototype | deck | page | email | dashboard | pdf | pptx
+      - business       # aiox | allfluence | academia-lendaria | bilhon | shared-products
+      - surface_name   # kebab-case artifact slug seed
+    optional:
+      - brief_path     # pre-materialized brief
+      - mode           # yolo | interactive (default interactive)
+      - tweak_protocol_enabled  # boolean (default false)
+      - starters_requested      # array of starter ids from starter-components-catalog
+
+  output_base: outputs/design-ops/{business}/artifacts/{artifact_slug}/
+
+  consistency_model_resolver:
+    reference-first: [component, page, email, dashboard]
+    copy-first: [html_prototype, deck, pdf]
+    runtime-export: [pptx]
+    source: squads/design-ops/rules/ds-consistency-policy.md
+
+  sequence:
+
+    - step: p01-ask
+      id: p01-ask
+      phase: 1
+      phase_name: ASK — Brief materialization + questions intake
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-materialize-brief.md
+      produces:
+        - "{output_base}/brief.yaml"
+      gate:
+        type: blocking
+        required_fields:
+          - brief.problem_statement
+          - brief.success_criteria (min 3)
+          - audience.device_mix
+          - contracts.tokens_source
+      failure: "halt; emit outcome=cancelled_incomplete_brief"
+      next: p02-collect
+
+    - step: p02-collect
+      id: p02-collect
+      phase: 2
+      phase_name: COLLECT — DS context + prior art survey
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-resolve-ds-context.md
+      produces:
+        - "{output_base}/ds-context.yaml"
+        - "{output_base}/prior-art.yaml"
+      gate:
+        type: blocking
+        resolution_protocol: squads/design-ops/data/ds-discovery-paths.yaml
+        must_not_reach_step_4: true
+      failure: "halt; route to wf-brandbook-workspace-extraction when DS missing"
+      next: p03-vocalize
+
+    - step: p03-vocalize
+      id: p03-vocalize
+      phase: 3
+      phase_name: VOCALIZE — Assumption capture + classification
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-capture-assumptions.md
+      produces:
+        - "{output_base}/assumptions.yaml"
+      gate:
+        type: blocking
+        rule: "zero guess-classified assumptions remain uncategorized"
+      failure: "halt; user must confirm/reject guesses"
+      next: p04-build
+
+    - step: p04-build
+      id: p04-build
+      phase: 4
+      phase_name: BUILD — Divergent exploration (kind-aware N variants)
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-generate-variants.md
+      dispatches_to_kind_specific:
+        html_prototype: squads/design-ops/tasks/artifact-create-html.md
+        # deck: planned Wave C.2 — artifact-create-deck.md
+        # component: squads/design-ops/tasks/ds-build-component.md (existing path)
+      produces:
+        - "{output_base}/variants/variant-{N}/"
+        - "{output_base}/convergence.yaml"
+        - "{output_base}/wave-c-deferrals.yaml (when applicable)"
+      gate:
+        type: blocking
+        rules:
+          - "N variants exist per consistency_model_resolver"
+          - "each variant passes dops-ai-trope-guardrails.yaml (≥90% compliance)"
+          - "convergence.yaml references a specific success_criteria id as tiebreaker"
+      conditional_followup:
+        when: "kind == html_prototype AND brief.tweak_protocol.enabled == true"
+        action: invoke squads/design-ops/tasks/artifact-tweak-protocol.md
+        per_variant: true
+      failure: "return to task step-by-step; aesthetic tiebreaker is refused"
+      next: p05-show-early
+
+    - step: p05-show-early
+      id: p05-show-early
+      phase: 5
+      phase_name: SHOW EARLY — Working skeleton + feedback gate
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-show-early-feedback.md
+      produces:
+        - "{output_base}/skeleton/"
+        - "{output_base}/show-early-feedback.yaml"
+      gate:
+        type: decision
+        user_responses:
+          APPROVE_DIRECTION: p06-iterate
+          REVISE_DIRECTION: p06-iterate
+          RESTART_BUILD: p04-build
+          ABANDON: shutdown-cancelled
+        restart_cap: 2
+      next: p06-iterate
+
+    - step: p06-iterate
+      id: p06-iterate
+      phase: 6
+      phase_name: ITERATE — Tweaks within chosen direction
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-iterate-artifact.md
+      produces:
+        - "{output_base}/artifact/"
+        - "{output_base}/brief.yaml (change_log updated)"
+      gate:
+        type: blocking
+        rules:
+          - "artifact reaches POPULATED-readiness"
+          - "every P05 feedback item addressed or explicitly deferred"
+          - "every material change has a change_log entry"
+        iteration_soft_cap: 5
+      next: p07-verify
+
+    - step: p07-verify
+      id: p07-verify
+      phase: 7
+      phase_name: VERIFY — Multi-checklist battery
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/artifact-verify-postbuild.md
+      consumes_checklist: squads/design-ops/checklists/dops-post-build-verification.yaml
+      render_policy: "verifier renders, agent does NOT (HEUR-CLAW-066 × Phase 07 reconciled)"
+      produces:
+        - "{output_base}/verification-report.md"
+        - "{output_base}/score-card.yaml"
+      gate:
+        type: blocking
+        rules:
+          - "overall compliance score ≥ 80"
+          - "zero BLOCKER-severity violations"
+          - "all responsive targets render without horizontal scroll/overflow"
+          - "WCAG AA floor met"
+        verdicts:
+          PASS: "score ≥ 80 AND zero BLOCKER"
+          CONCERNS: "score 70-79 OR BLOCKER=0 with addressable HIGH"
+          FAIL: "score < 70 OR any BLOCKER"
+      loopback:
+        on_BLOCKER: p04-build
+        on_HIGH_only: p06-iterate
+        on_MEDIUM_only: "advisory; user may waive"
+      next: p08-handoff
+
+    - step: p08-handoff
+      id: p08-handoff
+      phase: 8
+      phase_name: HANDOFF — Artifact emission + downstream registration
+      agent: design-chief
+      action: invoke squads/design-ops/tasks/dops-handoff-artifact.md
+      produces:
+        - "{output_base}/final/"
+        - "{output_base}/manifest.yaml"
+        - "{output_base}/handoff-downstream.yaml"
+        - "outputs/design-ops/{business}/manifest.yaml (updated)"
+      gate:
+        type: blocking
+        rules:
+          - "manifest.yaml passes schema validation"
+          - "handoff-downstream.yaml has handoff_id + status=pending + downstream_squad"
+          - "business manifest update non-destructive"
+        registry_governance: .claude/rules/registry-governance.md
+      next: shutdown-complete
+
+  terminal_states:
+    shutdown-complete:
+      emits: "outcome=completed"
+      post_execution:
+        - write learning log to .aiox/learning/logs/design-artifact-cycle/{artifact_slug}-{YYYYMMDD}-{HHmmss}.yaml
+    shutdown-cancelled:
+      emits: "outcome=cancelled"
+      reason_source: "user ABANDON in P05 OR infeasible brief after 3 iterations"
+
+  contracts_honored:
+    forward_declared:
+      - squads/design-ops/data/starter-components-catalog.yaml
+      - squads/design-ops/data/tweak-protocol-spec.yaml
+      - squads/design-ops/data/export-contracts-spec.yaml
+      - squads/design-ops/data/animation-primitives-contract.yaml
+      - squads/design-ops/data/window-claude-complete-contract.yaml
+    active:
+      - squads/design-ops/data/primitives-interface.yaml
+      - squads/design-ops/data/deliverable-kinds-registry.yaml
+      - squads/design-ops/data/artifact-file-governance.yaml
+      - squads/design-ops/data/ds-discovery-paths.yaml
+      - squads/design-ops/checklists/dops-post-build-verification.yaml
+      - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+
+  related:
+    - .claude/skills/design-artifact-cycle/SKILL.md
+    - .claude/skills/design-system/SKILL.md
+    - squads/design-ops/rules/design-exploration-cycle.md
+    - squads/design-ops/rules/ds-consistency-policy.md
+    - squads/design-ops/rules/self-contained-artifact-security.md
+    - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

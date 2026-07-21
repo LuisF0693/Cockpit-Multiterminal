@@ -1,0 +1,54 @@
+# Focused RLS Audit Workflow
+# For Supabase applications — checks all tables and RPCs
+name: rls-audit
+description: "Focused audit of Row Level Security policies: enumerate → validate → coverage → fix"
+version: "1.0.0"
+trigger: "*rls-audit"
+orchestrator: shield
+duration: "30-60 minutes"
+
+phases:
+  - id: enumerate
+    name: "Enumerate Tables & Functions"
+    agent: rls-guardian
+    tasks:
+      - task: rls-guardian-check-table-exposure
+        input: SQL schema or OpenAPI
+    outputs:
+      - table_inventory
+
+  - id: validate
+    name: "Validate RLS Policies"
+    parallel: true
+    tasks:
+      - agent: policy-validator
+        task: policy-validator-validate-rls
+        input: SQL dump
+      - agent: rls-guardian
+        task: rls-guardian-validate-rpc-auth
+        input: Function definitions
+    outputs:
+      - rls_validation
+      - rpc_validation
+
+  - id: coverage
+    name: "Check Coverage"
+    tasks:
+      - agent: policy-validator
+        task: policy-validator-check-coverage
+        input: rls_validation
+      - agent: policy-validator
+        task: policy-validator-detect-gaps
+        input: coverage_matrix
+    outputs:
+      - coverage_matrix
+      - gap_report
+
+  - id: fix
+    name: "Generate Fixes"
+    agent: fix-generator
+    tasks:
+      - task: fix-generator-sql
+        input: All gaps from coverage phase
+    outputs:
+      - sql_migrations (one per table)

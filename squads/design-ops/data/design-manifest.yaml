@@ -1,0 +1,71 @@
+id: design-ops-manifest
+version: 1.0.0
+squad: design-ops
+generated_at: '2026-04-10T10:47:59.066Z'
+entry_agent: design-chief
+ownership:
+  - tokens
+  - foundations
+  - base-components
+  - accessibility
+  - registry
+  - metadata
+  - starter-runtime
+delegates:
+  design-pages:
+    - page-composition
+    - marketing-surfaces
+    - page-recipes
+  design-app:
+    - app-surfaces
+    - product-ui
+    - app-recipes
+artifacts:
+  - design-routing-decision
+  - ds-health-report
+  - ds-tokens-schema
+  - ds-tokens-defaults
+  - provider-governance-pack
+io_contracts:
+  inputs:
+    - design-brief
+    - legacy-provider-source
+    - starter-runtime
+    - workspace-design-context
+  outputs:
+    - design-routing-decision
+    - ds-health-report
+    - ds-tokens-schema
+    - ds-tokens-defaults
+    - provider-governance-pack
+files:
+  agents:
+    - design-chief
+  tasks:
+    - dops-context-contract
+    - dops-extract-brandbook-to-workspace-contracts
+    - dops-metadata-manifest-governance
+  workflows:
+    - wf-brandbook-workspace-extraction
+    - wf-dtcg-workspace-governance
+    - wf-generative-component-pipeline
+    - wf-metadata-manifest-governance
+    - wf-ops-audit-workspace
+    - wf-self-healing-provider
+    - wf-style-dictionary-token-pipeline
+  checklists:
+    - dops-a11y-release-gate
+    - dops-accessibility-wcag-aa
+    - dops-component-quality
+    - dops-generative-pipeline-gate
+    - ds-core-accessibility-minimum
+  data_assets:
+    - capability-tools.yaml
+    - components-metadata.json
+    - design-manifest.yaml
+    - design-tokens-spec.yaml
+    - ds-core-catalog.yaml
+    - motion-primitives-registry.yaml
+    - quality-gates.yaml
+    - token-registry.yaml
+    - workspace-contract-bridge.yaml

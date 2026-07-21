@@ -1,0 +1,96 @@
+workflow:
+  phases:
+    3_5_evaluate_coverage:
+      name: "Coverage Evaluation"
+      # MODEL TIER: MAIN MODEL orchestration + deterministic worker scripts.
+      description: |
+        Avalia se a pesquisa está completa. Decide: continuar buscando ou parar.
+        Loop: Phase 3 (search) → Phase 3.5 (evaluate) → CONTINUE/STOP
+        Uses rigorous stopping criteria based on coverage score, source quality, and diminishing returns.
+
+      execution: |
+        1. Load prompts/evaluate.md for scoring framework
+
+        2. Calculate metrics for this wave using Worker scripts:
+
+           a. coverage_score — USE WORKER:
+              ```bash
+              echo '{"fundamentals":0.9,"implementation":0.7,"comparison":0.8,"best_practices":0.75,"real_world":0.6,"current_state":0.85}' | python3 squads/research/scripts/tech-research/coverage_calculator.py coverage
+              ```
+              Returns coverage_score + coverage_breakdown (6 dimensions, 0-100 each).
+              IMPORTANT (Q1): Pass coverage_breakdown to Phase 5 for README metadata.
+
+           b. source_quality — USE WORKER:
+              ```bash
+              echo '[{"url":"...","title":"...","pub_date":"..."}]' | python3 squads/research/scripts/tech-research/credibility_scorer.py --stdin
+              ```
+              Returns HIGH/MEDIUM/LOW counts + average_multiplier.
+              Also count sources WITH pub_date vs WITHOUT (Q2 freshness).
+
+           c. new_info_ratio — USE WORKER:
+              ```bash
+              python3 squads/research/scripts/tech-research/coverage_calculator.py newinfo --new {N} --total {M}
+              ```
+              - New facts = specific data points, techniques, perspectives NOT seen before
+              - NOT new = same fact rephrased, same fact from different source
+
+        3. Apply STOPPING RULES via Worker:
+           ```bash
+           echo '{"coverage":82,"newinfo":0.45,"wave":1,"high_sources":5}' | python3 squads/research/scripts/tech-research/coverage_calculator.py stop
+           ```
+           Returns {"decision":"CONTINUE|STOP","reason":"...","rule":"HARD_STOP|SOFT_STOP|CONTINUE"}
+           Use the Worker's decision. Rules encoded in coverage_calculator.py:
+
+           HARD STOPS (always stop):
+           - wave >= 3 → "Max iterations reached"
+           - coverage_score >= 85 AND high_credibility_sources >= 3 → "Sufficient quality coverage"
+           - new_info_ratio < 0.10 for 2 consecutive waves → "Diminishing returns confirmed"
+
+           SOFT STOPS (stop with caveat):
+           - coverage_score >= 70 AND wave >= 2 → "Acceptable coverage achieved"
+           - All high_priority gaps have failed searches → "Gaps not addressable via search"
+
+           MUST CONTINUE:
+           - coverage_score < 50 AND wave == 1 → "Insufficient first wave"
+           - high_priority_gaps > 0 AND wave < 3 AND new_info_ratio > 0.15 → "Critical gaps remain addressable"
+
+        4. IF CONTINUE:
+           - Generate 2-4 targeted queries for specific gaps (not generic re-searches)
+           - Use alternative phrasings if previous queries for same gap failed
+           - Add specificity (versions, years, frameworks)
+
+        5. IF STOP:
+           - Document final coverage_score and any remaining gaps
+           - Note if SOFT STOP (add caveat to final report)
+           - Emit a concrete stop_reason using one of these categories:
+             saturation, decision_sufficiency, max_waves, budget_limit,
+             source_unavailable, authority_handoff, human_decision_required
+           - Do not use vague stop reasons such as "complete" or "enough"
+
+        6. UPDATE curiosity queue:
+           - Add every high-impact unresolved gap to curiosity_queue.yaml
+           - Mark questions resolved when this wave answered them
+           - Mark questions discarded only with an explicit reason
+
+        7. SCORE binary rubrics (minimum viable):
+           - information_recall: facts/sources required by the scope
+           - analysis: comparisons, trade-offs, counterevidence, implications
+           - presentation: TL;DR, metadata, source traceability, next steps
+           - Output passed/total counts for Phase 5 metadata
+
+      output: |
+        {
+          "decision": "CONTINUE|STOP",
+          "coverage_score": 0-100,
+          "new_info_ratio": 0.0-1.0,
+          "high_credibility_sources": N,
+          "stop_reason": "reason if STOP",
+          "stop_reason_category": "saturation|decision_sufficiency|max_waves|budget_limit|source_unavailable|authority_handoff|human_decision_required",
+          "rubrics": {
+            "information_recall": {"passed": N, "total": N},
+            "analysis": {"passed": N, "total": N},
+            "presentation": {"passed": N, "total": N}
+          },
+          "gaps": [...],
+          "next_queries": [...] (if CONTINUE)
+        }

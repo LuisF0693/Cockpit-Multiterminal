@@ -1,0 +1,326 @@
+workflow:
+  id: design-system-motion-quality
+  name: Design System Motion Quality (Kinetic Design System)
+  description: >
+    Full Kinetic Design System pipeline: audit existing motion, define token system,
+    build primitives library, extract animations from reference URLs, replicate
+    extracted motion as production CSS, validate visual regression, and run
+    performance guard with token drift check.
+    7 phases from audit to production-ready motion layer.
+  version: 2.0.0
+  type: sequential
+  sequence:
+    - step: step-1-motion-audit
+      id: step-1-motion-audit
+      phase: 1
+      phase_name: Audit Motion Patterns
+      agent: brad-frost
+      action: motion-audit
+      outputs:
+        - motion_report
+      next: step-2-motion-tokens
+
+    - step: step-2-motion-tokens
+      id: step-2-motion-tokens
+      phase: 2
+      phase_name: Define Motion Token System
+      agent: brad-frost
+      action: motion-tokens
+      outputs:
+        - motion_tokens_json
+        - motion_tokens_css
+        - motion_tokens_ts
+      next: step-3-motion-primitives
+
+    - step: step-3-motion-primitives
+      id: step-3-motion-primitives
+      phase: 3
+      phase_name: Build Motion Primitives Library
+      agent: brad-frost
+      action: motion-primitives
+      outputs:
+        - motion_primitives_css
+        - motion_primitives_tsx
+        - motion_catalog
+      next: step-4-motion-extraction
+
+    - step: step-4-motion-extraction
+      id: step-4-motion-extraction
+      phase: 4
+      phase_name: Extract Motion from Reference URLs
+      agent: brad-frost
+      action: motion-extraction
+      optional: true
+      outputs:
+        - motion_map
+        - extraction_report
+      next: step-5-kinetic-replication
+
+    - step: step-5-kinetic-replication
+      id: step-5-kinetic-replication
+      phase: 5
+      phase_name: Replicate Extracted Motion as CSS
+      agent: brad-frost
+      action: kinetic-replication
+      optional: true
+      outputs:
+        - replicated_motion_css
+        - replication_report
+      next: step-6-visual-regression-guard
+
+    - step: step-6-visual-regression-guard
+      id: step-6-visual-regression-guard
+      phase: 6
+      phase_name: Validate Visual Regression Baseline
+      agent: brad-frost
+      action: visual-regression
+      tool: chromatic
+      note: "Chromatic (@chromatic-com/storybook) already installed -- use as visual regression baseline (D13)"
+      outputs:
+        - visual_report
+      next: step-7-performance-guard
+
+    - step: step-7-performance-guard
+      id: step-7-performance-guard
+      phase: 7
+      phase_name: Performance Guard & Token Drift Check
+      agent: devops
+      action: performance-guard
+      optional: true
+      on_error: warn
+      outputs:
+        - performance_report
+        - drift_report
+
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+metadata:
+  author: Brad (Design System Architect)
+  created_date: "2026-02-17"
+  last_modified: "2026-03-23"
+  tags:
+    - design-system
+    - motion
+    - kinetic-design
+    - accessibility
+    - quality
+    - animation-primitives
+    - scroll-driven
+    - view-transitions
+    - lighthouse-ci
+    - performance-guard
+    - token-drift
+
+inputs:
+  codebase_path:
+    type: string
+    description: Path to components/styles for motion analysis
+    required: true
+  project_name:
+    type: string
+    description: Project namespace for outputs
+    required: true
+    default: my-app
+  reference_url:
+    type: string
+    description: URL to extract animations from (for Phase 4)
+    required: false
+  brand_personality:
+    type: string
+    description: "Motion personality: playful | professional | minimal | dramatic"
+    required: false
+    default: professional
+
+steps:
+  - id: step_1_motion_audit
+    name: Audit Motion Patterns
+    type: agent
+    agent: brad-frost
+    command: "*motion-audit"
+    inputs:
+      path: "{{codebase_path}}"
+    outputs:
+      motion_report: outputs/design-system/{{project_name}}/motion/motion-audit.md
+    error_handling:
+      strategy: fail
+
+  - id: step_2_motion_tokens
+    name: Define Motion Token System
+    type: agent
+    agent: brad-frost
+    command: "*motion-tokens"
+    inputs:
+      path: "{{codebase_path}}"
+      personality: "{{brand_personality}}"
+      motion_report: "{{step_1_motion_audit.motion_report}}"
+    outputs:
+      motion_tokens_json: outputs/design-system/{{project_name}}/motion/motion-tokens.json
+      motion_tokens_css: outputs/design-system/{{project_name}}/motion/motion-tokens.css
+      motion_tokens_ts: outputs/design-system/{{project_name}}/motion/motion-tokens.ts
+    error_handling:
+      strategy: fail
+
+  - id: step_3_motion_primitives
+    name: Build Motion Primitives Library
+    type: agent
+    agent: brad-frost
+    command: "*motion-primitives"
+    inputs:
+      path: "{{codebase_path}}"
+      tokens_css: "{{step_2_motion_tokens.motion_tokens_css}}"
+    outputs:
+      motion_primitives_css: outputs/design-system/{{project_name}}/motion/motion-primitives.css
+      motion_primitives_tsx: outputs/design-system/{{project_name}}/motion/motion-primitives.tsx
+      motion_catalog: outputs/design-system/{{project_name}}/motion/motion-catalog.md
+    error_handling:
+      strategy: fail
+
+  - id: step_4_motion_extraction
+    name: Extract Motion from Reference URLs
+    type: agent
+    agent: brad-frost
+    command: "*motion-extraction"
+    condition: "{{reference_url}} is set"
+    inputs:
+      url: "{{reference_url}}"
+    outputs:
+      motion_map: outputs/design-system/{{project_name}}/motion/motion-map.json
+      extraction_report: outputs/design-system/{{project_name}}/motion/extraction-report.md
+    error_handling:
+      strategy: skip
+
+  - id: step_5_kinetic_replication
+    name: Replicate Extracted Motion as CSS
+    type: agent
+    agent: brad-frost
+    command: "*kinetic-replication"
+    condition: "{{step_4_motion_extraction.motion_map}} exists"
+    inputs:
+      motion_map: "{{step_4_motion_extraction.motion_map}}"
+      path: "{{codebase_path}}"
+    outputs:
+      replicated_motion_css: outputs/design-system/{{project_name}}/motion/replicated-motion.css
+      replication_report: outputs/design-system/{{project_name}}/motion/replication-report.md
+    error_handling:
+      strategy: skip
+
+  - id: step_6_visual_regression_guard
+    name: Validate Visual Regression Baseline
+    type: agent
+    agent: brad-frost
+    command: "*visual-regression"
+    tool: chromatic
+    note: >
+      Chromatic (@chromatic-com/storybook) is already installed in the project.
+      Use Chromatic snapshots as the visual regression baseline for motion primitives (D13).
+      Motion stories in Storybook are automatically captured by Chromatic on each build.
+    inputs:
+      path: "{{codebase_path}}"
+      motion_report: "{{step_1_motion_audit.motion_report}}"
+    outputs:
+      visual_report: outputs/design-system/{{project_name}}/motion/visual-regression.md
+    error_handling:
+      strategy: skip
+
+  - id: step_7_performance_guard
+    name: Performance Guard & Token Drift Check
+    type: ci
+    agent: devops
+    optional: true
+    description: >
+      Lighthouse CI performance guard + token drift validation.
+      Ensures motion layer does not degrade Core Web Vitals (D12, D13).
+      Runs AFTER visual regression so that both visual and performance baselines are validated.
+    performance_budgets:
+      frame_budget: "<16ms per frame (60fps jank-free)"
+      css_budget: "<5KB additional CSS from motion layer"
+      core_web_vitals:
+        CLS: "< 0.1"
+        TBT: "< 200ms"
+      animation_rules:
+        - "No layout shifts during animations (transform + opacity only)"
+        - "No animation on LCP element with delay > 0"
+        - "prefers-reduced-motion fallback present for every @keyframes"
+    sub_steps:
+      - id: lighthouse_ci
+        name: Lighthouse CI Performance Audit
+        command: "lighthouse-ci"
+        description: >
+          Run Lighthouse CI against pages with motion applied.
+          Verify CLS < 0.1, TBT < 200ms, no layout shifts during animations.
+        assertions:
+          - metric: cumulative-layout-shift
+            operator: "<"
+            value: 0.1
+            level: error
+          - metric: total-blocking-time
+            operator: "<"
+            value: 200
+            level: error
+          - metric: layout-shift-during-animation
+            operator: "=="
+            value: 0
+            level: warn
+            note: "Custom audit: detect layout-triggering properties in @keyframes (width, height, top, left, margin, padding)"
+      - id: token_drift_check
+        name: Token Drift Check (D12)
+        description: >
+          Verify that committed motion-tokens.css is in sync with the source schema.
+          Pattern: Style Dictionary build → compare output with committed file → fail if divergent.
+          Follows existing project pattern (tenant-tokens.generated.css).
+        command: "style-dictionary build && diff"
+        inputs:
+          schema: "squads/aiox-design/data/motion-tokens-schema.yaml"
+          committed_artifact: "outputs/design-system/{{project_name}}/motion/motion-tokens.css"
+        on_drift: warn
+        note: >
+          motion-tokens.css is committed as artifact (not generated at build time).
+          CI validates committed == generated. If drift detected, warn but do not block.
+      - id: reduced_motion_audit
+        name: Reduced-Motion Completeness Audit
+        description: >
+          Grep-based check: every @keyframes must have a corresponding
+          @media (prefers-reduced-motion: reduce) rule. Missing = warn.
+        command: "grep-audit"
+        on_missing_fallback: warn
+    inputs:
+      path: "{{codebase_path}}"
+      motion_tokens_css: "{{step_2_motion_tokens.motion_tokens_css}}"
+      visual_report: "{{step_6_visual_regression_guard.visual_report}}"
+    outputs:
+      performance_report: outputs/design-system/{{project_name}}/motion/performance-guard.md
+      drift_report: outputs/design-system/{{project_name}}/motion/token-drift-report.md
+    error_handling:
+      strategy: skip
+      on_error: warn
+      note: >
+        Performance guard is advisory. Failures produce warnings, never block the workflow.
+        This ensures motion development is not gated on CI infrastructure availability.
+
+outputs:
+  motion_quality_complete:
+    type: boolean
+    source: step_1_motion_audit.success
+  motion_report:
+    type: string
+    source: step_1_motion_audit.motion_report
+  motion_tokens:
+    type: string
+    source: step_2_motion_tokens.motion_tokens_json
+  motion_primitives:
+    type: string
+    source: step_3_motion_primitives.motion_primitives_css
+  motion_map:
+    type: string
+    source: step_4_motion_extraction.motion_map
+  replicated_motion_css:
+    type: string
+    source: step_5_kinetic_replication.replicated_motion_css
+  performance_report:
+    type: string
+    source: step_7_performance_guard.performance_report
+  drift_report:
+    type: string
+    source: step_7_performance_guard.drift_report

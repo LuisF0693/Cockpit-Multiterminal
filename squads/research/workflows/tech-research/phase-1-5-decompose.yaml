@@ -1,0 +1,58 @@
+workflow:
+  phases:
+    1_5_decompose:
+      # MODEL TIER: MAIN MODEL (Opus/Sonnet) - requires ultrathink for deep analysis
+      name: "Query Decomposition (Deep Planning)"
+      description: |
+        Decomposes the strategic_brief into atomic, directly searchable sub-queries.
+        Count SCALES with the brief: 2-3 sub-queries per SCOPE angle, floor 5,
+        ceiling ~18 (M4 runs one search wave per sub-query — cost is linear).
+        product-discovery mode keeps its fixed 5-7 framework (does not scale).
+        Uses extended thinking (ultrathink) for deeper analysis of the query's intent.
+        Consumes the inferred_context object from Phase 0 (auto-clarification) to tailor
+        sub-query generation based on detected focus, temporal context, and technology domain.
+        Produces a structured JSON object with main_topic, sub_queries list, and search_strategy.
+        This phase enables more targeted research by covering multiple facets of the topic
+        (definitions, implementations, examples, comparisons) through parallel sub-queries.
+      execution: |
+        ultrathink
+
+        1. DEEP ANALYSIS (use extended thinking):
+           - What are the REAL questions behind this query?
+           - What would a domain expert want to know?
+           - What gaps might standard searches miss?
+           - What assumptions is the user making that should be tested?
+           - What related topics should be included for completeness?
+
+        2. Read the prompt template from prompts/decompose.md
+
+        3. Fill placeholders:
+           - Replace {{QUERY}} with the user's original query text (unmodified)
+           - Replace {{INFERRED_CONTEXT}} with the strategic_brief produced by Phase P1
+             (the structured Deep Research brief: TOPIC / CONTEXT / SCOPE /
+             REQUIREMENTS / RECOMMENDED SOURCES / EXPECTED OUTCOMES). Decompose
+             the SCOPE angles into orthogonal sub-queries; honor REQUIREMENTS
+             as search constraints.
+             If strategic_brief is unavailable, fall back to the raw
+             inferred_context JSON, e.g. {"focus": "technical", "domain": ["Node.js"]}
+
+        4. Generate sub-queries that:
+           - Map 2-3 ORTHOGONAL sub-queries to EACH SCOPE angle of the brief
+             (and its sub-bullets) — do NOT collapse a rich brief into 5-7
+           - Honor REQUIREMENTS as search constraints (recency, geo, depth)
+           - Include at least one "devil's advocate" query (challenges assumptions)
+           - Include at least one "expert-level" query (what pros would search for)
+
+        5. Parse the JSON output and validate:
+           - main_topic is a non-empty string
+           - sub_queries is an array; length = clamp(2-3 per SCOPE angle, min 5, max 18)
+             (product-discovery mode: fixed 5-7)
+           - search_strategy is "parallel" or "sequential"
+
+        6. Store the result as decomposition_result for use in subsequent phases
+      input: "User query (original text) + inferred_context object from Phase 0"
+      output: "decomposition_result JSON object (main_topic, sub_queries, search_strategy)"
+      backward_compatibility: |
+        If prompts/decompose.md is missing, skip this phase entirely.
+        Use the original query directly in Phase 2 (generate_prompt) as before.
+        The skill MUST still work without the decomposition prompt file.

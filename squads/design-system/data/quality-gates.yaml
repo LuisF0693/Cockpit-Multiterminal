@@ -1,0 +1,88 @@
+quality_gates:
+  version: "1.0.0"
+  squad: design-system
+
+  thresholds:
+    threshold: 1
+    threshold_component_health_min: 0.80
+    threshold_accessibility_score_min: 0.90
+    threshold_contrast_ratio_min: 4.5
+    threshold_token_coverage_min: 0.95
+    threshold_story_coverage_min: 0.85
+    threshold_variant_reduction_min: 0.60
+    threshold_registry_sync_min: 1
+    threshold_page_choreography_score_min: 0.80
+    threshold_visual_regression_pass_rate: 0.95
+    threshold_handoff_completeness_min: 0.95
+    threshold_designops_maturity_min: 0.70
+    threshold_review_sla_hours: 24
+    threshold_ai_metadata_coverage_min: 0.90
+    threshold_dtcg_validity_min: 1
+    threshold_foundation_adoption_min: 0.80
+    threshold_component_build_success_min: 1
+    threshold_motion_quality_min: 0.80
+    threshold_multi_brand_readiness_min: 0.75
+    threshold_critical_eye_score_min: 85
+
+  gates:
+    DS-GATE-001:
+      phase: audit
+      threshold: 0.80
+      rule: "component_health_score >= 0.80"
+      veto: true
+    DS-GATE-002:
+      phase: a11y
+      threshold: 0.90
+      rule: "accessibility_score >= 0.90"
+    DS-GATE-003:
+      phase: tokens
+      threshold: 0.95
+      rule: "token_coverage >= 0.95"
+    DS-GATE-004:
+      phase: registry
+      threshold: 1
+      rule: "registry_sync_success == 1"
+    DS-GATE-005:
+      phase: handoff
+      threshold: 0.95
+      rule: "handoff_completeness >= 0.95"
+    DS-GATE-006:
+      phase: motion
+      threshold: 0.80
+      rule: "motion_quality_score >= 0.80"
+    DS-GATE-007:
+      phase: foundations
+      threshold: 0.80
+      rule: "foundation_adoption_rate >= 0.80"
+    DS-GATE-008:
+      phase: documentation
+      threshold: 0.85
+      rule: "storybook_coverage >= 0.85"
+    DS-GATE-009:
+      phase: designops
+      threshold: 0.70
+      rule: "designops_maturity_score >= 0.70"
+    DS-GATE-010:
+      phase: critical-eye
+      threshold: 85
+      rule: "critical_eye_score >= 85"
+    DS-GATE-011:
+      phase: tokens
+      threshold: 1
+      rule: "dtcg_validation_pass == 1"
+    DS-GATE-012:
+      phase: page-composition
+      threshold: 0.80
+      rule: "page_choreography_score >= 0.80"
+    DS-GATE-013:
+      phase: visual-regression
+      threshold: 0.95
+      rule: "visual_regression_pass_rate >= 0.95"
+    DS-GATE-014:
+      phase: governance
+      threshold: 1
+      rule: "review_sla_hours <= 24"
+    DS-GATE-015:
+      phase: handoff
+      threshold: 1
+      rule: "ai_metadata_coverage >= 0.90"

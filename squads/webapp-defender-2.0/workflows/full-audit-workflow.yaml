@@ -1,0 +1,112 @@
+# Full Passive Security Audit Workflow
+# Orchestrated by @shield — ZERO intrusive tests
+name: full-audit
+description: "Complete passive security audit: inventory → scan → review → compliance → remediation → report"
+version: "1.0.0"
+trigger: "*audit"
+orchestrator: shield
+duration: "1-3 hours"
+
+constraints:
+  - "NEVER send requests that modify target data"
+  - "NEVER attempt authentication bypass"
+  - "ONLY passive analysis and configuration review"
+
+phases:
+  - id: inventory
+    name: "Phase 1: Inventory"
+    description: "Identify stack, tables, endpoints, auth flow"
+    agent: shield
+    tasks:
+      - Identify application stack (Supabase, Vercel, etc.)
+      - List all tables from schema/OpenAPI
+      - Map authentication flow
+      - Identify entry points
+    outputs:
+      - app_profile (stack, tables, endpoints, auth type)
+
+  - id: passive_scan
+    name: "Phase 2: Passive Scan"
+    description: "Non-intrusive analysis of headers, schema, and config"
+    parallel: true
+    tasks:
+      - agent: header-analyzer
+        task: header-analyzer-analyze
+        input: app URL or response headers
+      - agent: schema-reviewer
+        task: schema-reviewer-analyze-openapi
+        input: OpenAPI schema
+      - agent: schema-reviewer
+        task: schema-reviewer-check-exposure
+        input: Supabase URL
+    outputs:
+      - header_report
+      - schema_analysis
+      - exposure_check
+
+  - id: deep_review
+    name: "Phase 3: Deep Review"
+    description: "Specialist analysis of access control, config, and auth"
+    tasks:
+      - agent: rls-guardian
+        task: rls-guardian-audit-policies
+        input: SQL dump or migrations
+      - agent: rls-guardian
+        task: rls-guardian-validate-rpc-auth
+        input: Function definitions
+      - agent: config-sentinel
+        task: config-sentinel-audit-cors
+        input: CORS headers
+      - agent: auth-inspector
+        task: auth-inspector-review-auth-flow
+        input: Auth configuration
+    outputs:
+      - rls_report
+      - rpc_audit
+      - cors_findings
+      - auth_findings
+
+  - id: compliance
+    name: "Phase 4: Compliance"
+    description: "LGPD and privacy assessment"
+    agent: compliance-advisor
+    tasks:
+      - task: compliance-advisor-scan-pii-exposure
+        input: Schema with table/column info
+      - task: compliance-advisor-check-lgpd
+        input: All findings + app context
+    outputs:
+      - pii_report
+      - lgpd_assessment
+
+  - id: remediation
+    name: "Phase 5: Remediation"
+    description: "Generate fixes for all findings"
+    tasks:
+      - agent: shield
+        task: shield-triage-findings
+        input: All findings from phases 2-4
+      - agent: fix-generator
+        task: fix-generator-sql
+        input: RLS and RPC findings
+      - agent: fix-generator
+        task: fix-generator-vercel-config
+        input: Header and CORS findings
+      - agent: shield
+        task: shield-generate-roadmap
+        input: Prioritized findings
+    outputs:
+      - prioritized_findings
+      - sql_fixes
+      - config_fixes
+      - roadmap
+
+  - id: report
+    name: "Phase 6: Report"
+    description: "Consolidated audit report"
+    agent: shield
+    tasks:
+      - task: shield-audit-report
+        input: All findings, fixes, and roadmap
+    outputs:
+      - audit_report (markdown file)

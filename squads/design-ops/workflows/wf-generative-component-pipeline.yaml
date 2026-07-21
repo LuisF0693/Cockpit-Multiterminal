@@ -1,0 +1,87 @@
+workflow:
+  id: dops-generative-component-pipeline
+  name: Generative Component Pipeline
+  description: Pipeline canônico para geração e hardening de componentes no provider design-ops.
+  version: 1.0.0
+  type: sequential
+  squad: design-ops
+  orchestrator: design-chief
+  command: "*dops-generate-component {business} {target}"
+  sequence:
+    - step: step-1-contracts
+      id: step-1-contracts
+      phase: 1
+      phase_name: Validar contratos do provider
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+      next: step-2-run-pipeline
+    - step: step-2-run-pipeline
+      id: step-2-run-pipeline
+      phase: 2
+      phase_name: Executar pipeline gerativo read-only
+      agent: design-chief
+      action: node squads/design-ops/scripts/run-minimal-pipeline.cjs --business={business} --target={target} --format=text
+      next: step-3-autofix
+    - step: step-3-autofix
+      id: step-3-autofix
+      phase: 3
+      phase_name: Aplicar autofix determinístico
+      agent: design-chief
+      action: node squads/design-ops/scripts/autofix-deterministic.cjs --target={target} --write
+      next: step-4-revalidate
+    - step: step-4-revalidate
+      id: step-4-revalidate
+      phase: 4
+      phase_name: Revalidar gates
+      agent: design-chief
+      action: node squads/design-ops/scripts/validate-checklists-gate.cjs --business={business}
+      next: step-5-lint
+    - step: step-5-lint
+      id: step-5-lint
+      phase: 5
+      phase_name: Gate de sintaxe (lint)
+      agent: design-chief
+      action: npm run lint
+      next: step-6-typecheck
+    - step: step-6-typecheck
+      id: step-6-typecheck
+      phase: 6
+      phase_name: Gate de compilação (typecheck)
+      agent: design-chief
+      action: npm run typecheck
+      next: step-7-yaml
+    - step: step-7-yaml
+      id: step-7-yaml
+      phase: 7
+      phase_name: Validar YAML alterado
+      agent: design-chief
+      action: npm run validate:yaml:changed
+    - workflow_end:
+        id: complete
+        action: workflow_complete
+
+inputs:
+  required:
+    - name: business
+      description: "Slug da business unit (ex.: aiox)"
+    - name: target
+      description: "Path alvo para geração/autofix de componentes"
+
+quality_gates:
+  - id: DOPS-GATE-001
+    check: validate-workspace-contracts
+    blocking: true
+  - id: DOPS-GATE-004
+    check: checklists
+    checklist_refs:
+      - squads/design-ops/checklists/dops-generative-pipeline-gate.yaml
+    blocking: true
+  - id: DOPS-GATE-002
+    check: "validate:yaml:changed"
+    blocking: true
+  - id: DOPS-GATE-009
+    check: lint
+    blocking: true
+  - id: DOPS-GATE-010
+    check: typecheck
+    blocking: true

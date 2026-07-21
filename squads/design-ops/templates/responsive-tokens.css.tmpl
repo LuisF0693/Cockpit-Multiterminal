@@ -1,0 +1,99 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Responsive Mobile-First Starter Tokens
+   Source of truth: squads/design-ops/rules/responsive-first-contract.md
+   Drop into globals.css at the top of :root. NEVER hand-edit the clamp
+   functions without updating the contract first.
+
+   These tokens are the mechanism that makes mobile-first "the default."
+   Pages that consume them become responsive by construction — no
+   `sm:/md:/lg:` breakpoint chains required.
+   ────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Layout chrome ────────────────────────────────────────────────── */
+  --sidebar-width: 25rem;        /* desktop aside */
+  --mobile-topbar-h: 6rem;       /* mobile top-bar height */
+
+  /* ── Fluid vertical rhythm (sections, hero padding, divider gaps) ──
+     Contract: mobile floor ≤ 50% of desktop ceiling.
+     Never hardcode a rem value ≥4rem — use these tokens. */
+  --section-py-xl: clamp(4rem, 9vw, 10rem);   /* dividers/heroes: 40→100 */
+  --section-py-lg: clamp(3.2rem, 7vw, 8rem);  /* regular sections: 32→80 */
+  --section-py-md: clamp(2.4rem, 5vw, 6rem);  /* compact: 24→60 */
+  --section-py-sm: clamp(1.6rem, 3vw, 4rem);  /* dense: 16→40 */
+
+  /* ── Fluid inter-element gaps ─────────────────────────────────────── */
+  --gap-xl: clamp(2.4rem, 4vw, 6rem);
+  --gap-lg: clamp(2rem, 3.5vw, 4rem);
+  --gap-md: clamp(1.6rem, 2.5vw, 3rem);
+  --gap-sm: clamp(1.2rem, 2vw, 2rem);
+
+  /* ── Panel padding (cards, specimens, drawers) ────────────────────── */
+  --panel-p:    clamp(2.4rem, 5vw, 6rem);
+  --panel-p-sm: clamp(1.6rem, 3vw, 3.2rem);
+  --panel-p-lg: clamp(3.2rem, 6vw, 8rem);
+
+  /* ── Container inline padding (viewport edges) ────────────────────── */
+  --container-px: clamp(1.6rem, 4vw, 4rem);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Horizontal-scroll guard — NON-NEGOTIABLE.
+   `overflow-x: clip` prevents scroll without creating a scroll container
+   (preserving sticky positioning). `max-width: 100vw` backstops stray
+   elements. `min-width: 0` lets flex/grid children shrink below their
+   content size so long words wrap instead of pushing the viewport. */
+html, body {
+  overflow-x: clip;
+  max-width: 100vw;
+}
+*, *::before, *::after {
+  min-width: 0;
+}
+
+/* Editorial display headings — wrap on overflow, never produce scroll. */
+h1, h2, h3, .h1, .h2, .h3, [data-display-heading] {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  hyphens: manual;
+}
+
+/* Media scales to container; forbids intrinsic-width overflow. */
+img, video, svg, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Fluid section utilities — replace `style={{ paddingBlock: "10rem" }}`
+   patterns. Semantic names map 1:1 to the `--section-py-*` token family.
+   ────────────────────────────────────────────────────────────────────── */
+.rp-section-xl { padding-block: var(--section-py-xl); }
+.rp-section-lg { padding-block: var(--section-py-lg); }
+.rp-section-md { padding-block: var(--section-py-md); }
+.rp-section-sm { padding-block: var(--section-py-sm); }
+
+/* ──────────────────────────────────────────────────────────────────────
+   App shell — reserves room for the mobile top-bar below and for the
+   fixed sidebar on desktop. Pages stack inside `<main class="app-shell">`.
+   ────────────────────────────────────────────────────────────────────── */
+.app-shell {
+  padding-block-start: var(--mobile-topbar-h);
+}
+
+@media (min-width: 1080px) {
+  .app-shell {
+    margin-inline-start: var(--sidebar-width);
+    padding-block-start: 0;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Touch targets — 44px minimum on mobile per WCAG 2.2 + iOS guidelines.
+   Applies to anything carrying `data-touch-target`. Add the attribute
+   to any custom interactive primitive not already derived from shadcn/ui.
+   ────────────────────────────────────────────────────────────────────── */
+[data-touch-target] {
+  min-height: 4.4rem;
+  min-width: 4.4rem;
+}

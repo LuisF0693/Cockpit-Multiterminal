@@ -1,0 +1,67 @@
+# Task: Bench Matrix — Product
+
+## Contrato SINKRA
+
+Domain: `Tactical`
+
+task: benchMatrixProduct()
+responsavel: bench-analyst
+responsavel_type: Agent
+atomic_layer: Atom
+Entrada:
+- `inventory_a`
+- `inventory_b`
+- `output_dir`
+Saida:
+- matriz product JSON/MD
+Inputs: ver bloco `Entrada`
+Outputs: ver bloco `Saida`
+Pre-conditions: ver `pre_condition`
+Post-conditions: ver `post_condition`
+Performance: ver `performance`
+Error Handling: ver `error_handling`
+
+Checklist:
+- comparar features, UX, pricing e integrações
+- registrar tradeoffs explícitos
+pre_condition: evidências mínimas carregadas e subject validado
+post_condition: artefato persistido com achados e próximos passos rastreáveis
+performance: falhar alto, registrar fontes e manter consistência entre evidências e relatório
+error_handling: "on_fail: HALT matrix build, log dimension gaps"
+
+## Metadata
+
+```yaml
+id: bench-matrix-product
+parent_task: bench-matrix
+category: benchmark-matrix-atom
+agent: bench-analyst
+elicit: false
+autonomous: true
+description: "Constrói a matriz comparativa para produtos de software."
+```
+
+## Steps
+
+1. Mapear features equivalentes e gaps.
+2. Comparar pricing, UX e integrações.
+3. Registrar deltas acionáveis por categoria.
+4. Persistir matriz final em JSON + MD.
+
+## Acceptance Criteria
+
+- features e pricing comparados
+- deltas específicos, não genéricos
+- matriz útil para decisão de produto
+
+---
+
+Completion Criteria: artefato concluído, validado contra checklist e pronto para handoff ou publish
+
+---
+
+accountability:
+  accountable: "Human (Process Owner)"
+  responsible: "bench-analyst"
+  consulted: [research-chief]
+  informed: [research-operator]

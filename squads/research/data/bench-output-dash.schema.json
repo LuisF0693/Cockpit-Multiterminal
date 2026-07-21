@@ -1,0 +1,639 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sinkra/bench-output-dash",
+  "title": "Bench Output Dash",
+  "description": "Canonical disk projection consumed by apps/research/src/lib/bench-dashboard.server.ts. This is not the internal BenchDashboardData return shape. Emitted by bench-analyst as the final artifact of bench-comparison-pipeline. Companion: bench-metadata-canonical.yaml. YAML/JSONL files are audit sidecars; rendered values must be mirrored into JSON/MD/MMD artifacts.",
+  "type": "object",
+  "required": ["schema", "generated_at", "source_files", "benchmark", "players", "summary", "matrix", "duels", "personas", "gaps", "sources", "source_summary", "artifacts", "readiness", "inferred", "categorical", "tiebreakers", "cliffs", "decision_tree"],
+  "properties": {
+    "schema": { "type": "string", "enum": ["bench-output-dash", "bench-output-dash.v1"], "description": "Canonical schema identifier" },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files consumed to build this projection — relative to bench folder"
+    },
+    "benchmark": {
+      "type": "object",
+      "required": ["slug", "title", "date", "type", "variant", "analyst"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "description": "MUST match folder name"
+        },
+        "title": { "type": "string" },
+        "short_title": {
+          "type": "string",
+          "description": "Short headline for dashboard cards (e.g. 'Omnichannel Helpdesk 2026')"
+        },
+        "date": {
+          "type": "string",
+          "description": "ISO-8601 date or datetime"
+        },
+        "type": {
+          "type": "string",
+          "description": "Free-form benchmark type. Common values include product, codebase, technology, model, other, and domain-specific absorption descriptions."
+        },
+        "variant": {
+          "type": "string",
+          "pattern": "^(2-way|3-way|n-way|[0-9]+-way)$"
+        },
+        "analyst": { "type": "string" },
+        "method": {
+          "type": "string",
+          "description": "Methodology description (e.g. 'Reconciliação de 3 paired benches em matriz única 4 players × 9 dimensões.')"
+        },
+        "confidence_breakdown": {
+          "type": "string",
+          "description": "Human-readable breakdown (e.g. '5/9 High · 3/9 Medium · 1/9 Low (misto)')"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "in_progress", "completed", "archived"],
+          "description": "Lifecycle status"
+        },
+        "schema_variant": {
+          "type": "string",
+          "description": "Internal schema variant for analyst (e.g. '3way-consolidated-scorecard-v1', '3way-codebase-architecture-v1')"
+        }
+      },
+      "additionalProperties": false
+    },
+    "players": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["key", "name", "category"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "snake_case stable identifier — matches subjects[].key in metadata.json"
+          },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "Free-text classification (e.g. 'OSS+Cloud', 'SaaS Enterprise', 'SaaS BR')"
+          },
+          "license": {
+            "type": "string",
+            "description": "License (MIT, Proprietary, Apache-2.0, etc.)"
+          },
+          "origin": {
+            "type": "string",
+            "description": "Country of origin (e.g. 'India', 'USA', 'Brasil')"
+          },
+          "anos": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Years since founding"
+          },
+          "version_evaluated": {
+            "type": "string",
+            "description": "Specific version benchmarked (e.g. 'v4.13.0')"
+          },
+          "version_release_date": {
+            "type": "string",
+            "description": "ISO date when the evaluated version released"
+          },
+          "vendor_url": { "type": "string", "format": "uri" },
+          "repo_url": { "type": "string", "format": "uri" },
+          "tech_score": {
+            "type": "number",
+            "description": "Pure technical score, unweighted by personas (0-100)"
+          },
+          "neutral_score": {
+            "type": "number",
+            "description": "Weighted total in the neutral (canonical) dimension framework (0-100)"
+          },
+          "meta": {
+            "type": "object",
+            "description": "Visualization hints",
+            "properties": {
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$",
+                "description": "Hex color for badges, chart series, etc."
+              },
+              "letter": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2,
+                "description": "1-2 char abbreviation for compact badges"
+              },
+              "tag": {
+                "type": "string",
+                "description": "Short category label (e.g. 'OSS', 'SaaS', 'BR', 'AI')"
+              }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "description": "Free-shape stats per player (loc, stars, contributors, etc.)",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["winner", "coverage", "sources", "waves", "dimensions"],
+      "properties": {
+        "winner": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "description": "Player key, 'mixed', 'tie', or null"
+        },
+        "coverage": {
+          "type": "string",
+          "enum": ["complete", "structured", "derived", "partial", "missing"]
+        },
+        "sources": { "type": "integer", "minimum": 0 },
+        "waves": { "type": "integer", "minimum": 0 },
+        "dimensions": { "type": "integer", "minimum": 0 },
+        "narrative": {
+          "type": "string",
+          "description": "Executive paragraph synthesizing the entire bench (1-3 sentences). Renders below the title."
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total artifacts produced by this bench"
+        }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "required": ["players", "dimensions", "rows", "totals", "method"],
+      "properties": {
+        "players": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "weight"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "short": {
+                "type": "string",
+                "description": "Short label for compact headers (e.g. 'AI', 'Canais', 'Pricing'). Max ~12 chars."
+              },
+              "weight": { "type": "number" }
+            }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "weight", "cells"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "weight": { "type": "number" },
+              "cells": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["player", "score"],
+                  "properties": {
+                    "player": { "type": "string" },
+                    "score": { "type": "number" },
+                    "confidence": {
+                      "type": "string",
+                      "enum": ["H", "M", "L", "high", "medium", "low", "alta", "media", "baixa", "unknown"]
+                    },
+                    "notes": { "type": "string" },
+                    "source": { "type": "string" },
+                    "score_evolution": {
+                      "type": "array",
+                      "description": "3-wave score evolution [W1, W2, W3]",
+                      "items": { "type": "number" },
+                      "minItems": 1,
+                      "maxItems": 4
+                    },
+                    "categorical_winner": {
+                      "type": "boolean",
+                      "description": "true if this player wins this dimension categorically (not by score margin)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "totals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["player", "score"],
+            "properties": {
+              "player": { "type": "string" },
+              "score": { "type": "number" }
+            }
+          }
+        },
+        "method": { "type": "string" }
+      }
+    },
+    "duels": {
+      "type": "array",
+      "description": "1v1 dimension showdowns. Supports two shapes: a-vs-b form with wins arrays.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "weight": { "type": "number" },
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rank", "player", "score"],
+              "properties": {
+                "rank": { "type": "integer" },
+                "player": { "type": "string" },
+                "score": { "type": "number" },
+                "delta": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "string" }
+                  ]
+                }
+              }
+            }
+          },
+          "a": {
+            "type": "string",
+            "description": "player A key in 1v1 form"
+          },
+          "b": {
+            "type": "string",
+            "description": "player B key in 1v1 form"
+          },
+          "verdict": {
+            "type": "string",
+            "description": "narrative verdict for the duel"
+          },
+          "winsA": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "dimension ids where player A wins"
+          },
+          "winsB": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "dimension ids where player B wins"
+          },
+          "ties": {
+            "oneOf": [
+              { "type": "array", "items": { "type": "string" } },
+              { "type": "number" }
+            ],
+            "description": "Dimension IDs that tied, or numeric tie count for compact all-pairs matrices"
+          }
+        }
+      }
+    },
+    "personas": {
+      "type": "array",
+      "description": "Per-scenario rankings — present only when bench scored across personas",
+      "items": {
+        "type": "object",
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "sub": {
+            "type": "string",
+            "description": "Sub-label/persona context (e.g., '5-10 agents · ≤1k conv/mês')"
+          },
+          "weights": {
+            "type": "array",
+            "items": { "type": "number" },
+            "description": "Persona-specific dimension weights, same order as matrix.dimensions[]. Sum should be 100."
+          },
+          "ranking": { "type": "array" },
+          "totals": {
+            "oneOf": [
+              { "type": "array" },
+              { "type": "object", "description": "keyed-by-player form: {chatwoot: 75.84, zendesk: 75.13}" }
+            ]
+          },
+          "winner": {
+            "type": "string",
+            "description": "Winner player key"
+          },
+          "runner": {
+            "type": "string",
+            "description": "Runner-up player key"
+          },
+          "delta": {
+            "type": "number",
+            "description": "Delta between winner and runner (negative when runner is below winner)"
+          },
+          "verdict": { "type": "string" },
+          "tiebreaker": {
+            "type": "string",
+            "description": "Tiebreaker rationale (when winner margin is small)"
+          }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "subject": { "type": "string" },
+          "priority": { "type": "string" },
+          "complexity": { "type": "string" },
+          "rationale": { "type": "string" },
+          "dimension": { "type": "string" }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string" },
+          "title": { "type": "string" },
+          "credibility": {
+            "type": "string",
+            "enum": ["H", "M", "L", "high", "medium", "low", "alta", "media", "baixa", "unknown"]
+          },
+          "subject": { "type": "string" }
+        }
+      }
+    },
+    "source_summary": {
+      "type": "array",
+      "description": "Human-readable source coverage and quality summary shown in decision/source views.",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "minLength": 8
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "role"],
+        "properties": {
+          "file": { "type": "string" },
+          "role": {
+            "type": "string",
+            "description": "Free-form artifact role. Common roles include overview, manifest, dashboard, matrix, evidence, quality-gate, risk, planning, analysis, scorecard, inventory and architecture."
+          },
+          "format": {
+            "type": "string",
+            "description": "File extension or artifact format, e.g. md, json, mmd, yaml, py."
+          },
+          "phase": {
+            "type": "string",
+            "description": "Pipeline phase that produced this artifact (e.g., 'meta', 'scorecard', 'matrix', 'tco', 'ranking', 'decision', 'report', 'battle-card')"
+          },
+          "size_kb": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Approximate file size in KB (for inventory display)"
+          }
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "required": ["matrix", "duels", "personas", "gaps", "sources"],
+      "properties": {
+        "matrix":        { "type": "string", "enum": ["complete", "derived", "partial", "missing"] },
+        "duels":         { "type": "string", "enum": ["complete", "derived", "partial", "missing"] },
+        "personas":      { "type": "string", "enum": ["complete", "derived", "partial", "missing"] },
+        "gaps":          { "type": "string", "enum": ["complete", "derived", "partial", "missing"] },
+        "sources":       { "type": "string", "enum": ["complete", "derived", "partial", "missing"] },
+        "tco":           { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "categorical":   { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "tiebreakers":   { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "cliffs":        { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "decision_tree": { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "type_specific": { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "cells_sidecar": { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] },
+        "editors_note":  { "type": "string", "enum": ["complete", "derived", "partial", "missing", "n_a"] }
+      }
+    },
+    "inferred": {
+      "type": "object",
+      "description": "Map of field-path → boolean. true means value came from heuristic fallback, not from canonical source.",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "categorical": {
+      "type": "object",
+      "description": "Dimensions where one player wins categorically (not by score margin). Keyed by dimension id.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["winner", "note"],
+        "properties": {
+          "winner": { "type": "string", "description": "Player key" },
+          "loser":  { "type": "string", "description": "Player key (optional, for explicit contrasts)" },
+          "note":   { "type": "string", "description": "1-sentence rationale" }
+        }
+      }
+    },
+    "tiebreakers": {
+      "type": "array",
+      "description": "Decision questions to break ties between players. Used by 'Decision Support' UI panel.",
+      "items": {
+        "type": "object",
+        "required": ["id", "q", "yes", "no"],
+        "properties": {
+          "id":  { "type": "string" },
+          "q":   { "type": "string", "description": "The decision question" },
+          "yes": { "type": "string", "description": "What to choose if YES" },
+          "no":  { "type": "string", "description": "What to choose if NO" }
+        }
+      }
+    },
+    "cliffs": {
+      "type": "array",
+      "description": "Risk points per player — conditions under which a player breaks down or changes economics.",
+      "items": {
+        "type": "object",
+        "required": ["player", "trigger", "impact"],
+        "properties": {
+          "player":  { "type": "string", "description": "Player key" },
+          "trigger": { "type": "string", "description": "Condition that triggers the cliff" },
+          "impact":  { "type": "string", "description": "What happens at/after the cliff" }
+        }
+      }
+    },
+    "decision_tree": {
+      "type": "array",
+      "description": "Top-level decision flow for picking a player.",
+      "items": {
+        "type": "object",
+        "required": ["q", "yes", "no"],
+        "properties": {
+          "q":   { "type": "string" },
+          "yes": { "type": "string" },
+          "no":  { "type": "string" }
+        }
+      }
+    },
+    "tco": {
+      "type": "object",
+      "description": "Total Cost of Ownership scenarios. Only meaningful for product/SaaS comparisons.",
+      "properties": {
+        "currency": { "type": "string", "description": "ISO 4217 (e.g., 'USD', 'BRL')", "default": "USD" },
+        "unit":     { "type": "string", "description": "Period unit (e.g., 'USD/yr', 'BRL/mo')" },
+        "scenarios": {
+          "type": "object",
+          "description": "Keyed scenarios (e.g., 'smb', 'mid', 'scale', 'enterprise')",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["label", "rows"],
+            "properties": {
+              "label": { "type": "string", "description": "Display label (e.g., 'Scale · 50 agents · 20k conv · 60% deflection')" },
+              "unit":  { "type": "string", "description": "Override default unit for this scenario" },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["player", "setup"],
+                  "properties": {
+                    "player":   { "type": "string", "description": "Player key" },
+                    "setup":    { "type": "string", "description": "Configuration label (e.g., 'self-host custom', 'Suite Pro+Copilot')" },
+                    "low":      { "type": "number", "description": "Low estimate" },
+                    "high":     { "type": "number", "description": "High estimate (equals 'low' when point estimate)" },
+                    "baseline": { "type": "boolean", "description": "true if this row is the reference baseline" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_specific": {
+      "type": "object",
+      "description": "Blocks meaningful only for specific bench.type values. Discriminated by parent benchmark.type.",
+      "properties": {
+        "codebase": {
+          "type": "object",
+          "description": "Codebase-specific analyses",
+          "properties": {
+            "coverage_stack": {
+              "type": "array",
+              "description": "Multi-player coverage combos (which combo of players covers what % of total capability)",
+              "items": {
+                "type": "object",
+                "required": ["combo", "coverage", "players"],
+                "properties": {
+                  "combo":    { "type": "string" },
+                  "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "players":  { "type": "array", "items": { "type": "string" } },
+                  "synergy":  { "type": "number", "description": "Synergy bonus when combo exceeds sum of parts" },
+                  "ideal":    { "type": "boolean" }
+                }
+              }
+            },
+            "three_axis": {
+              "type": "object",
+              "description": "3D positioning chart (e.g., Intelligence/Distribution/Governance)",
+              "properties": {
+                "axes":   { "type": "array", "items": { "type": "string" }, "minItems": 3, "maxItems": 3 },
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "x", "y", "z"],
+                    "properties": {
+                      "id":    { "type": "string" },
+                      "x":     { "type": "number" },
+                      "y":     { "type": "number" },
+                      "z":     { "type": "number" },
+                      "label": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "knowledge_iceberg": {
+              "type": "array",
+              "description": "Knowledge:code proportion per player",
+              "items": {
+                "type": "object",
+                "required": ["id", "code", "yaml", "md", "total", "ratio"],
+                "properties": {
+                  "id":    { "type": "string" },
+                  "code":  { "type": "number", "description": "kLoC of code" },
+                  "yaml":  { "type": "number", "description": "kLoC of YAML" },
+                  "md":    { "type": "number", "description": "kLoC of Markdown" },
+                  "total": { "type": "number" },
+                  "ratio": { "type": "number", "description": "(yaml+md)/code ratio — high means knowledge-as-data system" }
+                }
+              }
+            }
+          }
+        },
+        "product": {
+          "type": "object",
+          "description": "Product-specific analyses (reserved for future expansion: channels, AI deflection, market share)",
+          "additionalProperties": true
+        },
+        "llm": {
+          "type": "object",
+          "description": "LLM-specific analyses (reserved for future expansion: benchmarks, latency, costs per token)",
+          "additionalProperties": true
+        }
+      }
+    },
+    "editors_note": {
+      "type": "object",
+      "description": "Editorial framing rendered above the matrix. May also live in sidecar editors-note.json (set sidecars.editors_note to the file path).",
+      "properties": {
+        "title":      { "type": "string", "description": "e.g., 'On reading this bench'" },
+        "byline":     { "type": "string", "description": "e.g., 'AIOX Research · Bench desk'" },
+        "date":       { "type": "string", "description": "Display date (free-format, e.g., '06 May 2026')" },
+        "paragraphs": { "type": "array", "items": { "type": "string" }, "description": "Editorial paragraphs in reading order" }
+      }
+    },
+    "sidecars": {
+      "type": "object",
+      "description": "Paths to companion files (relative to bench folder). All optional.",
+      "properties": {
+        "cells":        { "type": "string", "description": "Path to bench-cells.json — deep per-cell intel (commentary, evolution[], sources, quote)" },
+        "editors_note": { "type": "string", "description": "Path to editors-note.json — alternative location for editors_note (used when content is long)" }
+      }
+    },
+    "player_meta": {
+      "type": "object",
+      "description": "Visualization metadata keyed by player. DUPLICATES players[].meta for renderers that prefer a lookup map. SHOULD match.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "color":  { "type": "string", "description": "Hex color (e.g., '#7C9F3F')" },
+          "letter": { "type": "string" },
+          "tag":    { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

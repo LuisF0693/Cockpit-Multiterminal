@@ -1,0 +1,73 @@
+id: dops-component-quality
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: core-components
+origin: squads/design-system/checklists/ds-component-quality-checklist.md
+
+quality_dimensions:
+  code_quality:
+    required_checks:
+      - typescript_no_errors
+      - no_any_types
+      - props_fully_typed
+      - component_exports_valid
+  styling:
+    required_checks:
+      - no_hardcoded_style_values
+      - token_based_styling
+      - no_inline_styles
+      - variants_styled_consistently
+  accessibility:
+    required_checks:
+      - semantic_html
+      - keyboard_navigation
+      - visible_focus
+      - contrast_wcag_aa
+      - disabled_state_aria
+  testing:
+    required_checks:
+      - unit_tests_exist
+      - variant_tests_exist
+      - event_handler_tests_exist
+      - coverage_min_80
+  documentation:
+    required_checks:
+      - usage_examples_present
+      - variants_documented
+      - accessibility_notes_present
+
+  responsive_scaling:
+    required_checks:
+      - fixed_size_uses_transform_scale
+      - letterbox_applied_on_aspect_mismatch
+      - mobile_first_breakpoints
+      - no_horizontal_scroll_on_target_viewports
+
+  ai_trope_compliance:
+    reference: squads/design-ops/checklists/dops-ai-trope-guardrails.yaml
+    required_checks:
+      - no_emoji_as_functional_icons
+      - max_two_font_families
+      - total_colors_between_3_and_5
+      - no_scroll_into_view
+      - no_decorative_fonts_for_body
+
+edge_cases:
+  empty_state_supported: true
+  loading_state_supported: true
+  error_state_supported: true
+  long_content_handled: true
+
+scoring:
+  total_items: 48
+  pass_threshold_percent: 80
+  conditional_threshold_percent: 60
+
+validation:
+  required_for_in_review: true
+  gate: qa
+
+related:
+  - squads/design-ops/rules/ai-trope-guardrails.md
+  - squads/design-ops/checklists/dops-ai-trope-guardrails.yaml

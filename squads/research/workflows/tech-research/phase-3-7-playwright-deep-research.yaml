@@ -1,0 +1,146 @@
+workflow:
+  phases:
+    3_7_playwright_deep_research:
+      toc:
+        - "1. Manual/deep trigger validation"
+        - "2. Browser target availability"
+        - "3. Query external LLMs"
+        - "4. Aggregate responses"
+        - "5. Write supplemental artifact"
+      name: "Playwright Deep Research (Multi-LLM)"
+      # MODEL TIER: MAIN MODEL - requires browser automation orchestration
+      # MCP DEPENDENCY: playwright (mcp__playwright__*)
+      description: |
+        Browser automation phase that queries multiple LLMs (Grok, Claude.ai, Gemini)
+        for deep research when traditional search doesn't achieve sufficient coverage.
+        Uses Playwright MCP for browser control.
+
+        TRIGGER CONDITIONS:
+        - coverage_score < 70% after wave 2 (auto-trigger)
+        - User passes --deep flag (manual trigger)
+        - Query contains "multiple perspectives", "compare LLMs" (pattern match)
+
+        GRACEFUL DEGRADATION:
+        - If one LLM fails, continue with others
+        - Partial output is better than no output
+        - Minimum 1 successful LLM for valid output
+
+      execution: |
+        1. PRE-FLIGHT CHECK:
+           - Test Playwright MCP availability:
+             mcp__playwright__browser_navigate(url="https://example.com")
+           - If fails: log "[PLAYWRIGHT] MCP unavailable", skip this phase
+
+        2. DETERMINE TRIGGER:
+           - Check coverage_score from Phase 3.5
+           - Check for --deep flag in original query
+           - Check for trigger keywords in query
+
+           IF NOT TRIGGERED: skip to Phase 4
+
+        3. FOR EACH LLM (Grok, Claude.ai, Gemini):
+           See prompts/playwright-deep-research.md for detailed workflow.
+
+           a. NAVIGATE to LLM URL
+              Tool: mcp__playwright__browser_navigate
+              Args: { url: "{llm_url}" }
+
+           b. CHECK LOGIN STATE
+              Tool: mcp__playwright__browser_snapshot
+              Parse: Look for login indicators (user menu, avatar)
+
+              IF NOT LOGGED IN:
+                - Screenshot for evidence
+                - Record error: "Not logged in to {llm}"
+                - Continue to next LLM
+
+           c. LOCATE AND FILL CHAT INPUT
+              Try selectors in order (primary, fallback_1, fallback_2)
+              Tool: mcp__playwright__browser_type
+              Log which selector worked
+
+           d. SUBMIT QUERY
+              Tool: mcp__playwright__browser_click
+              Wait for response (poll every 2s, max 60s)
+
+           e. EXTRACT RESPONSE
+              Tool: mcp__playwright__browser_snapshot
+              Parse response container text
+
+           f. CAPTURE SCREENSHOT
+              Tool: mcp__playwright__browser_take_screenshot
+              Save to: {output_dir}/screenshot-{llm}.png
+
+           g. RECORD RESULT
+              {
+                llm: "{llm_name}",
+                success: true/false,
+                response: "{text}",
+                error: "{error_if_any}",
+                timestamp: "{ISO_timestamp}",
+                screenshot: "screenshot-{llm}.png",
+                selectors_used: { input: "...", submit: "...", response: "..." }
+              }
+
+        4. AGGREGATE RESULTS:
+           - Collect all LLM responses
+           - Count successful vs failed
+           - IF all failed: log warning, skip aggregation
+
+        5. SYNTHESIZE COMPARISON:
+           - Identify consensus points (mentioned by 2+ LLMs)
+           - Identify divergent views (conflicting recommendations)
+           - Generate reliability assessment
+
+        6. GENERATE OUTPUT FILE:
+           - File: {output_dir}/XX-llm-deep-research.md
+           - Format: See prompts/playwright-deep-research.md for template
+           - Include all screenshots as evidence
+
+        7. UPDATE README:
+           - Add new file to research folder README.md index
+
+      config_reference: "config.yaml -> playwright_deep_research"
+      prompt_reference: "prompts/playwright-deep-research.md"
+
+      trigger_conditions:
+        auto:
+          - coverage_score < 0.70 after wave 2
+          - confidence_score < 0.60 on key topics
+        manual:
+          - --deep flag in query
+          - "*deep command"
+        keywords:
+          - "multiple perspectives"
+          - "compare LLM views"
+          - "cross-reference with LLMs"
+
+      llm_targets:
+        - name: grok
+          url: https://grok.x.ai
+          requires: X/Twitter login
+        - name: claude
+          url: https://claude.ai
+          requires: Anthropic account
+        - name: gemini
+          url: https://gemini.google.com
+          requires: Google account
+
+      error_handling:
+        not_logged_in: "Skip LLM, record error, continue with others"
+        selector_not_found: "Try fallback selectors, log which worked"
+        timeout: "Retry once with extended timeout, then skip"
+        all_failed: "Log warning, skip phase, continue to synthesis"
+
+      output: |
+        {
+          "llm_results": {
+            "grok": { success: bool, response: str, ... },
+            "claude": { success: bool, response: str, ... },
+            "gemini": { success: bool, response: str, ... }
+          },
+          "consensus_points": [...],
+          "divergent_points": [...],
+          "screenshots": ["screenshot-grok.png", ...],
+          "output_file": "XX-llm-deep-research.md"
+        }

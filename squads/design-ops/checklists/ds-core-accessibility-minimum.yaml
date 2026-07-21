@@ -1,0 +1,34 @@
+id: dops-ds-core-accessibility-minimum
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: ds-core
+
+components:
+  - id: button
+    checks:
+      keyboard_navigation: required
+      focus_visible: required
+      aria_contract: required
+  - id: input
+    checks:
+      keyboard_navigation: required
+      focus_visible: required
+      aria_contract: required
+  - id: dialog
+    checks:
+      keyboard_navigation: required
+      focus_visible: required
+      aria_contract: required
+
+global_checks:
+  color_contrast_minimum: "WCAG AA"
+  reduced_motion_respected: true
+  semantic_roles_required: true
+  interactive_target_min_size_px: 44
+  no_keyboard_trap: true
+
+validation:
+  gate: qa
+  required_for_in_review: true
+

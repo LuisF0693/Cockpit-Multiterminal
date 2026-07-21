@@ -1,0 +1,130 @@
+# Product Discovery — Quantitative Gates (Wave 0)
+# Source of truth for GO/NO-GO thresholds per atom and composite.
+
+id: product-discovery-gates
+name: "Product Discovery Gates"
+version: "1.0.0"
+description: "Quantitative GO/NO-GO thresholds for the 4 Wave-0 atoms and composite decision."
+owner_squad: spy
+parent_workflow: wf-product-discovery
+
+# ──────────────────────────────────────────────────────────────────────
+# PER-ATOM GATES
+# ──────────────────────────────────────────────────────────────────────
+gates:
+
+  jtbd:
+    atom_id: pd-jtbd-validate
+    threshold_go: "understanding_rate >= 80 AND same_problem_count >= 3"
+    threshold_needs_rework: "understanding_rate >= 60 AND understanding_rate < 80"
+    threshold_no_go: "understanding_rate < 60"
+    measured_metrics:
+      - understanding_rate          # % of 10 contacts who understand on first read
+      - same_problem_count          # how many of 10 report having that problem
+      - ai_cross_validation_score   # second-LLM clarity score (0-40)
+    output_file: "01-jtbd.md"
+    on_no_go: "halt; revise idea_statement and target_audience; do not proceed"
+
+  mom_test:
+    atom_id: pd-mom-test-interview
+    threshold_go: "interviews_completed >= 10 AND insights_extracted >= 5 AND corroborated_pains >= 3"
+    threshold_needs_rework: "interviews_completed >= 10 AND (insights_extracted < 5 OR corroborated_pains < 3)"
+    threshold_no_go: "interviews_completed >= 10 AND corroborated_pains == 0"
+    measured_metrics:
+      - interviews_completed
+      - insights_extracted          # NDM patterns recognized
+      - corroborated_pains          # pains appearing in ≥3 interviews
+      - forbidden_questions_count   # MUST be 0
+    forbidden_questions_must_be_zero: true
+    output_file: "02-mom-test.md"
+    on_no_go: "halt; problem not validated as widespread/sharp; pivot recommended"
+
+  villain:
+    atom_id: pd-villain-mapping
+    threshold_go: "evidences_count >= 20 AND tier1_count >= 8 AND tier2_count >= 5 AND mom_test_alignment_pct >= 70"
+    threshold_needs_rework: "evidences_count >= 20 AND mom_test_alignment_pct < 70"
+    threshold_no_go: "evidences_count < 20 AFTER 3 retries"
+    measured_metrics:
+      - evidences_count
+      - tier1_count
+      - tier2_count
+      - tier3_count
+      - mom_test_alignment_pct      # % of mom-test pains that have ≥1 villain evidence
+      - pattern_categories_filled   # how many of 5 standard buckets have evidence
+    output_file: "03-villain.md"
+    on_no_go: "halt; root cause not corroboratable by public sources; investigate alternate framings"
+
+  wtp_smoke_test:
+    atom_id: pd-wtp-smoke-test
+    threshold_strong_go: "payment_attempt_rate >= 10 AND paying_customers >= 1"
+    threshold_go: "payment_attempt_rate >= 10 OR presales_count >= 5"
+    threshold_needs_rework: "cta_click_rate >= 5 AND payment_attempt_rate < 10 AND presales_count < 5"
+    threshold_no_go: "cta_click_rate < 5 OR (payment_attempts == 0 AND visitors >= 50)"
+    measured_metrics:
+      - visitors
+      - time_on_page_45s_pct
+      - cta_click_rate
+      - payment_attempt_rate
+      - payment_completed_rate
+      - presales_count
+      - paying_customers
+      - urgency_questions_count     # "when does it ship?" questions
+    output_file: "04-wtp-smoke-test.md"
+    on_no_go: "halt; no WTP signal; pivot to different format or audience"
+
+# ──────────────────────────────────────────────────────────────────────
+# COMPOSITE GATE
+# ──────────────────────────────────────────────────────────────────────
+composite:
+  decision_matrix:
+    STRONG_GO:
+      condition: "all_4_atoms == GO AND wtp.paying_customers >= 1"
+      action: "proceed to Wave 1 (STORY-SPY-PD.2) with high confidence; emit handoff-wave1.yaml"
+      coverage_score: 95
+
+    GO:
+      condition: "all_4_atoms == GO AND wtp.paying_customers == 0"
+      action: "proceed; treat fundraise as risk; emit handoff-wave1.yaml with funding_risk: true"
+      coverage_score: 80
+
+    CONDITIONAL_GO:
+      condition: "atoms_at_go >= 3 AND failing_atom_has_remediation_plan == true"
+      action: "halt downstream; re-run failing atom; do NOT emit handoff yet"
+      coverage_score: 60
+
+    NO_GO:
+      condition: "atoms_at_go <= 2"
+      action: "halt pipeline; write pivot-log.md; archive run with learnings"
+      coverage_score: 30
+
+# ──────────────────────────────────────────────────────────────────────
+# RETRY POLICY
+# ──────────────────────────────────────────────────────────────────────
+retry_policy:
+  max_retries_per_atom: 3
+  retry_trigger: "NEEDS-REWORK verdict"
+  after_max_retries: "escalate to NO-GO and halt composite"
+
+# ──────────────────────────────────────────────────────────────────────
+# QUALITY GUARANTEES
+# ──────────────────────────────────────────────────────────────────────
+quality_guarantees:
+  evidence_provenance:
+    - "every villain evidence has URL + date + exact quote"
+    - "every mom-test interview has structured notes per template"
+    - "every WTP funnel metric has tracking event name + raw count"
+  cross_atom_consistency:
+    - "mom-test pains must appear in villain evidences (≥70% alignment)"
+    - "WTP copy must reference the validated JTBD + villain root cause"
+  simulation_flagging:
+    - "any atom run with simulated/proxy data must declare --simulated flag in output metadata"
+    - "STRONG_GO is not achievable with simulated WTP data"
+
+# ──────────────────────────────────────────────────────────────────────
+# CHANGELOG
+# ──────────────────────────────────────────────────────────────────────
+changelog:
+  - version: "1.0.0"
+    date: "2026-05-11"
+    author: "@oalanicolas"
+    change: "Initial gates created during STORY-SPY-PD.1 implementation"

@@ -1,0 +1,174 @@
+# =============================================================================
+# Design Ops Squad — I/O Contracts
+# =============================================================================
+# Bootstrap greenfield do provider canônico de design.
+# O legado em `squads/design-system/` é somente `legacy_source`.
+# =============================================================================
+
+squad: design-ops
+version: "1.0.0"
+bu_mapping: "hub-framework"
+
+inputs:
+  - id: workspace-design-context
+    description: "Configuração canônica de design por business/app no workspace"
+    source: "workspace/businesses/*/L2-tactical/design/"
+    format: yaml
+    required: false
+
+  - id: legacy-provider-source
+    description: "Fonte congelada para extração controlada de conhecimento provider-centric"
+    source: "squads/design-system/"
+    format: filesystem
+    required: false
+
+  - id: starter-runtime
+    description: "Runtime técnico do aiox-design-starter"
+    source: "apps/aiox-design-starter/"
+    format: filesystem
+    required: false
+
+  - id: design-brief
+    description: "Brief de provider, governança, foundations ou starter runtime"
+    source: "human/agent"
+    format: markdown
+    required: false
+
+outputs:
+  - id: design-routing-decision
+    description: "Decisão de triage e roteamento do domínio provider"
+    template: null
+    consumers:
+      - "design-chief"
+      - "design-pages"
+      - "design-app"
+
+  - id: ds-health-report
+    description: "Relatório de saúde do provider"
+    template: null
+    consumers:
+      - "qa"
+      - "process-excellence-squad"
+
+  - id: ds-tokens-schema
+    description: "Canonical token contract for the provider (shape: tiers base/semantic/component)"
+    template: templates/ds-tokens-schema-tmpl.yaml
+    consumers:
+      - "design-pages"
+      - "design-app"
+
+  - id: ds-tokens-defaults
+    description: "Hydrated instantiation of ds-tokens-schema (cross-DS justified values)"
+    template: templates/ds-tokens-defaults-tmpl.yaml
+    implements: "ds-tokens-schema"
+    consumers:
+      - "design-pages"
+      - "design-app"
+      - "ds-bootstrap-starter"
+      - "ds-extract-tokens"
+      - "f1-apply-foundations"
+      - "emit-design-md"
+
+  - id: provider-governance-pack
+    description: "Políticas, boundaries e contratos do provider"
+    template: null
+    consumers:
+      - "architect"
+      - "sinkra-chief"
+
+handoff_scopes:
+  intra_processo:
+    description: "Operação interna do provider"
+    signoff_required: false
+  intra_bu:
+    description: "Handoff para outros squads do hub"
+    signoff_required: recommended
+  inter_bu:
+    description: "Handoff para consumers e squads spoke"
+    signoff_required: true
+    approver: "spoke-owner"
+
+consumer_contract_policy:
+  workspace_first: true
+  source_of_truth: "workspace/businesses/{business}/L2-tactical/design/"
+  required_contracts:
+    - tokens.yaml
+    - foundations.yaml
+    - component-contracts.yaml
+    - motion-primitives.yaml
+  consumers:
+    design-pages:
+      must_read_from_workspace: true
+      fallback_to_legacy_source: false
+      allowed_inputs:
+        - workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+        - workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+        - workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+        - workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+    design-app:
+      must_read_from_workspace: true
+      fallback_to_legacy_source: false
+      allowed_inputs:
+        - workspace/businesses/{business}/L2-tactical/design/tokens.yaml
+        - workspace/businesses/{business}/L2-tactical/design/foundations.yaml
+        - workspace/businesses/{business}/L2-tactical/design/component-contracts.yaml
+        - workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+    # Wave C.1 — added per ADR-018 v1.1 condition #6
+    slides-creator:
+      must_read_from_workspace: false  # consumes provider primitives, not workspace tokens
+      fallback_to_legacy_source: false
+      allowed_inputs:
+        - squads/design-ops/data/primitives-interface.yaml
+        - squads/design-ops/data/starter-components-catalog.yaml
+        - squads/design-ops/data/animation-primitives-contract.yaml
+        - squads/design-ops/data/deck-contracts-spec.yaml
+      role: "deck authoring pipeline owner; consumes design-ops primitives via primitives-interface.yaml"
+    aiox-design-starter:
+      must_read_from_workspace: false  # provider-side primitives consumer + tweak protocol runtime
+      fallback_to_legacy_source: false
+      allowed_inputs:
+        - squads/design-ops/data/tweak-protocol-spec.yaml
+        - squads/design-ops/data/starter-components-catalog.yaml
+        - squads/design-ops/data/animation-primitives-contract.yaml
+        - squads/design-ops/data/window-claude-complete-contract.yaml
+        - squads/design-ops/data/artifact-file-governance.yaml
+      role: "reference runtime for tweak protocol; consumer of provider-side primitives at build time"
+      forbidden:
+        - "MUST NOT mutate any file under data/ — read-only"
+  optional_integrations:
+    storybook:
+      required: false
+      authority_rule: "never_overrides_workspace_contracts"
+    figma_tokens_studio:
+      required: false
+      authority_rule: "never_overrides_workspace_contracts"
+
+# Wave C.1 — write_paths governance per ADR-018 v1.1 condition #6 (cso H2)
+write_paths:
+  allowed:
+    - "outputs/design-ops/{business}/artifacts/**"  # generated artifacts (transient per artifact-classification)
+    - "squads/design-ops/**"  # capability config (squad-owned)
+  forbidden:
+    - "workspace/**"  # business isolation per hub-governance.md
+    - "apps/**"       # apps own their own scope
+    - "packages/**"   # packages own their own scope
+  rationale: >-
+    The artifact-creation capability writes generated outputs under
+    outputs/design-ops/{business}/artifacts/ (ephemeral per artifact-classification
+    rules). Capability-owned config (contracts, registries, checklists) lives
+    under squads/design-ops/. Writes to
+    workspace/, apps/, or packages/ are forbidden — those are owned by other
+    layers/squads.
+
+legacy_freeze_policy:
+  source_squad: design-system
+  lifecycle_state: frozen
+  allowed_change_types:
+    - deprecation_marking
+    - minimum_bridge
+    - knowledge_extraction
+    - safety_or_integrity_fix
+  forbidden_change_types:
+    - provider_expansion
+    - consumer_lane_creation
+    - cleanup_as_primary_strategy

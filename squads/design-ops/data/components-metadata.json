@@ -1,0 +1,116 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-04-10T08:27:30.899Z",
+  "source": "workspace/businesses/aiox/L2-tactical/design/component-contracts.yaml",
+  "business": "aiox",
+  "components": [
+    {
+      "id": "button",
+      "layer": "core",
+      "status": "MAPPED",
+      "primitives": [
+        "radix-ui",
+        "brandbook-css-bridge"
+      ],
+      "tokens": [
+        "color.primary",
+        "color.foreground",
+        "radius.md",
+        "spacing.3"
+      ],
+      "accessibility": {
+        "keyboard_navigation": "required",
+        "focus_visible": "required",
+        "aria_contract": "required"
+      },
+      "implementation_refs": [
+        "apps/aiox-brandbook/src/components/brandbook/atoms/bb-button.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/pages/buttons-page.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/styles/components-lib.css"
+      ],
+      "class_contract": {
+        "root": ".btn",
+        "variants": [
+          ".btn-primary",
+          ".btn-secondary",
+          ".btn-ghost",
+          ".btn-destructive"
+        ],
+        "sizes": [
+          ".btn-sm",
+          ".btn-lg"
+        ],
+        "states": [
+          ".btn--disabled",
+          ".btn--loading"
+        ]
+      }
+    },
+    {
+      "id": "input",
+      "layer": "core",
+      "status": "MAPPED",
+      "primitives": [
+        "radix-ui",
+        "brandbook-css-bridge"
+      ],
+      "tokens": [
+        "color.background",
+        "color.foreground",
+        "color.muted",
+        "radius.md"
+      ],
+      "accessibility": {
+        "keyboard_navigation": "required",
+        "focus_visible": "required",
+        "aria_contract": "required"
+      },
+      "implementation_refs": [
+        "apps/aiox-brandbook/src/components/brandbook/atoms/bb-input.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/molecules/bb-search-input.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/styles/components-lib.css"
+      ],
+      "class_contract": {
+        "root": ".input",
+        "variants": [
+          ".input--error",
+          ".input--disabled"
+        ],
+        "related_elements": [
+          ".textarea",
+          ".input-label",
+          ".input-hint",
+          ".input-error-msg"
+        ]
+      }
+    },
+    {
+      "id": "dialog",
+      "layer": "core",
+      "status": "MAPPED",
+      "primitives": [
+        "radix-ui",
+        "brandbook-css-bridge"
+      ],
+      "tokens": [
+        "color.background",
+        "shadow.lg",
+        "radius.lg"
+      ],
+      "accessibility": {
+        "keyboard_navigation": "required",
+        "focus_visible": "required",
+        "aria_contract": "required"
+      },
+      "implementation_refs": [
+        "apps/aiox-brandbook/src/components/brandbook/organisms/bb-modal.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/organisms/bb-search-modal.tsx",
+        "apps/aiox-brandbook/src/components/brandbook/organisms/bb-confirm-sheet.tsx"
+      ],
+      "class_contract": {}
+    }
+  ],
+  "integrity": {
+    "component_count": 3
+  }
+}

@@ -1,0 +1,156 @@
+id: primitives-interface
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-consumer-contract
+origin: "Wave C.1 — formalizes slides-creator boundary per ADR-018 condition #5 (architect H1)"
+
+# Machine-readable interface contract between design-ops
+# (provider of design primitives) and downstream consumers (slides-creator,
+# aiox-design-starter). Eliminates "primitives vs pipelines" prose ambiguity by
+# enumerating EXACTLY which primitives consumers MUST consume vs MAY re-implement.
+#
+# Without this file, the soft co-ownership of `deck` between design-ops and
+# slides-creator drifts. With it, drift is detectable at validation time.
+
+# =============================================================================
+# CONSUMERS DECLARED
+# =============================================================================
+consumers:
+
+  slides-creator:
+    role: "Deck authoring pipeline owner"
+    consumes_primitives:
+      - id: deck_stage
+        source: data/starter-components-catalog.yaml#deck_stage
+        consumption: MUST
+        rationale: "Deck shell with scaling, keyboard nav, slide-count, speaker notes, persistence, print-to-PDF — single source of truth"
+      - id: ios_frame
+        source: data/starter-components-catalog.yaml#ios_frame
+        consumption: MUST_when_iOS_mockup
+        rationale: "Device bezel — slides-creator MUST NOT re-roll its own iOS chrome"
+      - id: android_frame
+        source: data/starter-components-catalog.yaml#android_frame
+        consumption: MUST_when_Android_mockup
+      - id: macos_window
+        source: data/starter-components-catalog.yaml#macos_window
+        consumption: MUST_when_macOS_mockup
+      - id: browser_window
+        source: data/starter-components-catalog.yaml#browser_window
+        consumption: MUST_when_browser_mockup
+      - id: animations
+        source: data/starter-components-catalog.yaml#animations
+        consumption: MUST_when_motion
+        rationale: "Stage + Sprite + Easing + interpolate — slides-creator MUST NOT import Popmotion directly without first invoking these"
+      - id: design_canvas
+        source: data/starter-components-catalog.yaml#design_canvas
+        consumption: MAY
+        rationale: "Side-by-side variant grid — useful for slides-creator's optional variant exploration but not required"
+      - id: speaker_notes_protocol
+        source: data/deck-contracts-spec.yaml#speaker_notes_protocol
+        consumption: MUST
+        rationale: "postMessage contract is a host integration — drift breaks presenter software"
+      - id: data_screen_label_attribute
+        source: data/deck-contracts-spec.yaml#deck_shell#data_attributes_contract
+        consumption: MUST
+        rationale: "Slide identification metadata, 1-indexed, surfaces in mentioned-element blocks"
+
+    pipelines_owned_by_slides_creator:
+      - "Brief intake → deck composition workflow"
+      - "Deck QA pipeline (per slides-creator squad rules)"
+      - "Release/handoff to clients"
+      - "Deck authoring agents (slide-chief, etc.)"
+
+    must_not:
+      - "Re-implement deck_stage scaling logic"
+      - "Define a new speaker notes contract"
+      - "Override the [data-screen-label] indexing convention (1-indexed mandatory)"
+      - "Bypass artifact-creation primitives by hand-rolling device frames"
+
+  aiox-design-starter:
+    role: "Reference runtime for tweak protocol + provider-side primitives consumer"
+    consumes_primitives:
+      - id: tweak_protocol_spec
+        source: data/tweak-protocol-spec.yaml
+        consumption: MUST
+        rationale: "Starter implements the canonical reference runtime for the protocol"
+      - id: starter_components_catalog
+        source: data/starter-components-catalog.yaml
+        consumption: MUST_at_build_time
+        rationale: "Starter provides the runtime for these primitives to consumers"
+      - id: animation_primitives
+        source: data/animation-primitives-contract.yaml
+        consumption: MUST_when_animation
+      - id: window_claude_complete
+        source: data/window-claude-complete-contract.yaml
+        consumption: MUST_when_AI_runtime_enabled
+        rationale: "Starter provides the window.claude shim for self-contained artifacts"
+      - id: artifact_file_governance
+        source: squads/design-ops/data/artifact-file-governance.yaml
+        consumption: SHOULD
+        rationale: "File size + naming + versioning conventions"
+
+    must_not:
+      - "Mutate any file under data/ — read-only"
+      - "Define a competing tweak protocol"
+      - "Ship divergent versions of starter components without contract update"
+
+# =============================================================================
+# CONSUMPTION SEMANTICS
+# =============================================================================
+consumption_levels:
+  MUST: "Consumer is required to use the primitive as-is. Re-implementing is a contract violation."
+  MUST_when_X: "Consumer MUST use the primitive when condition X is met (e.g., MUST use ios_frame when producing iOS mockup)."
+  MUST_at_build_time: "Consumer reads at build time, not runtime. Read-only."
+  SHOULD: "Strongly recommended. Deviation requires documented rationale."
+  MAY: "Optional. Consumer chooses based on context."
+
+# =============================================================================
+# CONFORMANCE VALIDATION
+# =============================================================================
+conformance:
+  validator_planned: scripts/validate-primitives-conformance.cjs
+  status: pending_implementation
+  validation_rules:
+    - rule: slides_creator_must_import_deck_stage
+      check: "grep slides-creator/templates/* for `deck_stage.js` import; fail if any deck template lacks it"
+    - rule: starter_must_implement_tweak_protocol
+      check: "grep apps/aiox-design-starter/src/lib/tweak/* for protocol event handlers (__activate_edit_mode, __deactivate_edit_mode, __edit_mode_available, __edit_mode_set_keys)"
+    - rule: no_duplicate_device_frame_implementations
+      check: "scan slides-creator + aiox-design-starter for any local re-roll of {ios,android,macos,browser}_frame components"
+
+# =============================================================================
+# CHANGE PROPOSALS
+# =============================================================================
+change_proposals:
+  rule: "Consumers proposing primitive extensions submit PR against data/"
+  approval: "@architect + @design-chief (per CODEOWNERS pinning, ADR-018 M4)"
+  example_flow:
+    - step: 1
+      who: slides-creator
+      action: "Identifies need for new primitive (e.g., circular_progress_indicator)"
+    - step: 2
+      who: slides-creator
+      action: "Opens PR adding entry to starter-components-catalog.yaml"
+    - step: 3
+      who: design-chief + architect
+      action: "Reviews per CODEOWNERS"
+    - step: 4
+      who: aiox-design-starter
+      action: "Implements runtime in parallel PR (gated on contract approval)"
+    - step: 5
+      who: design-chief
+      action: "Merges both PRs together to maintain contract-runtime sync"
+
+# =============================================================================
+# RELATED
+# =============================================================================
+related:
+  - squads/design-ops/data/starter-components-catalog.yaml
+  - squads/design-ops/data/tweak-protocol-spec.yaml
+  - squads/design-ops/data/animation-primitives-contract.yaml
+  - squads/design-ops/data/window-claude-complete-contract.yaml
+  - squads/design-ops/data/deck-contracts-spec.yaml
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md
+  - docs/adrs/ROUNDTABLE-ADR-018-2026-04-18.md

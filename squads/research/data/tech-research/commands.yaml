@@ -1,0 +1,24 @@
+commands:
+  - "'*help' - Show available commands"
+  - "'*research {query}' - Start full research pipeline"
+  - "'*quick {query}' - Fast research (skip clarification)"
+  - "'*status' - Show current research status"
+  - "'*exit' - Exit skill"
+
+flags:
+  - flag: "--product-discovery"
+    alias: "--pd"
+    description: "Product discovery mode — injects PD-specific sub-queries (JTBD framing, villain root cause, WTP signals, blue ocean, hypothesis structuring) into decompose phase. Feeds spy:validate-product-idea molecule."
+    added_in: "1.1.0"
+    behavior: |
+      When set, Phase 1.5 (Decompose) uses the product-discovery sub-query template
+      instead of the technical decomposition. Phase 2 (Generate Prompt) embeds the
+      JTBD canonical format and villain-mapping evidence schema in the research
+      prompt. Phase 5 (Document) adds an optional `06-product-discovery-validation.md`
+      section with GO/NO-GO score against `spy/checklists/product-discovery-gates.yaml`.
+    cross_link:
+      consumer: "spy:validate-product-idea (Wave 0 molecule)"
+      framework: "squads/research/data/product-discovery-framework.md"
+  - flag: "--deep"
+    description: "Force multi-LLM Playwright deep-research phase (Grok/Claude/Gemini)"
+    note: "Existing flag — documented here for completeness"

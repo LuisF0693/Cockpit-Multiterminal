@@ -1,0 +1,287 @@
+# Atomic Classification Signals (Machine-Readable Mirror)
+#
+# This file is the OPERATIONAL mirror of `squads/design-ops/rules/atomic-design-taxonomy.md`.
+# Programmatic consumers (extractors, validators, ESLint plugins, audit scripts) read
+# this YAML to apply the 5-question falsifiable classification rule deterministically.
+#
+# THIS FILE IS NOT AUTHORITATIVE. The rule at `squads/design-ops/rules/atomic-design-taxonomy.md`
+# is the source of truth. If this YAML diverges from the rule, the rule wins and this
+# file MUST be reconciled.
+#
+# Origin:
+#   - ADR-052 (DS Taxonomy Layers) — ACCEPTED-WITH-CONDITIONS 2026-05-06
+#   - Roundtable verdict 5/5 OPTION_B (8.0/10)
+#   - Research: docs/research/2026-05-06-atomic-design-definition/06-organism-template-page-decision-tree.md
+#   - Origin condition: CON-1 from roundtable
+
+version: "1.0.0"
+authority_rule: "squads/design-ops/rules/atomic-design-taxonomy.md"
+adr: "ADR-052"
+roundtable_report: "docs/architecture/roundtable-adr-052-2026-05-06.md"
+created: "2026-05-07"
+owner: "design-ops"
+
+# ─────────────────────────────────────────────────────────────────────
+# Question protocol — order is part of the contract.
+# Consumers MUST evaluate questions in this order. First YES wins.
+# ─────────────────────────────────────────────────────────────────────
+
+protocol:
+  order: [q1_indivisible, q2_one_action, q3_reusable_section, q4_slot_contract, q5_concrete_instance]
+  on_no_match: emit_extraction_gap   # NEVER fallback to organism
+
+  q1_indivisible:
+    layer: atom
+    description: "Splitting it would lose function"
+    examples: [button, input, icon, label, avatar, tag, text_style]
+
+  q2_one_action:
+    layer: molecule
+    description: "Clear single intent, 2-4 atoms, reusable as a unit"
+    examples: [search_field, account_trigger, label_icon_chip, button_group, breadcrumb, form_row]
+
+  q3_reusable_section:
+    layer: organism
+    description: "Section responsibility, can appear in more than one screen, not the entire screen yet"
+    examples: [topbar, inbox_list, message_reader, compose_dialog, product_grid, quick_settings_panel, mobile_bottom_nav]
+
+  q4_slot_contract:
+    layer: layout
+    description: "Defines WHERE other things go (named slots), declares responsiveness, content is placeholder"
+    examples: [workspace_layout, article_layout, pdp_layout, list_detail_canonical_layout]
+    legacy_name: template   # Brad Frost's term; renamed in ADR-052 to avoid SINKRA collision
+
+  q5_concrete_instance:
+    layer: page
+    description: "Final screen with realistic content, composes multiple organisms within a layout"
+    examples: [full_gmail_workspace, medium_home, amazon_pdp, full_mobile_compose_screen]
+
+# ─────────────────────────────────────────────────────────────────────
+# Signals — heuristics extractors use to map DOM/CSS to layer.
+# These signals INFORM classification but the protocol order above
+# is what determines the final layer.
+# ─────────────────────────────────────────────────────────────────────
+
+signals:
+  atom:
+    children_max: 1
+    OR_descendants_only_in: [text_node, single_icon, single_primitive_input]
+    semantic_role: single_or_none
+    notes: "An icon-with-text label is still an atom (composed primitive)."
+
+  molecule:
+    children_range: [2, 4]
+    semantic_role: single
+    notes: "If children exceed 4 OR multiple semantic roles emerge, evaluate q3."
+
+  organism:
+    children_min: 5
+    OR_multiple_subsections: true
+    class_name_hints: [section, region, sidebar, navbar, topbar, header, footer, list, panel, drawer, dialog]
+    notes: "Must be reusable across screens. If it IS the screen, evaluate q4 or q5."
+
+  layout:
+    css_grid_template_areas_present: optional
+    OR_named_slots_present: required
+    realistic_content: false   # MUST be placeholder
+    must_declare_slots: [header, rail, main, aside, footer]   # subset acceptable
+    must_declare_responsive_rules: true
+    notes: |
+      A Layout without explicit slots is suspicious — likely a misclassified
+      Organism or Page. CON-4 from roundtable defers a formal slot schema
+      to a follow-up ADR.
+
+  page:
+    body_level_OR_root_container: true
+    multiple_organisms: true   # ≥2 distinct organisms composed
+    realistic_content: true
+    notes: |
+      The Page is the stress test of the design system. Pages live in
+      product code; the DS library may include "presentational pages"
+      (HTML+fixtures) but never "connected pages" (network/context-bound).
+
+  pattern:
+    not_a_layer: true
+    triggered_by:
+      - empty_state
+      - error_state
+      - loading_state
+      - onboarding_flow
+      - date_picking
+      - confirmation_flow
+      - feedback_after_action
+    requires:
+      pattern_id: kebab_case_unique
+      description: 1_to_2_sentences
+      canonical_uses: ge_2_concrete_references
+    grace_period_days: 60
+    on_grace_expired_with_lt_2_uses: archive
+
+# ─────────────────────────────────────────────────────────────────────
+# Anti-patterns — detection rules and severity.
+# Consumers MUST flag these and respect the severity gate.
+# ─────────────────────────────────────────────────────────────────────
+
+anti_patterns:
+  shell_as_organism:
+    severity: BLOCK
+    detection:
+      width_relation: gte_viewport
+      regions_present: [header, main, aside]
+      classified_as: organism
+    correction: "Reclassify as Page (with content) or Layout (with slots)"
+    rationale: "Shells are full-screen experiences, not reusable sections"
+
+  page_as_organism:
+    severity: BLOCK
+    detection:
+      full_screen_layout: true
+      multiple_organisms_composed: true
+      classified_as: organism
+    correction: "Reclassify as Page"
+    rationale: "Multi-organism full screens are Pages, not Organisms"
+
+  button_as_molecule:
+    severity: WARN
+    detection:
+      atomic_primitive_role: true
+      classified_as: molecule
+    correction: "Reclassify as Atom"
+    rationale: "Atomic primitives stay atomic regardless of decoration (icon + text = atom)"
+
+  template_with_real_content:
+    severity: WARN
+    detection:
+      classified_as: layout
+      contains_realistic_content: true
+    correction: "If realistic content is intentional, reclassify as Page; otherwise replace content with placeholders"
+    rationale: "Layouts must have placeholder slots; Layout + real content = Page"
+
+  patterns_dumping_ground:
+    severity: WARN_THEN_ARCHIVE
+    detection:
+      layer: pattern
+      canonical_uses_count: lt_2
+      age_days: gt_60
+    correction: "Archive the pattern or document 2+ canonical uses"
+    rationale: "Patterns must reference ≥2 real uses to remain admissible"
+
+# ─────────────────────────────────────────────────────────────────────
+# Extraction gaps — what to emit when classification fails.
+# Aligned with `.claude/rules/extraction-no-fallbacks.md` (NON-NEGOTIABLE).
+# ─────────────────────────────────────────────────────────────────────
+
+extraction_gap:
+  emission_format:
+    atomic_layer: null
+    atomic_layer_gap: "extraction_gap({reason})"
+  forbidden_fallbacks:
+    - default_to_organism
+    - default_to_unknown
+    - default_to_component   # Caminho C term, not used in Caminho B
+    - guess_by_visual_size
+  allowed_reasons:
+    - exotic_markup_unknown_pattern
+    - insufficient_dom_signals
+    - ambiguous_between_layout_and_page
+    - ambiguous_between_organism_and_layout
+    - shadow_dom_boundary_unparseable
+
+# ─────────────────────────────────────────────────────────────────────
+# Foundations — not a level in the protocol but tracked separately.
+# When the artifact is a token/foundation, set atomic_layer: foundations
+# directly, bypassing the 5-question protocol.
+# ─────────────────────────────────────────────────────────────────────
+
+foundations:
+  bypasses_protocol: true
+  categories:
+    - color
+    - typography
+    - spacing
+    - motion
+    - grid
+    - breakpoints
+    - icons
+    - elevation
+    - z_index_scale
+  pattern_token_subset:
+    description: "Cross-cutting tokens that encode behavioral guidance, not primitives"
+    members: [motion, focus, elevation, z_index_scale]
+    storage: "Emit under tokens-extended.json#pattern_tokens (separate from foundation_tokens)"
+
+# ─────────────────────────────────────────────────────────────────────
+# Validation criteria (CON-7 from roundtable).
+# This file's logic is empirically valid when these hold.
+# ─────────────────────────────────────────────────────────────────────
+
+validation:
+  inter_rater_agreement:
+    sample_size_min: 10
+    threshold_pct: 90
+    on_failure: "Trigger Path C migration evaluation per ADR-052 §Recommendation point 3"
+  zero_shells_as_organism:
+    scope: artifacts_produced_after_adoption_date
+    grace_period_days: 0
+    on_violation: BLOCK
+  page_validates_against_layout:
+    rule: every_page_must_reference_at_least_one_layout
+    scope: storybook_export
+    enforcement: ci_check_planned
+  patterns_documented_count:
+    min_count: 3
+    deadline_days_post_adoption: 30
+    on_failure: review_in_90d_retrospective
+
+# ─────────────────────────────────────────────────────────────────────
+# Drift detection — CI compares this YAML to the authoritative rule.
+# ─────────────────────────────────────────────────────────────────────
+
+drift_check:
+  authority: "squads/design-ops/rules/atomic-design-taxonomy.md"
+  consumer_check_script: "scripts/validate-atomic-classification-drift.js"   # planned
+  fields_required_to_match:
+    - protocol.order
+    - protocol.q1_indivisible.layer
+    - protocol.q2_one_action.layer
+    - protocol.q3_reusable_section.layer
+    - protocol.q4_slot_contract.layer
+    - protocol.q5_concrete_instance.layer
+    - anti_patterns.shell_as_organism.severity
+    - anti_patterns.page_as_organism.severity
+    - extraction_gap.forbidden_fallbacks
+  on_drift: "BLOCK CI; require @architect or @design-chief reconciliation"
+
+# ─────────────────────────────────────────────────────────────────────
+# Consumers (declared) — files that read this YAML directly or
+# implement its logic. Used for impact analysis when this file changes.
+# ─────────────────────────────────────────────────────────────────────
+
+consumers:
+  current:
+    - path: "squads/design-ops/scripts/extract-from-url/lib/extractors.cjs"
+      function: "classifyAtomicLayer (planned per STORY-DS-EXTRACT-ATOMIC-LAYER-2026-05-06)"
+    - path: "squads/design-ops/scripts/extract-from-url/lib/render-contract.cjs"
+      function: "slot-contract emission (planned)"
+    - path: "squads/design-ops/scripts/validate-extract-from-url.js"
+      function: "anti-pattern detection (planned)"
+  upstream_consumers_of_emitted_atomic_layer:
+    - path: "apps/design/src/lib/resolved-tokens.js"
+      reads: "tokens-extended.json#pattern_tokens (after CON-8 migration)"
+    - path: "apps/prompt-ops/"
+      reads: "tokens-extended.json#pattern_tokens"
+  validators:
+    - "squads/design-ops/workflows/audit-only.yaml"
+    - "squads/design-ops/workflows/storybook-brownfield-migration.yaml"
+    - "squads/design-ops/tasks/epic-ds-review.md"
+    - "squads/design-ops/tasks/design-triage.md"
+
+# ─────────────────────────────────────────────────────────────────────
+# Provenance
+# ─────────────────────────────────────────────────────────────────────
+
+provenance:
+  created_by: "@design-chief"
+  approved_via: "Roundtable rt-adr052 (5/5 OPTION_B, 8.0/10)"
+  acceptance_conditions: "CON-1 to CON-12 in roundtable report"
+  related_story: "docs/stories/2026-05-06-ds-extraction-atomic-layer-classification.story.md"

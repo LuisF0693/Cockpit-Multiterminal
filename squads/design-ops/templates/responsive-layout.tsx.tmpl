@@ -1,0 +1,43 @@
+/**
+ * Responsive App Layout — canonical shell for any /design-system artifact
+ * that has navigation (brandbook, dashboard, marketing site, app).
+ *
+ * Pairs `<MobileTopBar />` (renders <lg) with `<Sidebar />` (renders ≥lg).
+ * Both surfaces share nav content via `SidebarNav` — the canonical
+ * extraction pattern. DO NOT duplicate nav arrays between desktop and
+ * mobile surfaces.
+ *
+ * Usage:
+ *   1. Copy this file as `src/app/(app)/layout.tsx` (or equivalent).
+ *   2. Copy `mobile-topbar.tsx.tmpl` as `src/components/mobile-topbar.tsx`.
+ *   3. Refactor your existing sidebar to export `SidebarNav` (content)
+ *      AND `Sidebar` (desktop aside wrapper).
+ *   4. Import Footer if your surface has one.
+ *
+ * Contract:
+ *   - `.app-shell` class comes from responsive-tokens.css.tmpl and
+ *     reserves room for the mobile top-bar AND shifts right on desktop.
+ *   - `suppressHydrationWarning` on wrappers covers Typekit / browser
+ *     extensions mutating class attributes at hydration.
+ */
+
+import { MobileTopBar } from "@/components/mobile-topbar";
+import { Sidebar } from "@/components/sidebar";
+// import { SiteFooter } from "@/components/site-footer";
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div id="page-wrapper" suppressHydrationWarning>
+      <div id="page" suppressHydrationWarning>
+        <header id="header" aria-label="Site header">
+          <MobileTopBar />
+          <Sidebar />
+        </header>
+        <main id="main-content" className="app-shell">
+          {children}
+          {/* <SiteFooter /> */}
+        </main>
+      </div>
+    </div>
+  );
+}

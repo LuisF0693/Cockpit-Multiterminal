@@ -1,0 +1,85 @@
+workflow:
+  phases:
+    3_6_compress_wave:
+      name: "Wave Memory Compression"
+      # MODEL TIER: MAIN MODEL structured summarization by default.
+      description: |
+        Compresses current wave results into a structured summary file.
+        Runs AFTER Phase 3.5 evaluate, BEFORE next wave or synthesis.
+        Solves context accumulation: waves 2+ read only summaries, not raw data.
+
+        Pattern: Anthropic "structured note-taking" adapted for file-based persistence.
+        - Wave results compressed into a concise structured summary
+        - Saved to output dir as wave-{N}-summary.md
+        - Next wave reads previous summaries instead of carrying raw results
+        - Phase 4 (synthesis) reads ALL wave summaries for consolidated input
+
+      execution: |
+        TRIGGER: Runs after EVERY Phase 3.5 evaluation (both CONTINUE and STOP decisions).
+
+        1. COLLECT current wave data:
+           - search_results from this wave (URLs, titles, credibility tags)
+           - key_findings extracted during deep reads
+           - coverage_score and gaps from Phase 3.5
+           - new_info_ratio for this wave
+           - extraction_stats (tools used, success/fail counts)
+
+        2. COMPRESS with this prompt:
+           ```
+           Compress these research results into a structured summary.
+           Keep ONLY information needed for synthesis. Be ruthless about cutting redundancy.
+
+           WAVE DATA:
+           {wave_results_json}
+
+           OUTPUT FORMAT (markdown, max 400 tokens):
+           ## Wave {N} Summary
+           **Coverage:** {score}/100 | **New Info:** {ratio} | **Sources:** {count} HIGH, {count} MEDIUM
+           **Decision:** {CONTINUE|STOP} - {reason}
+
+           ### Key Findings (max 7, one line each)
+           1. {finding with specific data point} [source_url]
+           2. ...
+
+           ### Sources (URL + credibility only)
+           - {url} (HIGH|MEDIUM) - {one-line what it contributed}
+
+           ### Gaps Remaining
+           - {gap description} (priority: HIGH|MEDIUM|LOW)
+
+           RULES:
+           - Each finding MUST have a specific fact (number, name, technique) - no vague summaries
+           - Deduplicate: if 3 sources say the same thing, keep the best source only
+           - Preserve exact numbers, tool names, version numbers
+           - Do NOT include raw page content or full extractions
+           ```
+
+        3. SAVE to output directory:
+           - File: {output_dir}/wave-{N}-summary.md
+           - This file persists on disk even if session context is lost
+
+        3b. UPDATE MARKOVIAN OPERATIONAL STATE:
+           - File: {output_dir}/evolving_report.md
+           - Rewrite it after every wave as the current bounded synthesis.
+           - It must supersede the previous operational state rather than append raw history.
+           - Keep wave-{N}-summary.md files as audit trail, not as the primary runtime state.
+           - Include:
+             - Current synthesis
+             - Open questions pulled from curiosity_queue.yaml
+             - Claims that changed confidence this wave
+             - Stop readiness with explicit stop_reason if available
+
+        4. CONTEXT MANAGEMENT (the key optimization):
+           - After saving, the orchestrator can DISCARD raw wave results from working memory
+           - For next wave: read evolving_report.md plus the latest summary instead of carrying raw data
+           - For synthesis: read evolving_report.md first, then wave-*-summary.md files for audit trail
+
+        BACKWARD COMPATIBILITY:
+        - If file write fails: keep compressed text in context variable instead
+        - Phase 4 MUST work with either compressed summaries OR raw results
+
+      output: |
+        wave-{N}-summary.md saved to output directory
+        evolving_report.md updated as bounded operational state
+        ~400 tokens per wave (vs ~5000 tokens raw data per wave)
+        3 waves max = ~1200 tokens total vs ~15000 tokens raw

@@ -1,0 +1,613 @@
+# Motion Tokens Schema — DTCG-Compliant (W3C 2025.10)
+#
+# Three-layer architecture for the Kinetic Design System:
+#   Layer 1: Primitive tokens (raw values)
+#   Layer 2: Semantic tokens (usage intent, referencing primitives)
+#   Layer 3: Component tokens (component-specific overrides, referencing semantic)
+#
+# Source: docs/research/2026-03-21-kinetic-design-system/03-recommendations.md
+# Version: 1.0.0
+# Created: 2026-03-22
+
+schema_version: "1.0.0"
+dtcg_spec: "2025.10"
+description: >
+  DTCG-compliant motion token schema defining duration, easing, and stagger
+  scales. Three layers: primitive (raw values), semantic (usage intent), and
+  component (per-component overrides). All values must pass
+  prefers-reduced-motion accessibility gate.
+
+# =============================================================================
+# LAYER 1: Primitive Tokens (raw values, no semantic intent)
+# =============================================================================
+primitive:
+  duration:
+    description: "Duration scale from instant to glacial. 8 stops."
+    tokens:
+      instant:
+        $value: "0ms"
+        $type: duration
+        $description: "Immediate state changes (checkbox toggle, radio select)"
+      micro:
+        $value: "50ms"
+        $type: duration
+        $description: "Imperceptible micro-feedback"
+      quick:
+        $value: "100ms"
+        $type: duration
+        $description: "Fast micro-interactions (hover, focus ring)"
+      base:
+        $value: "200ms"
+        $type: duration
+        $description: "Standard transitions (color, opacity)"
+      moderate:
+        $value: "300ms"
+        $type: duration
+        $description: "Medium transitions (expand, slide, modal)"
+      slow:
+        $value: "500ms"
+        $type: duration
+        $description: "Larger animations (drawer, page section reveal)"
+      dramatic:
+        $value: "800ms"
+        $type: duration
+        $description: "Hero animations, attention-grabbing entrances"
+      glacial:
+        $value: "1200ms"
+        $type: duration
+        $description: "Full-page transitions, complex orchestration"
+
+  easing:
+    description: "Easing curves as cubic-bezier control points."
+    tokens:
+      linear:
+        $value: [0, 0, 1, 1]
+        $type: cubicBezier
+        $description: "Constant speed. Progress bars, continuous motion."
+      ease-in:
+        $value: [0.4, 0, 1, 1]
+        $type: cubicBezier
+        $description: "Accelerating. Elements exiting the viewport."
+      ease-out:
+        $value: [0, 0, 0.2, 1]
+        $type: cubicBezier
+        $description: "Decelerating. Elements entering the viewport."
+      ease-in-out:
+        $value: [0.4, 0, 0.2, 1]
+        $type: cubicBezier
+        $description: "Standard for most UI transitions."
+      spring:
+        $value: [0.34, 1.56, 0.64, 1]
+        $type: cubicBezier
+        $description: "Overshoot for playful/spring-like feel. Approximation via cubicBezier."
+        linear_alternative:
+          $description: >
+            Physics-based spring via CSS linear() with 45 discrete points.
+            Simulates stiffness ~200, damping ~20, mass ~1 (underdamped spring
+            with single overshoot). Use with @supports (animation-timing-function: linear(0, 1))
+            for progressive enhancement; cubicBezier above is the fallback.
+          browser_support: "Chrome 113+, Safari 17.2+, Firefox 112+ (~92% global)"
+          points: 45
+          $value: >-
+            linear(
+              0, 0.009, 0.035, 0.078, 0.136, 0.208, 0.291, 0.384, 0.484,
+              0.589, 0.697, 0.805, 0.910, 1.009, 1.100, 1.181, 1.249,
+              1.303, 1.342, 1.366, 1.375, 1.370, 1.352, 1.323, 1.285,
+              1.240, 1.191, 1.140, 1.089, 1.041, 0.998, 0.960, 0.930,
+              0.907, 0.892, 0.884, 0.883, 0.889, 0.900, 0.916, 0.935,
+              0.957, 0.979, 1.000, 1.000
+            )
+          css_usage: |
+            /* Progressive enhancement: use linear() where supported, cubicBezier fallback */
+            .spring-animation {
+              animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            @supports (animation-timing-function: linear(0, 1)) {
+              .spring-animation {
+                animation-timing-function: linear(
+                  0, 0.009, 0.035, 0.078, 0.136, 0.208, 0.291, 0.384, 0.484,
+                  0.589, 0.697, 0.805, 0.910, 1.009, 1.100, 1.181, 1.249,
+                  1.303, 1.342, 1.366, 1.375, 1.370, 1.352, 1.323, 1.285,
+                  1.240, 1.191, 1.140, 1.089, 1.041, 0.998, 0.960, 0.930,
+                  0.907, 0.892, 0.884, 0.883, 0.889, 0.900, 0.916, 0.935,
+                  0.957, 0.979, 1.000, 1.000
+                );
+              }
+            }
+      bounce:
+        $value: [0.68, -0.55, 0.27, 1.55]
+        $type: cubicBezier
+        $description: "Bounce effect. Use sparingly — strong personality."
+        linear_alternative:
+          $description: >
+            Physics-based bounce via CSS linear() with 48 discrete points.
+            Simulates 3-bounce decay (primary overshoot + 2 diminishing rebounds).
+            Use with @supports for progressive enhancement; cubicBezier above is fallback.
+          browser_support: "Chrome 113+, Safari 17.2+, Firefox 112+ (~92% global)"
+          points: 48
+          $value: >-
+            linear(
+              0, 0.004, 0.016, 0.036, 0.064, 0.101, 0.146, 0.199, 0.260,
+              0.329, 0.407, 0.492, 0.585, 0.685, 0.793, 0.907, 1.028,
+              1.056, 1.076, 1.088, 1.092, 1.088, 1.076, 1.056, 1.028,
+              1.000, 0.972, 0.956, 0.948, 0.948, 0.956, 0.972, 1.000,
+              1.014, 1.022, 1.024, 1.022, 1.014, 1.000, 0.993, 0.989,
+              0.988, 0.989, 0.993, 1.000, 1.000, 1.000, 1.000
+            )
+          css_usage: |
+            /* Progressive enhancement: use linear() where supported, cubicBezier fallback */
+            .bounce-animation {
+              animation-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            }
+            @supports (animation-timing-function: linear(0, 1)) {
+              .bounce-animation {
+                animation-timing-function: linear(
+                  0, 0.004, 0.016, 0.036, 0.064, 0.101, 0.146, 0.199, 0.260,
+                  0.329, 0.407, 0.492, 0.585, 0.685, 0.793, 0.907, 1.028,
+                  1.056, 1.076, 1.088, 1.092, 1.088, 1.076, 1.056, 1.028,
+                  1.000, 0.972, 0.956, 0.948, 0.948, 0.956, 0.972, 1.000,
+                  1.014, 1.022, 1.024, 1.022, 1.014, 1.000, 0.993, 0.989,
+                  0.988, 0.989, 0.993, 1.000, 1.000, 1.000, 1.000
+                );
+              }
+            }
+      sharp:
+        $value: [0.4, 0, 0.6, 1]
+        $type: cubicBezier
+        $description: "Sharp acceleration/deceleration. Emphasis."
+
+  stagger:
+    description: "Stagger delay between sequential child animations."
+    tokens:
+      tight:
+        $value: "30ms"
+        $type: duration
+        $description: "Tight stagger for dense grids (icons, tags)"
+      normal:
+        $value: "60ms"
+        $type: duration
+        $description: "Standard stagger for lists and card grids"
+      relaxed:
+        $value: "100ms"
+        $type: duration
+        $description: "Relaxed stagger for spacious layouts"
+      dramatic:
+        $value: "150ms"
+        $type: duration
+        $description: "Dramatic stagger for hero-level reveals"
+
+# =============================================================================
+# LAYER 2: Semantic Tokens (usage intent, referencing primitive tokens)
+# =============================================================================
+semantic:
+  description: "Semantic motion tokens organized by animation purpose."
+  tokens:
+    enter:
+      duration: "{motion.duration.moderate}"
+      easing: "{motion.easing.ease-out}"
+      stagger: "{motion.stagger.normal}"
+      $description: "Element appearing in view (modal, dropdown, popover)"
+    exit:
+      duration: "{motion.duration.base}"
+      easing: "{motion.easing.ease-in}"
+      stagger: "{motion.stagger.tight}"
+      $description: "Element leaving view (close, dismiss)"
+    feedback:
+      duration: "{motion.duration.quick}"
+      easing: "{motion.easing.ease-out}"
+      $description: "Micro-feedback (hover, active, focus)"
+    expand:
+      duration: "{motion.duration.moderate}"
+      easing: "{motion.easing.spring}"
+      $description: "Container expansion (accordion, drawer)"
+    collapse:
+      duration: "{motion.duration.base}"
+      easing: "{motion.easing.ease-in-out}"
+      $description: "Container collapse"
+    hero:
+      duration: "{motion.duration.dramatic}"
+      easing: "{motion.easing.spring}"
+      stagger: "{motion.stagger.dramatic}"
+      $description: "Hero-level entrance. Attention-grabbing."
+    page:
+      duration: "{motion.duration.slow}"
+      easing: "{motion.easing.ease-in-out}"
+      $description: "Page/route transitions"
+    scroll-reveal:
+      duration: "{motion.duration.moderate}"
+      easing: "{motion.easing.ease-out}"
+      stagger: "{motion.stagger.normal}"
+      $description: "Scroll-driven reveal of sections and elements"
+
+# =============================================================================
+# LAYER 3: Component Tokens (optional overrides per component)
+# =============================================================================
+component:
+  description: >
+    Component-specific motion overrides. Each entry references semantic tokens
+    and can override duration or easing for specific UI patterns.
+  example:
+    modal:
+      enter: "{motion.semantic.enter}"
+      exit: "{motion.semantic.exit}"
+      overlay-fade:
+        duration: "{motion.duration.base}"
+        easing: "{motion.easing.ease-out}"
+    tooltip:
+      enter:
+        duration: "{motion.duration.quick}"
+        easing: "{motion.easing.ease-out}"
+      exit:
+        duration: "{motion.duration.quick}"
+        easing: "{motion.easing.ease-in}"
+    toast:
+      enter:
+        duration: "{motion.duration.moderate}"
+        easing: "{motion.easing.spring}"
+      exit:
+        duration: "{motion.duration.base}"
+        easing: "{motion.easing.ease-in}"
+
+# =============================================================================
+# CSS OUTPUT PATTERN
+# =============================================================================
+css_output:
+  description: "Expected CSS custom properties output from the token system."
+  default_mode: |
+    :root {
+      /* Primitive: Duration */
+      --motion-duration-instant: 0ms;
+      --motion-duration-micro: 50ms;
+      --motion-duration-quick: 100ms;
+      --motion-duration-base: 200ms;
+      --motion-duration-moderate: 300ms;
+      --motion-duration-slow: 500ms;
+      --motion-duration-dramatic: 800ms;
+      --motion-duration-glacial: 1200ms;
+
+      /* Primitive: Easing */
+      --motion-easing-linear: linear;
+      --motion-easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+      --motion-easing-ease-out: cubic-bezier(0, 0, 0.2, 1);
+      --motion-easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+      --motion-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --motion-easing-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      --motion-easing-sharp: cubic-bezier(0.4, 0, 0.6, 1);
+
+      /* Primitive: Stagger */
+      --motion-stagger-tight: 30ms;
+      --motion-stagger-normal: 60ms;
+      --motion-stagger-relaxed: 100ms;
+      --motion-stagger-dramatic: 150ms;
+
+      /* Semantic */
+      --motion-enter-duration: var(--motion-duration-moderate);
+      --motion-enter-easing: var(--motion-easing-ease-out);
+      --motion-exit-duration: var(--motion-duration-base);
+      --motion-exit-easing: var(--motion-easing-ease-in);
+      --motion-feedback-duration: var(--motion-duration-quick);
+      --motion-feedback-easing: var(--motion-easing-ease-out);
+      --motion-expand-duration: var(--motion-duration-moderate);
+      --motion-expand-easing: var(--motion-easing-spring);
+      --motion-hero-duration: var(--motion-duration-dramatic);
+      --motion-hero-easing: var(--motion-easing-spring);
+      --motion-page-duration: var(--motion-duration-slow);
+      --motion-page-easing: var(--motion-easing-ease-in-out);
+    }
+  reduced_motion: |
+    @media (prefers-reduced-motion: reduce) {
+      :root {
+        /* Strategy: "reduced, not removed" (D8)
+           - Durations reduced to 100-300ms range, NOT zeroed
+           - micro/quick/base → instant (too fast to matter)
+           - moderate+ → reduced but perceptible (orientation preserved)
+           - Rationale: users with vestibular disorders requested reduced motion,
+             not NO motion. Zeroing causes disorientation (Val Head, WCAG). */
+        --motion-duration-micro: 0ms;
+        --motion-duration-quick: 0ms;
+        --motion-duration-base: 0ms;
+        --motion-duration-moderate: 100ms;
+        --motion-duration-slow: 150ms;
+        --motion-duration-dramatic: 200ms;
+        --motion-duration-glacial: 300ms;
+
+        /* Staggers: short durations kept for minimal sequential cue */
+        --motion-stagger-tight: 0ms;
+        --motion-stagger-normal: 0ms;
+        --motion-stagger-relaxed: 20ms;
+        --motion-stagger-dramatic: 30ms;
+
+        /* Easings: replace complex curves with simple deceleration (D8)
+           - spring → ease-out (remove overshoot, vestibular risk)
+           - bounce → ease-out (remove oscillation, vestibular risk)
+           - elastic implicit: use ease-in-out */
+        --motion-easing-spring: var(--motion-easing-ease-out);
+        --motion-easing-bounce: var(--motion-easing-ease-out);
+      }
+    }
+
+# =============================================================================
+# ACCESSIBILITY RULES
+# =============================================================================
+accessibility:
+  rules:
+    - "All motion tokens MUST respect prefers-reduced-motion"
+    - "Reduced motion strategy: 'reduced, not removed' (D8) — durations 100-300ms, NOT 0ms"
+    - "Easing overrides: spring → ease-out, bounce → ease-out (remove overshoot/oscillation)"
+    - "Functional animations (navigation, feedback): reduce duration to 100ms with ease-out"
+    - "Decorative animations (parallax, rotate, brand): remove entirely (opacity: 1, instant)"
+    - "Opacity-only animations (fadeIn, fadeOut): keep — safe for vestibular disorders"
+    - "Never disable animation entirely for opacity (keep instant crossfade)"
+    - "Maximum flash rate: 3 per second (WCAG 2.3.1)"
+    - "No animation as sole information carrier (WCAG 1.3.3)"
+    - "Auto-playing content must have pause/stop controls"
+  reduced_motion_strategy: "reduced-not-removed"
+  reduced_motion_easing_overrides:
+    spring: "ease-out"
+    bounce: "ease-out"
+    elastic: "ease-in-out"
+  reduced_motion_duration_scale:
+    micro: "0ms"
+    quick: "0ms"
+    base: "0ms"
+    moderate: "100ms"
+    slow: "150ms"
+    dramatic: "200ms"
+    glacial: "300ms"
+  flash_limit: 3
+
+# =============================================================================
+# IMPORT STRATEGY (D1 — Motion 12)
+# =============================================================================
+import_strategy:
+  description: >
+    Motion 12 import strategy to minimize bundle size. Default import is
+    motion/mini (2.3KB gzipped). Advanced features loaded via LazyMotion
+    with dynamic import. NEVER import the full motion package (55-85KB).
+  default_import:
+    package: "motion/mini"
+    size: "2.3KB gzipped"
+    includes: ["animate", "initial", "exit", "variants", "transition"]
+    usage: |
+      import { motion } from "motion/mini"
+      // Covers 90% of primitive animations (fadeIn, slideIn, scaleIn, etc.)
+  advanced_import:
+    package: "motion (LazyMotion)"
+    size: "on-demand via dynamic import"
+    includes: ["layoutId", "AnimatePresence", "useScroll", "useTransform", "drag"]
+    usage: |
+      import { LazyMotion, domAnimation } from "motion"
+      // Wrap component tree:
+      // <LazyMotion features={domAnimation}>...</LazyMotion>
+      // For full features (drag, layout):
+      // const loadFeatures = () => import("motion").then(mod => mod.domMax)
+    when: "Compositions requiring layoutId, drag, or useScroll hooks"
+  rules:
+    - "NEVER import from 'motion' directly — always 'motion/mini' or LazyMotion"
+    - "motion/mini is sufficient for all 10 primitives in CSS+Framer dual mode"
+    - "LazyMotion required only for: layoutId (listReorder), drag, useScroll (parallax)"
+    - "Bundle budget: motion layer must add < 5KB to initial bundle"
+
+# =============================================================================
+# GSAP LOADING STRATEGY (D2)
+# =============================================================================
+gsap_strategy:
+  description: >
+    GSAP is used exclusively for Layer 4+ choreographies (scroll-driven
+    timelines, pin+scrub, MorphSVG). It MUST be loaded via dynamic import
+    and NEVER included in the main bundle.
+  loading: "dynamic import"
+  size: "~23KB gzipped (core + ScrollTrigger)"
+  scope: "Layer 4+ choreographies only"
+  usage: |
+    // Dynamic import — only when scroll choreography is needed
+    const loadGSAP = async () => {
+      const { gsap } = await import("gsap")
+      const { ScrollTrigger } = await import("gsap/ScrollTrigger")
+      gsap.registerPlugin(ScrollTrigger)
+      return { gsap, ScrollTrigger }
+    }
+  rules:
+    - "GSAP is NEVER in the main bundle — dynamic import only"
+    - "Used for: scrollTimeline, heroToContent, sectionSequence choreographies"
+    - "NOT used for: primitives (CSS handles those), compositions (Motion 12 handles those)"
+    - "Lenis (smooth scroll) loaded alongside GSAP when scroll choreography is active"
+    - "License: safe for our use case (not a competing visual builder tool)"
+
+# =============================================================================
+# FIREFOX FALLBACK STRATEGY (D6)
+# =============================================================================
+firefox_fallback:
+  description: >
+    Firefox has limited support for CSS scroll-driven animations
+    (animation-timeline: scroll()). For critical scroll-triggered effects,
+    use IntersectionObserver as fallback. Decorative scroll effects can
+    be safely ignored (progressive enhancement).
+  strategy: "IntersectionObserver for critical, ignore for decorative"
+  critical_effects:
+    description: "Effects that convey meaning or navigation state"
+    fallback: "IntersectionObserver"
+    examples:
+      - "scroll-reveal (section entry): use IntersectionObserver threshold 0.15"
+      - "staggerGrid on viewport entry: use IntersectionObserver with stagger via JS"
+      - "heroToContent pin: use GSAP ScrollTrigger (cross-browser)"
+    pattern: |
+      // Fallback for scroll-driven reveal when CSS scroll() is unsupported
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible')
+              observer.unobserve(entry.target)
+            }
+          })
+        },
+        { threshold: 0.15 }
+      )
+  decorative_effects:
+    description: "Effects that are purely aesthetic (parallax depth, background motion)"
+    fallback: "none — progressive enhancement"
+    examples:
+      - "parallax background layers: static position, no animation"
+      - "continuous scroll-driven rotation: static, no animation"
+  detection: |
+    // Feature detection for CSS scroll-driven animations
+    const supportsScrollTimeline = CSS.supports('animation-timeline', 'scroll()')
+
+# =============================================================================
+# LINEAR() CSS BROWSER SUPPORT (S3.1 — AC5)
+# =============================================================================
+linear_css_support:
+  description: >
+    CSS linear() easing function enables real physics-based spring and bounce
+    curves via discrete point interpolation. Used as progressive enhancement
+    over cubicBezier approximations in spring and bounce easing tokens.
+  spec: "CSS Easing Functions Level 2"
+  browser_support:
+    chrome: "113+"
+    safari: "17.2+"
+    firefox: "112+"
+    edge: "113+"
+    global_coverage: "~92%"
+  feature_detection: |
+    @supports (animation-timing-function: linear(0, 1)) {
+      /* linear() is supported — use physics-based springs */
+    }
+  fallback_strategy: >
+    cubicBezier approximation as default, linear() via @supports progressive
+    enhancement. Both produce visually similar results; linear() is more
+    physically accurate (overshoot amplitude, bounce decay).
+  usage_pattern: |
+    /* Base: cubicBezier fallback (works everywhere) */
+    --motion-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Enhancement: linear() spring (Chrome 113+, Safari 17.2+, Firefox 112+) */
+    @supports (animation-timing-function: linear(0, 1)) {
+      --motion-easing-spring: linear(
+        0, 0.009, 0.035, 0.078, 0.136, 0.208, 0.291, 0.384, 0.484,
+        0.589, 0.697, 0.805, 0.910, 1.009, 1.100, 1.181, 1.249,
+        1.303, 1.342, 1.366, 1.375, 1.370, 1.352, 1.323, 1.285,
+        1.240, 1.191, 1.140, 1.089, 1.041, 0.998, 0.960, 0.930,
+        0.907, 0.892, 0.884, 0.883, 0.889, 0.900, 0.916, 0.935,
+        0.957, 0.979, 1.000, 1.000
+      );
+    }
+
+# =============================================================================
+# LENIS INTEGRATION (S3.1 — AC6)
+# =============================================================================
+lenis_integration:
+  description: >
+    Lenis provides smooth scroll normalization and exposes velocity/progress
+    data consumed by scroll choreographies. Loaded alongside GSAP for Layer 4+
+    scroll-driven effects. Lightweight complement to ScrollTrigger.
+  package: "lenis"
+  version: "1.3.20"
+  size: "<4KB gzipped"
+  license: "MIT"
+  loading: "dynamic import (alongside GSAP)"
+  capabilities:
+    - "Smooth scroll normalization (lerp-based)"
+    - "Velocity data (px/s) for scroll-driven intensity"
+    - "Progress data (0-1) for scroll position"
+    - "Native GSAP ScrollTrigger integration"
+    - "Touch device support with momentum"
+  usage: |
+    // Dynamic import — only when scroll choreography is active
+    const loadLenis = async () => {
+      const Lenis = (await import("lenis")).default
+      const lenis = new Lenis({
+        lerp: 0.1,
+        duration: 1.2,
+        smoothWheel: true,
+        autoRaf: true
+      })
+      return lenis
+    }
+  gsap_integration: |
+    // Lenis + GSAP ScrollTrigger bridge
+    import Lenis from "lenis"
+    import { ScrollTrigger } from "gsap/ScrollTrigger"
+
+    const lenis = new Lenis({ lerp: 0.1, duration: 1.2, autoRaf: true })
+    lenis.on("scroll", ScrollTrigger.update)
+  velocity_usage: |
+    // Velocity-driven intensity for scroll choreographies
+    lenis.on("scroll", ({ velocity, progress, direction }) => {
+      // velocity: current scroll speed in px/s
+      // progress: 0-1 scroll position in document
+      // direction: 1 (down) or -1 (up)
+
+      // Example: scale parallax intensity by velocity
+      const intensityFactor = Math.min(Math.abs(velocity) / 1000, 1)
+    })
+  rules:
+    - "Lenis is NEVER in the main bundle — dynamic import only"
+    - "Loaded alongside GSAP when scroll choreography is active"
+    - "NOT loaded for CSS-only scroll-driven animations (scroll(), view())"
+    - "Bundle budget: <4KB additional to GSAP's ~23KB"
+    - "Must be destroyed on route change to prevent memory leaks: lenis.destroy()"
+
+# =============================================================================
+# DTCG TRANSITION COMPOSITE TYPE — EVALUATION (S3.1 — AC4)
+# =============================================================================
+dtcg_transition_evaluation:
+  description: >
+    Evaluation of whether semantic tokens combining duration+easing should
+    use the DTCG `transition` composite type instead of separate fields.
+  dtcg_transition_spec: |
+    The DTCG spec (2025.10) defines a `transition` composite type:
+    {
+      "$type": "transition",
+      "$value": {
+        "duration": "300ms",
+        "delay": "0ms",
+        "timingFunction": [0.4, 0, 0.2, 1]
+      }
+    }
+  current_approach: >
+    Semantic tokens use separate reference fields:
+      enter:
+        duration: "{motion.duration.moderate}"
+        easing: "{motion.easing.ease-out}"
+  evaluation:
+    benefits:
+      - "Single token for a complete transition — simpler consumption"
+      - "Fully DTCG-compliant composite type"
+      - "Style Dictionary v4 resolves composites into CSS shorthand automatically"
+    drawbacks:
+      - "Loses flexibility to override duration/easing independently at component level"
+      - "Component layer needs to override the entire composite, not just one axis"
+      - "Stagger is NOT part of the transition type — would still need a separate field"
+      - "Current separate-field approach already works with Style Dictionary v4"
+    tooling_support:
+      style_dictionary_v4: "Supports transition composite — resolves to CSS transition shorthand"
+      tokens_studio: "Supports transition composite in UI"
+      figma_variables: "Does NOT support transition composite natively (as of 2026-03)"
+  decision: >
+    DECISION: Keep current separate-field approach for semantic tokens. The
+    transition composite type is valid DTCG but loses the independent
+    override capability needed at the component layer (e.g., a tooltip
+    overrides only duration but inherits easing from semantic). Additionally,
+    stagger — critical for choreographies — has no place in the transition
+    composite. The current approach is DTCG-compatible (all primitives are
+    typed correctly) and more flexible for the 3-layer architecture.
+    RECOMMENDATION: Revisit when Figma Variables supports transition
+    composite natively, which would make the single-token approach more
+    compelling for designer-developer handoff.
+  confidence: "ALTA — evaluated spec, tooling, and 3-layer architecture constraints"
+
+# =============================================================================
+# VALIDATION RULES
+# =============================================================================
+validation:
+  rules:
+    - "Every primitive duration must be >= 0ms"
+    - "Every easing must have exactly 4 control points (or linear_alternative with 40+ points)"
+    - "Semantic tokens must reference only primitive tokens"
+    - "Component tokens must reference only semantic tokens"
+    - "No circular references"
+    - "All tokens must have $description"
+    - "Duration scale must be monotonically increasing"
+    - "linear() alternatives must have >= 40 discrete points"
+    - "linear() must be gated behind @supports for progressive enhancement"

@@ -1,0 +1,263 @@
+id: design-system-modes
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: skill-user-facing
+origin: "Wave B.5 — modes absorbed from claw-design invoke_skill vocabulary"
+external_reference: "external/claw-design-system-prompt-2026-04-18.txt lines 316-333"
+
+# The 13 modes/presets that /design-system can invoke. Each is a named work
+# pattern mirroring claw-design's invoke_skill vocabulary. Adds human-friendly
+# command vocabulary on top of the raw deliverable kinds.
+#
+# User-facing invocation:
+#   /design-system "cria um botão primary"                    (auto-detects mode)
+#   /design-system --mode deck "apresentação Q4"              (explicit mode)
+#   /design-system --mode make-tweakable existing-artifact.html
+#
+# Each mode resolves to a deliverable kind + extra invariants.
+
+# =============================================================================
+# MODES
+# =============================================================================
+modes:
+
+  create-component:
+    label: "Criar componente"
+    claw_design_equivalent: "Interactive prototype (for components)"
+    deliverable_kind: component
+    consistency_model: reference-first
+    default_variants: 1
+    default_divergence_posture: "ask before exploring"
+    typical_user_input_patterns:
+      - "preciso de um {component_name}"
+      - "cria um {component_name} pra {business}"
+      - "faz um botão/input/card/modal/..."
+
+  interactive-prototype:
+    label: "Protótipo interativo"
+    claw_design_equivalent: "Interactive prototype"
+    deliverable_kind: html_prototype
+    consistency_model: copy-first
+    default_variants: 3
+    default_divergence_posture: "explore divergent"
+    wave_c_runtime_required: true
+    typical_user_input_patterns:
+      - "preciso de um protótipo de {flow}"
+      - "prototipa o onboarding"
+      - "mockup interativo de {feature}"
+
+  make-deck:
+    label: "Fazer deck"
+    claw_design_equivalent: "Make a deck"
+    deliverable_kind: deck
+    consistency_model: copy-first
+    default_variants: 3
+    default_divergence_posture: "explore divergent"
+    starter_component_required: deck_stage.js
+    wave_c_runtime_required: true
+    typical_user_input_patterns:
+      - "deck pra {audience}"
+      - "apresentação do Q{N}"
+      - "slides sobre {topic}"
+
+  make-tweakable:
+    label: "Adicionar tweaks a um artefato existente"
+    claw_design_equivalent: "Make tweakable"
+    deliverable_kind: "inherits from source artifact"
+    mode_nature: transformation  # not creation — takes existing, adds tweaks
+    required_input: "path to existing artifact"
+    applies_tweak_protocol: true
+    wave_c_runtime_required: true
+    typical_user_input_patterns:
+      - "adiciona tweaks em {existing_artifact}"
+      - "quero mudar live esse {artifact}"
+
+  frontend-design:
+    label: "Direção estética (greenfield)"
+    claw_design_equivalent: "Frontend design"
+    deliverable_kind: "varies — typically page or component"
+    consistency_model: "N/A — no DS exists yet"
+    invoked_when: "user has no existing brand or design system"
+    default_variants: 3
+    default_divergence_posture: "bold aesthetic direction"
+    typical_user_input_patterns:
+      - "não tenho DS ainda, vamos começar do zero"
+      - "me dá direção estética pra {surface}"
+
+  wireframe:
+    label: "Wireframe (baixa fidelidade, exploração ampla)"
+    claw_design_equivalent: "Wireframe"
+    deliverable_kind: html_prototype
+    consistency_model: "relaxed — structure over polish"
+    default_variants: 5  # more variants when exploring
+    default_fidelity: low
+    typical_user_input_patterns:
+      - "wireframe de {flow}"
+      - "versão rascunho antes de desenhar bonito"
+
+  export-pptx-editable:
+    label: "Exportar deck como PPTX editável"
+    claw_design_equivalent: "Export as PPTX (editable)"
+    mode_nature: export  # takes existing deck, exports format
+    deliverable_kind: pptx
+    source_required: "deck (html)"
+    consistency_model: runtime-export
+    wave_c_runtime_required: true
+    typical_user_input_patterns:
+      - "exporta esse deck pra PowerPoint"
+      - "salva como PPTX editável"
+
+  export-pptx-screenshots:
+    label: "Exportar deck como PPTX (screenshots, não editável)"
+    claw_design_equivalent: "Export as PPTX (screenshots)"
+    mode_nature: export
+    deliverable_kind: pptx
+    source_required: "deck (html)"
+    consistency_model: runtime-export
+    editability: frozen  # screenshots — no edit
+    wave_c_runtime_required: true
+    use_when: "native shapes export fails or visual fidelity is critical and editability not needed"
+
+  create-design-system:
+    label: "Criar design system do zero"
+    claw_design_equivalent: "Create design system"
+    deliverable_kind: "tokens + foundations + components catalog"
+    mode_nature: greenfield_bootstrap
+    produces:
+      - tokens.yaml
+      - foundations.yaml
+      - component-contracts.yaml
+      - motion-primitives.yaml
+    consistency_model: "N/A — this is where the model gets defined"
+    typical_user_input_patterns:
+      - "cria um design system pra {business}"
+      - "não temos DS, precisa criar"
+      - "bootstrap do DS"
+    related_workflow: squads/design-ops/workflows/wf-brandbook-workspace-extraction.yaml
+
+  save-as-pdf:
+    label: "Exportar como PDF"
+    claw_design_equivalent: "Save as PDF"
+    mode_nature: export
+    deliverable_kind: pdf
+    source_required: "html (any kind)"
+    mechanism: "browser print dialog via open_for_print equivalent"
+    requires: "print stylesheet in source"
+    wave_c_runtime_required: true
+
+  save-as-standalone-html:
+    label: "Bundlar como HTML self-contained"
+    claw_design_equivalent: "Save as standalone HTML"
+    mode_nature: export
+    deliverable_kind: html_prototype
+    source_required: "html artifact with __bundler_thumbnail template"
+    mechanism: "deterministic browser-side bundler (super_inline_html equivalent)"
+    wave_c_runtime_required: true
+
+  send-to-canva:
+    label: "Exportar pra Canva editável"
+    claw_design_equivalent: "Send to Canva"
+    mode_nature: export
+    deliverable_kind: "Canva design"
+    source_required: "deck or html"
+    status: "forward-declared; integration pending"
+    wave_c_runtime_required: true
+
+  handoff-to-claude-code:
+    label: "Pacote de handoff pro @dev"
+    claw_design_equivalent: "Handoff to Claude Code"
+    mode_nature: handoff
+    deliverable_kind: "developer handoff package"
+    produces:
+      - "spec files for each component"
+      - "token export"
+      - "integration notes"
+    typical_downstream: "@dev or design-pages squad"
+
+# =============================================================================
+# MODE RESOLUTION HEURISTICS
+# =============================================================================
+resolution:
+
+  by_natural_input:
+    rules:
+      - pattern: "protótipo|prototipo|mockup"
+        mode: interactive-prototype
+      - pattern: "deck|apresentação|slides|pitch|keynote"
+        mode: make-deck
+      - pattern: "wireframe|rascunho|baixa fidelidade"
+        mode: wireframe
+      - pattern: "exporta.*pptx|exporta.*powerpoint"
+        mode: export-pptx-editable
+      - pattern: "exporta.*pdf|salva.*pdf"
+        mode: save-as-pdf
+      - pattern: "bundle|self-contained|standalone"
+        mode: save-as-standalone-html
+      - pattern: "tweak|edição ao vivo|live edit"
+        mode: make-tweakable
+      - pattern: "cria.*design system|bootstrap.*ds|ds do zero"
+        mode: create-design-system
+      - pattern: "handoff|passa pro dev"
+        mode: handoff-to-claude-code
+      - pattern: "botão|button|input|card|modal|navbar|sidebar|form"
+        mode: create-component
+      - pattern: "landing|página|page|homepage"
+        mode: create-component  # page is a component kind in our model
+      - pattern: "sem ds|não tem design system|vamos do zero"
+        mode: frontend-design
+    fallback_mode: create-component
+
+  by_explicit_flag:
+    flag: "--mode"
+    accepts: [create-component, interactive-prototype, make-deck, make-tweakable,
+              frontend-design, wireframe, export-pptx-editable, export-pptx-screenshots,
+              create-design-system, save-as-pdf, save-as-standalone-html,
+              send-to-canva, handoff-to-claude-code]
+
+# =============================================================================
+# MODE-KIND MATRIX
+# =============================================================================
+mode_to_deliverable_kind:
+  create-component: component
+  interactive-prototype: html_prototype
+  make-deck: deck
+  make-tweakable: "inherits"
+  frontend-design: "varies"
+  wireframe: html_prototype
+  export-pptx-editable: pptx
+  export-pptx-screenshots: pptx
+  create-design-system: "meta (creates tokens + foundations + catalog)"
+  save-as-pdf: pdf
+  save-as-standalone-html: html_prototype
+  send-to-canva: "Canva design (external)"
+  handoff-to-claude-code: "developer spec package"
+
+# =============================================================================
+# WAVE C GATING
+# =============================================================================
+wave_c_gated_modes:
+  reason: "These modes require runtime capabilities pending ADR-018 approval"
+  blocked_until_wave_c:
+    - interactive-prototype (forward-declared)
+    - make-deck (deck_stage runtime)
+    - make-tweakable (tweak protocol runtime)
+    - export-pptx-editable (gen_pptx runtime)
+    - export-pptx-screenshots (gen_pptx runtime)
+    - save-as-pdf (open_for_print runtime)
+    - save-as-standalone-html (super_inline bundler)
+    - send-to-canva (Canva integration)
+  usable_now:
+    - create-component
+    - frontend-design (design output only)
+    - wireframe (HTML-only, no advanced runtime)
+    - create-design-system (via wf-brandbook-workspace-extraction)
+    - handoff-to-claude-code
+
+related:
+  - .claude/skills/design-system/SKILL.md
+  - squads/design-ops/data/deliverable-kinds-registry.yaml
+  - squads/design-ops/data/claude-design-persona.yaml
+  - squads/design-ops/data/starter-components-catalog.yaml
+  - squads/design-ops/data/export-contracts-spec.yaml
+  - docs/adrs/ADR-018-design-ops-artifact-creation-capability.md

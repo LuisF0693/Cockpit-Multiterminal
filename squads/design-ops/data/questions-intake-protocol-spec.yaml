@@ -1,0 +1,187 @@
+id: questions-intake-protocol-spec
+version: "1.0.0"
+status: active
+owner: design-ops
+scope: provider-contract
+origin: squads/design-ops/templates/design-brief-intake-tmpl.yaml
+external_reference: "agenmod/claw-design — questions_v2 tool (2026-04-18)"
+
+# Contract specification for structured user elicitation during the ASK phase
+# of the design-exploration-cycle. Absorbed from claw-design's questions_v2.
+# This complements the design-brief-intake template by defining HOW questions
+# are structured when the brief surfaces gaps requiring user input.
+
+# =============================================================================
+# PROTOCOL
+# =============================================================================
+protocol:
+  name: questions_intake_v1
+  purpose: >-
+    Structured question elicitation when the brief has ambiguity or the
+    exploration posture requires user divergence confirmation.
+  when_to_invoke:
+    - "Brief is ambiguous or incomplete"
+    - "Exploration posture is uncertain for a component kind"
+    - "Palette or typography choices are open"
+    - "Multiple valid directions exist and user needs to scope"
+  when_NOT_to_invoke:
+    - "Brief is fully materialized and unambiguous"
+    - "Trivial follow-up work on an existing artifact"
+    - "Purely mechanical implementation of an approved variant"
+
+  timing_rule:
+    call_after: ["file_reads", "workspace_contract_resolution", "prior_art_research"]
+    call_before: ["planning", "divergent_exploration", "build"]
+    rationale: >-
+      Asking too early wastes the user's time with unanswerable questions.
+      Asking too late wastes the agent's work on wrong assumptions.
+
+  verbosity_rule: >-
+    Err on the side of asking too many questions rather than too few. Missing
+    context compounds; over-asking is recoverable.
+
+# =============================================================================
+# QUESTION KINDS
+# =============================================================================
+question_kinds:
+
+  text_options:
+    label: "Text Options (single or multi-select)"
+    use_for: "Picking from a list of text labels"
+    mandatory_escape_hatch_options:
+      - label: "Explore a few options"
+        purpose: "User wants divergent exploration on this axis"
+      - label: "Decide for me"
+        purpose: "User delegates the choice to @design-chief"
+      - label: "Other"
+        purpose: "Open-ended input outside the enumerated list"
+    rationale_for_escape_hatches: >-
+      Without these three, the user is forced into a false dichotomy among the
+      enumerated options. This is the highest-leverage rule of the protocol.
+
+  svg_options:
+    label: "Visual Options (inline SVG, ~80x56 viewBox)"
+    use_for: "Visual choices where text labels are insufficient"
+    examples:
+      - "Layout variants"
+      - "Icon styles"
+      - "Color swatches rendered as SVG"
+    same_escape_hatches_as: text_options
+
+  slider:
+    label: "Numeric Range"
+    use_for: "Continuous values with min/max/step/default"
+    range_rule: >-
+      Be generous with ranges — users often want to go further than the agent
+      would predict. Tight bounds ONLY when physically meaningful (opacity 0-1,
+      volume 0-100, etc.).
+
+  file:
+    label: "File Upload"
+    use_for: "User provides a file (image, brand asset, reference)"
+    storage: "Uploaded to uploads/ and project-relative path is returned as answer"
+
+  freeform:
+    label: "Freeform Text"
+    use_for: "Open-ended input where no structured option set fits"
+
+# =============================================================================
+# ORDERING
+# =============================================================================
+ordering:
+  rule: "Most important questions first — they stream in progressively."
+  rationale: >-
+    If the user answers the first few and stops, the agent still has the
+    highest-leverage information. Important-last is a common failure mode.
+
+  priority_heuristic:
+    - "Questions that change the deliverable kind"
+    - "Questions that constrain the palette"
+    - "Questions that set the exploration posture (DS-first vs novel)"
+    - "Questions that narrow the audience/device matrix"
+    - "Questions about decorative choices (last)"
+
+# =============================================================================
+# INTEGRATION WITH BRIEF INTAKE
+# =============================================================================
+integration:
+  relationship_to_brief: >-
+    The brief intake template is the BUILDING — a persistent artifact of the
+    brief's state. This protocol is the SPEECH ACT — a runtime elicitation
+    that feeds the brief's unanswered fields.
+  workflow_binding:
+    - "wf-provider-enrichment-from-external.yaml step-1-intake"
+  update_target:
+    artifact: design-brief-intake
+    template: squads/design-ops/templates/design-brief-intake-tmpl.yaml
+    fields_commonly_populated_via_questions:
+      - context.surface_type
+      - context.deliverable_kind
+      - brief.success_criteria
+      - brief.known_constraints
+      - audience.device_mix
+      - exploration.variants_required
+      - exploration.exclude_patterns
+
+# =============================================================================
+# TITLE & SUBTITLE STYLE
+# =============================================================================
+formatting:
+  title_rule: "Keep short — a question, not a sentence."
+  subtitle_rule: "Optional. Use to clarify the question or give context."
+  anti_pattern: >-
+    A title like 'Please choose one of the following options for the layout of
+    your page' should be 'Which layout?' with a subtitle for context.
+
+# =============================================================================
+# ENFORCEMENT
+# =============================================================================
+enforcement:
+  mode: advisory_wave_b  # becomes blocking in Wave C via questions validator
+  validator_planned: "squads/design-ops/scripts/validate-questions-contract.cjs"
+  gate: design-chief
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+
+  example_divergence_posture:
+    scenario: "User asks to build a pricing page, component kind is ambiguous"
+    question:
+      kind: text_options
+      title: "What level of novelty?"
+      subtitle: "Design direction for the pricing page"
+      options:
+        - "Options using existing components and styles"
+        - "Novel and interesting visuals"
+        - "A mix of existing and novel"
+        - "Explore a few options"
+        - "Decide for me"
+        - "Other"
+
+  example_palette_scope:
+    scenario: "Brandbook has only primary; palette extension is in question"
+    question:
+      kind: text_options
+      title: "Extend the palette?"
+      subtitle: "The brandbook has only the primary defined"
+      options:
+        - "Keep strictly to brand primary + neutrals"
+        - "Use oklch to propose harmonic complements (requires owner approval)"
+        - "Pause and request palette extension via @brand"
+        - "Decide for me"
+        - "Other"
+
+  example_audience_matrix:
+    scenario: "Device mix unclear"
+    question:
+      kind: text_options
+      title: "Primary devices?"
+      options: ["Mobile", "Desktop", "Both", "Also tablet", "Also print", "Decide for me", "Other"]
+
+related:
+  - squads/design-ops/templates/design-brief-intake-tmpl.yaml
+  - squads/design-ops/rules/design-exploration-cycle.md
+  - squads/design-ops/workflows/wf-provider-enrichment-from-external.yaml
+  - squads/design-ops/data/design-heuristics-from-external-prompts.yaml

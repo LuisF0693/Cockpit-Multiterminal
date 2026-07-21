@@ -1,0 +1,58 @@
+name: design-expert
+version: 1.0.0
+short-title: Squad Design Expert
+description: Squad de elite em Design e UX para web, landing pages e interfaces digitais premium — os melhores designers do mundo trabalhando para você
+author: Luis Fernando Gomes Diniz
+license: MIT
+chief: don-norman
+slashPrefix: design-expert
+
+aiox:
+  minVersion: "2.1.0"
+  type: squad
+
+agents:
+  - don-norman
+  - jessica-walsh
+  - josef-muller-brockmann
+  - joanna-wiebe
+  - jony-ive
+  - dieter-rams
+
+tasks:
+  - ux-audit-task.md
+  - landing-page-design-task.md
+  - ui-component-design-task.md
+  - design-review-task.md
+
+tools:
+  - Figma
+  - Framer
+  - Webflow
+  - Adobe Creative Suite
+  - Coolors
+  - Google Fonts
+  - Mobbin
+  - Awwwards
+  - Lottie Files
+  - Heroicons
+  - Unsplash
+  - Phosphor Icons
+
+config:
+  extends: extend
+
+dependencies:
+  squads:
+    - AIOX:agents:ux-design-expert
+
+tags:
+  - design
+  - ux
+  - ui
+  - landing-page
+  - web-design
+  - typography
+  - conversion
+
+created: 2026-04-01

@@ -1,0 +1,26 @@
+registry_version: "1.0.0"
+squad: design-ops
+source_of_truth: workspace
+source_path_template: workspace/businesses/{business}/L2-tactical/design/motion-primitives.yaml
+
+required_presets:
+  basic:
+    - fadeUp
+    - fadeIn
+    - slideRight
+    - slideLeft
+    - scaleIn
+    - growWidth
+    - growHeight
+  stagger_helpers:
+    - stagger
+    - staggerV2
+  cinematic:
+    - clipRevealUp
+    - clipRevealLeft
+    - clipRevealDown
+    - parallaxUp
+    - parallaxLeft
+    - cinematicZoom
+    - cardFan
+    - numberReveal

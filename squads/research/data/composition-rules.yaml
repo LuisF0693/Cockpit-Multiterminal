@@ -1,0 +1,78 @@
+# Composition Rules — Research Squad
+# Explicit rules for hierarchy, domains, and handoffs.
+
+schema_version: "1.0.0"
+squad: research
+updated: "2026-04-13"
+
+hierarchy:
+  atoms:
+    description: "Single-responsibility tasks with direct outputs or analytic decisions."
+    allowed_examples:
+      - "bench-gap-llm"
+      - "deep-research-comments"
+      - "classify-research-query"
+      - "audit-evidence-reliability"
+  molecules:
+    description: "Public orchestration stubs that route multiple child atoms."
+    allowed_ids:
+      - bench-framework
+      - bench-inventory
+      - bench-matrix
+      - bench-gap
+      - bench-report
+      - deep-research
+  organisms:
+    description: "Workflow-level state machines coordinating one or more molecules."
+    allowed_ids:
+      - org-bench-comparison
+      - org-deep-research
+
+domain_rules:
+  Strategic:
+    responsibilities:
+      - "framing, prioritization, methodology selection, competitive positioning"
+    typical_tasks:
+      - formulate-pico-question
+      - design-research-plan
+      - analyze-decision-patterns
+      - analyze-competitive-intelligence
+      - audit-decision-quality
+  Tactical:
+    responsibilities:
+      - "analysis execution, QA, orchestration, synthesis"
+    typical_tasks:
+      - classify-research-query
+      - build-activation-plan
+      - conduct-systematic-review
+      - investigate-osint
+      - synthesize-final-report
+  Operational:
+    responsibilities:
+      - "utility execution, data access, runtime support"
+    typical_tasks:
+      - execute-web-search
+      - validate-source-credibility
+      - deep-research-collect
+      - quick-analysis
+
+executor_policy:
+  Human:
+    allowed_task_scope: "approval, scoping, intervention checkpoints"
+  Agent:
+    allowed_task_scope: "analysis, synthesis, orchestration, QA"
+  Worker:
+    allowed_task_scope: "deterministic runtime preparation and publication"
+  Clone:
+    allowed_task_scope: "pattern transfer and competitor framing"
+
+handoff_rules:
+  - from: Strategic
+    to: Tactical
+    contract: "problem framing, selection criteria, and success conditions must be explicit"
+  - from: Tactical
+    to: Operational
+    contract: "inputs, artifacts, and failure conditions must be explicit"
+  - from: Tactical
+    to: Strategic
+    contract: "synthesis must preserve dissent, confidence, and evidence trail"

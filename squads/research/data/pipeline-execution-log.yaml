@@ -1,0 +1,129 @@
+# Pipeline Execution Log — Research Squad
+# Tracks execution runs for observability (Mandamento 10)
+# Created: 2026-04-12
+# Owner: spy squad
+
+schema_version: "1.0.0"
+squad: research
+created: "2026-04-12"
+updated: "2026-04-13"
+
+executions:
+  - id: EXEC-SPY-001
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-11T10:48:54Z"
+    completed_at: "2026-04-11T10:48:54Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["hermes", "openclaw", "sinkra"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/hermes-vs-openclaw-vs-sinkra/triangular-benchmark.md
+
+  - id: EXEC-SPY-002
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-11T13:00:57Z"
+    completed_at: "2026-04-11T13:00:57Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["hermes-agent", "openclaw"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/hermes-agent-vs-openclaw/executive-report.md
+
+  - id: EXEC-SPY-003
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-11T13:01:20Z"
+    completed_at: "2026-04-11T13:01:20Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["hermes-agent", "claude-code"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/hermes-agent-vs-claude-code/executive-report.md
+
+  - id: EXEC-SPY-004
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-11T13:02:58Z"
+    completed_at: "2026-04-11T13:02:58Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["hermes-agent", "openclaw", "sinkra-hub"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/hermes-agent-vs-openclaw-vs-sinkra-hub/battle-card.md
+
+  - id: EXEC-SPY-005
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-11T15:59:21Z"
+    completed_at: "2026-04-11T15:59:21Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["skill-frontmatter-6way"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/skill-frontmatter-6way/comparison-matrix.md
+
+  - id: EXEC-SPY-006
+    pipeline: bench-comparison-pipeline
+    mode: EXPLORAR
+    started_at: "2026-04-13T17:23:05Z"
+    completed_at: "2026-04-13T17:23:05Z"
+    status: observed_artifacts
+    phases_executed: []
+    phases_skipped: []
+    agent: bench-analyst
+    subjects: ["gstack", "aiox"]
+    comparison_type: "codebase"
+    quality_gate_result: unknown
+    meta_axiomas_overall: null
+    evidence_source: "derived_from_docs_bench_artifacts"
+    artifacts_produced:
+      - docs/bench/gstack-vs-aiox/comparison-matrix.md
+# Example entry:
+#   - id: EXEC-SPY-001
+#     pipeline: bench-comparison-pipeline
+#     mode: EXPLORAR
+#     started_at: "2026-04-12T10:00:00Z"
+#     completed_at: "2026-04-12T10:45:00Z"
+#     status: completed
+#     phases_executed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+#     phases_skipped: []
+#     agent: bench-analyst
+#     subjects: ["subject_a", "subject_b"]
+#     comparison_type: "codebase"
+#     quality_gate_result: approved
+#     meta_axiomas_overall: 7.5
+#     artifacts_produced:
+#       - docs/bench/{slug}/scorecard.json
+#       - docs/bench/{slug}/executive-report.md

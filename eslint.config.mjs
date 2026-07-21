@@ -16,6 +16,8 @@ export default tseslint.config(
       '.codex/**',
       '.cursor/**',
       '.antigravity/**',
+      '.nirvana/**',
+      'squads/**',
       'docs/**'
     ]
   },
