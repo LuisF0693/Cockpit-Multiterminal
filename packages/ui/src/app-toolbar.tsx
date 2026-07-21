@@ -1,10 +1,15 @@
 import { theme } from './theme';
 
 /**
- * AppToolbar (Story 15.5, FR57) — barra de ícones de 38px abaixo do header
- * (estilo referência): cada ícone dispara uma AÇÃO REAL existente, com
- * tooltip; nenhum ícone decorativo. Inclui os toggles de colapso dos
- * painéis (FR58 — canvas maior) e a pill central de prontidão REAL.
+ * AppToolbar (Story 15.5, FR57) — grupo de ícones da faixa de comando única
+ * (Story 15.5 + auditoria UX Don Norman, achado #3): cada ícone dispara uma
+ * AÇÃO REAL existente, com tooltip; nenhum ícone decorativo. Inclui os
+ * toggles de colapso dos painéis (FR58 — canvas maior) e a pill central de
+ * prontidão REAL. Renderiza SEM wrapper próprio (Fragment) — é composto
+ * diretamente dentro do `<header>` do App, que já é a única faixa de
+ * comando; antes vivia numa segunda faixa de 38px empilhada sob o header,
+ * duplicando "+ novo terminal"/"+ browser" e consumindo 80px de altura só
+ * pra oferecer as mesmas duas ações do header em dois lugares.
  */
 
 export interface AppToolbarProps {
@@ -28,19 +33,7 @@ export interface AppToolbarProps {
 
 export function AppToolbar(props: AppToolbarProps): JSX.Element {
   return (
-    <div
-      style={{
-        height: 38,
-        minHeight: 38,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '0 14px',
-        background: theme.surface.panel,
-        borderBottom: `1px solid ${theme.border.subtle}`,
-        fontFamily: theme.font.ui
-      }}
-    >
+    <>
       <ToolButton glyph="⌨+" title="Novo terminal (Ctrl+N)" onClick={props.onNewTerminal} />
       <ToolButton glyph="🌐+" title="Novo preview de browser (Playwright)" onClick={props.onNewBrowser} />
 
@@ -71,32 +64,43 @@ export function AppToolbar(props: AppToolbarProps): JSX.Element {
         onClick={props.onToggleSessionsBar}
       />
 
-      <div style={{ flex: 1 }} />
+      <Divider />
 
-      {/* Pill de prontidão REAL (mock linha 56) — sessões sem pendência. */}
-      <span
-        title="Sessões rodando sem pendência (ocioso/concluído) sobre o total rodando"
-        style={{
-          padding: '4px 10px',
-          borderRadius: theme.radius.pill,
-          background: 'color-mix(in srgb, var(--ck-accent-ok) 12%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--ck-accent-ok) 40%, transparent)',
-          color: theme.accent.ok,
-          fontSize: theme.font.size.xs + 0.5,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 5
-        }}
-      >
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: theme.accent.ok }} />
-        {props.readyCount}/{props.runningCount} prontos
-      </span>
-
-      <div style={{ flex: 1 }} />
+      {/* Pill de prontidão REAL (mock linha 56) — sessões sem pendência.
+          Cor segue a proporção de verdade (auditoria UX Don Norman, achado #1):
+          só é verde quando TODAS as sessões rodando estão prontas; caso
+          contrário é âmbar (parcial/nenhuma pronta), e neutra sem sessões
+          rodando — nunca mais "0/5 prontos" num pill que parece "tudo ok". */}
+      {(() => {
+        const { readyCount, runningCount } = props;
+        const noneRunning = runningCount === 0;
+        const allReady = !noneRunning && readyCount === runningCount;
+        const dotColor = noneRunning ? theme.text.muted : allReady ? theme.accent.ok : theme.accent.warn;
+        return (
+          <span
+            title="Sessões rodando sem pendência (ocioso/concluído) sobre o total rodando"
+            style={{
+              padding: '4px 10px',
+              borderRadius: theme.radius.pill,
+              background: `color-mix(in srgb, ${dotColor} 12%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${dotColor} 40%, transparent)`,
+              color: dotColor,
+              fontSize: theme.font.size.xs + 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor }} />
+            {readyCount}/{runningCount} prontos
+          </span>
+        );
+      })()}
 
       <ToolButton glyph="⛶" title="Zoom 100%" onClick={props.onZoomReset} />
       <ToolButton glyph="⚙" title="Configurações" onClick={props.onOpenSettings} />
-    </div>
+    </>
   );
 }
 

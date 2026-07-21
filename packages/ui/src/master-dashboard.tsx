@@ -42,10 +42,11 @@ export interface MasterDashboardProps {
   tasks: Task[];
   onGoToTerminal: (id: string) => void;
   /**
-   * Envia instrução ao agente (Story 3.2). Retorna false se o envio foi
-   * cancelado (guarda de error/done) — usado no feedback visual.
+   * Envia instrução ao agente (Story 3.2). Resolve false se o envio foi
+   * cancelado (guarda de error/done, confirmada via modal temático — auditoria
+   * UX Don Norman, achado #2) — usado no feedback visual.
    */
-  onInstruct: (id: string, text: string) => boolean;
+  onInstruct: (id: string, text: string) => Promise<boolean>;
   /** Abre o relatório da sessão (Story 3.5). */
   onOpenReport: (id: string) => void;
   /** Vincula/desvincula tarefa ao terminal (Story 5.2, AC1/AC2). Papel opcional (Story 7.1). */
@@ -121,11 +122,12 @@ export function MasterDashboard({
   const submit = (id: string): void => {
     const text = (drafts[id] ?? '').trim();
     if (!text) return;
-    if (onInstruct(id, text)) {
+    void onInstruct(id, text).then((sent) => {
+      if (!sent) return;
       setDrafts((d) => ({ ...d, [id]: '' }));
       setSentAt((s) => ({ ...s, [id]: Date.now() }));
       setTimeout(() => setSentAt((s) => ({ ...s, [id]: 0 })), 2500);
-    }
+    });
   };
 
   const submitLearning = (): void => {

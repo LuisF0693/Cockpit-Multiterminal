@@ -385,10 +385,13 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
       <div onPointerDown={startConnect} title="Arraste para vincular" style={{ ...connectDotBase, left: -5, top: 'calc(50% - 5px)' }} />
       <div onPointerDown={startConnect} title="Arraste para vincular" style={{ ...connectDotBase, right: -5, top: 'calc(50% - 5px)' }} />
       <div onPointerDown={startConnect} title="Arraste para vincular" style={{ ...connectDotBase, top: -5, left: 'calc(50% - 5px)' }} />
+      {/* Cor alinhada aos outros 3 pontos (auditoria UX Don Norman, achado #4)
+          — accent.warn colidia com o âmbar de STATUS_COLORS['waiting-input'],
+          fazendo o usuário ler "aguardando decisão" onde não havia nenhuma. */}
       <div
         onPointerDown={startConnect}
         title="Arraste para vincular"
-        style={{ ...connectDotBase, bottom: -5, left: 'calc(50% - 5px)', borderColor: theme.accent.warn }}
+        style={{ ...connectDotBase, bottom: -5, left: 'calc(50% - 5px)' }}
       />
 
       {/* 8 alças de resize (14.4) — visíveis só no tile focado (mock 586-596). */}

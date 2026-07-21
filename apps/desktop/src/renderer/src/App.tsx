@@ -21,15 +21,15 @@ import {
   MasterDashboard,
   nextAttentionTile,
   PromptModal,
+  ConfirmModal,
   RecoveryScreen,
   ReviewPanel,
-  SessionCardsBar,
   SessionReportView,
   SettingsWindow,
+  StatusFooter,
   StatusPulseStyles,
   TasksPanel,
   PROJECT_PALETTE,
-  TelemetryPanel,
   TerminalTile,
   TimelineView,
   applyTheme,
@@ -38,6 +38,7 @@ import {
   matchShortcut,
   statusColor,
   theme,
+  type DecisionItem,
   type MinimapTile,
   type PreviewFile
 } from '@cockpit/ui';
@@ -89,7 +90,6 @@ export function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Larguras dos painéis (Story 15.1, FR52) — persistidas nas settings.
   const [sidebarWidth, setSidebarWidth] = useState(240);
-  const [telemetryWidth, setTelemetryWidth] = useState(230);
   const [previewWidth, setPreviewWidth] = useState(520);
   // Colapsáveis (Story 15.5, FR58) — canvas maior; persistidos nas settings.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -103,7 +103,6 @@ export function App(): JSX.Element {
         setOllamaModel(s.ollamaDefaultModel);
         setCanvasZoom(clampZoom(s.canvasDefaultZoom));
         setSidebarWidth(s.sidebarWidth);
-        setTelemetryWidth(s.telemetryWidth);
         setPreviewWidth(s.previewWidth);
         setSidebarCollapsed(s.sidebarCollapsed);
         setTelemetryCollapsed(s.telemetryCollapsed);
@@ -192,6 +191,13 @@ export function App(): JSX.Element {
   };
   const viewRef = useRef(view);
   viewRef.current = view;
+  /**
+   * Alterna pra `v` — ou volta ao canvas se `v` já é a view ativa (auditoria
+   * UX Don Norman, achado #5): mesmo comportamento por qualquer caminho
+   * (atalho de teclado, clique na sidebar, clique na faixa de comando) — a
+   * mesma ação sempre produz o mesmo resultado (heurística 4).
+   */
+  const toggleView = (v: Exclude<typeof view, 'recovery'>): void => setView(viewRef.current === v ? 'canvas' : v);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   // Relatório de sessão (Story 3.5): id alvo + dados carregados.
   const [reportId, setReportId] = useState<string | null>(null);
@@ -403,19 +409,19 @@ export function App(): JSX.Element {
     // QUANDO rotear; só o renderer escreve na PTY (decisão crítica 4), daí
     // instructAgent aqui em vez de no Main.
     const unsubSdc = window.cockpit.sdc.onReviewRequested((event) => {
-      for (const reviewerId of event.reviewerIds) instructAgent(reviewerId, event.message);
+      for (const reviewerId of event.reviewerIds) void instructAgent(reviewerId, event.message);
     });
 
     // Correção agregada automática ao escritor após rejeição (Story 7.4,
     // FR19) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
     const unsubSdcCorrection = window.cockpit.sdc.onCorrectionRequested((event) => {
-      instructAgent(event.writerId, event.message);
+      void instructAgent(event.writerId, event.message);
     });
 
     // Roteamento automático de vínculo terminal-a-terminal (Story 9.2,
     // FR26) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
     const unsubTerminalLinkRouted = window.cockpit.terminalLink.onRouted((event) => {
-      for (const targetId of event.targetIds) instructAgent(targetId, event.message);
+      for (const targetId of event.targetIds) void instructAgent(targetId, event.message);
     });
 
     // Portas binárias chegam via window message (tag = session id).
@@ -481,9 +487,8 @@ export function App(): JSX.Element {
         }
       }
       if (action.type === 'close-terminal' && st.focusedId) void closeSession(st.focusedId);
-      if (action.type === 'toggle-master') setView(viewRef.current === 'master' ? 'canvas' : 'master');
-      if (action.type === 'toggle-timeline')
-        setView(viewRef.current === 'timeline' ? 'canvas' : 'timeline');
+      if (action.type === 'toggle-master') toggleView('master');
+      if (action.type === 'toggle-timeline') toggleView('timeline');
       if (action.type === 'next-attention') {
         // Story 18.2: percorre (ordem estável de criação) os tiles em
         // waiting-input/error e centraliza o canvas no próximo (AC1-AC3).
@@ -590,6 +595,28 @@ export function App(): JSX.Element {
   const promptText = (message: string, defaultValue = ''): Promise<string | null> =>
     new Promise((resolve) => setPromptState({ message, defaultValue, resolve }));
 
+  /**
+   * `window.confirm` É implementado pelo Electron, mas renderiza o dialog
+   * nativo do Chromium (cinza, fora do tema) — quebra a ilusão do "cockpit"
+   * exatamente nas decisões mais críticas (destrutivas/irreversíveis).
+   * `confirmDialog` substitui as 3 chamadas por um modal React temático
+   * (`ConfirmModal`), mesmo padrão do `promptText` acima (auditoria UX Don
+   * Norman, achado #2).
+   */
+  const [confirmState, setConfirmState] = useState<{
+    message: string;
+    danger: boolean;
+    confirmLabel: string | undefined;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const confirmDialog = (
+    message: string,
+    opts?: { danger?: boolean; confirmLabel?: string }
+  ): Promise<boolean> =>
+    new Promise((resolve) =>
+      setConfirmState({ message, danger: opts?.danger ?? false, confirmLabel: opts?.confirmLabel, resolve })
+    );
+
   /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
   const switchWorkspace = (name: string): void => {
     void window.cockpit.workspace.setActive({ name }).then(setWorkspaces).catch(() => void 0);
@@ -628,14 +655,18 @@ export function App(): JSX.Element {
     if (!project) return;
     const count = useCockpitStore.getState().sessions.filter((s) => s.projectId === id).length;
     const detail = count > 0 ? `\n\n${count} ${count === 1 ? 'terminal dele será fechado' : 'terminais dele serão fechados'}.` : '';
-    if (!window.confirm(`Excluir o projeto "${project.name}"?${detail}`)) return;
-    void window.cockpit.project
-      .remove({ id })
-      .then((list) => {
-        setProjects(list.projects);
-        setActiveProjectId(list.activeId);
-      })
-      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    void confirmDialog(`Excluir o projeto "${project.name}"?${detail}`, { danger: true, confirmLabel: 'excluir' }).then(
+      (ok) => {
+        if (!ok) return;
+        void window.cockpit.project
+          .remove({ id })
+          .then((list) => {
+            setProjects(list.projects);
+            setActiveProjectId(list.activeId);
+          })
+          .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+      }
+    );
   };
 
   /** Projetos (Story 8.2): operações sempre re-sincronizam a lista do Main. */
@@ -692,15 +723,22 @@ export function App(): JSX.Element {
     setView('canvas');
   };
 
-  /** Story 3.2: instrução via master — mesma porta binária do tile (FR7). */
-  const instructAgent = (id: string, text: string): boolean => {
+  /**
+   * Story 3.2: instrução via master — mesma porta binária do tile (FR7).
+   * Assíncrona (auditoria UX Don Norman, achado #2): a confirmação pra
+   * instruir um agente em erro/concluído usa `confirmDialog` (modal temático)
+   * em vez de `window.confirm` nativo — mesma decisão, sem quebrar o tema.
+   */
+  const instructAgent = async (id: string, text: string): Promise<boolean> => {
     const st = useCockpitStore.getState();
     const session = st.sessions.find((s) => s.id === id);
     const port = st.ports.get(id);
     if (!session || !port) return false;
     if (
       (session.agentStatus === 'error' || session.agentStatus === 'done') &&
-      !window.confirm(`"${session.name}" está em estado ${session.agentStatus}. Enviar mesmo assim?`)
+      !(await confirmDialog(`"${session.name}" está em estado ${session.agentStatus}. Enviar mesmo assim?`, {
+        confirmLabel: 'enviar'
+      }))
     ) {
       return false;
     }
@@ -722,7 +760,7 @@ export function App(): JSX.Element {
   /** Instrui TODOS os terminais vinculados à tarefa (Story 5.2, AC3) — reusa instructAgent. */
   const instructTaskAgents = (taskId: string, text: string): void => {
     for (const s of useCockpitStore.getState().sessions) {
-      if (s.taskId === taskId) instructAgent(s.id, text);
+      if (s.taskId === taskId) void instructAgent(s.id, text);
     }
   };
 
@@ -980,7 +1018,7 @@ export function App(): JSX.Element {
     const message =
       `Instrução manual (vínculo terminal-a-terminal): avalie o trabalho mais recente do ` +
       `terminal "${source?.name ?? link.sourceId}" (${source?.adapterId ?? '—'}) e aja sobre o resultado.`;
-    instructAgent(link.targetId, message);
+    void instructAgent(link.targetId, message);
   };
 
   /** Captura rápida de learning (Épico 11, Story 11.1, AC2) — o push (onEvent) já atualiza a lista. */
@@ -1017,7 +1055,7 @@ export function App(): JSX.Element {
       .then(() => {
         if (action === 'redirect' && opts?.redirectTo) {
           const intro = `Você foi designado para a tarefa: "${task?.title ?? taskId}".`;
-          instructAgent(opts.redirectTo, opts.justification ? `${intro} ${opts.justification}` : intro);
+          void instructAgent(opts.redirectTo, opts.justification ? `${intro} ${opts.justification}` : intro);
         }
       })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
@@ -1028,7 +1066,10 @@ export function App(): JSX.Element {
     if (!session) return;
     if (
       session.status === 'running' &&
-      !window.confirm(`Encerrar "${session.name}"? O processo ativo será finalizado.`)
+      !(await confirmDialog(`Encerrar "${session.name}"? O processo ativo será finalizado.`, {
+        danger: true,
+        confirmLabel: 'encerrar'
+      }))
     ) {
       return;
     }
@@ -1064,10 +1105,15 @@ export function App(): JSX.Element {
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
 
   // Fila unificada (Story 5.3, AC3): agentes waiting-input + tarefas em
-  // awaiting_decision — badge do header + card da telemetria (14.2).
-  const pendingDecisionCount =
-    projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running').length +
-    projectTasks.filter((t) => t.state === 'awaiting_decision').length;
+  // awaiting_decision — badge do header + coluna de decisões do rodapé (14.2).
+  const waitingSessions = projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running');
+  const awaitingTasks = projectTasks.filter((t) => t.state === 'awaiting_decision');
+  const pendingDecisionCount = waitingSessions.length + awaitingTasks.length;
+  /** Itens REAIS pra coluna "DECISÕES" do rodapé (mock linhas 311-321) — sem dado fabricado. */
+  const pendingDecisions: DecisionItem[] = [
+    ...awaitingTasks.map((t) => ({ id: `task-${t.id}`, icon: '⚠', text: t.title })),
+    ...waitingSessions.map((s) => ({ id: `session-${s.id}`, icon: '◎', text: `"${s.name}" aguardando instrução` }))
+  ];
 
   // Mundo do canvas infinito (14.3) — tamanho explícito cobre o extent real
   // dos tiles (mínimo 2600×1800 como o mock); a navegação é por pan, o
@@ -1207,6 +1253,31 @@ export function App(): JSX.Element {
           ))}
         </nav>
         <span style={{ flex: 1 }} />
+        {/* Faixa de comando ÚNICA (auditoria UX Don Norman, achado #3) — os
+            ícones de criar terminal/browser, abrir timeline/learnings/agentes,
+            togglear painéis e a pill de prontidão vivem aqui, não numa
+            segunda faixa empilhada (antes 80px de altura pra duas faixas
+            oferecendo os mesmos "+ novo terminal"/"+ browser" duas vezes). */}
+        <AppToolbar
+          onNewTerminal={() => {
+            if (view !== 'recovery') void newTerminal();
+          }}
+          onNewBrowser={createBrowserTile}
+          onOpenTimeline={() => toggleView('timeline')}
+          onOpenLearnings={() => toggleView('learnings')}
+          onOpenAgents={() => toggleView('agents')}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onZoomReset={() => setCanvasZoom(1)}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => toggleCollapsed('sidebarCollapsed', setSidebarCollapsed, sidebarCollapsed)}
+          telemetryCollapsed={telemetryCollapsed}
+          onToggleTelemetry={() => toggleCollapsed('telemetryCollapsed', setTelemetryCollapsed, telemetryCollapsed)}
+          sessionsBarCollapsed={sessionsBarCollapsed}
+          onToggleSessionsBar={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+          readyCount={sessions.filter((s) => s.status === 'running' && (s.agentStatus === 'idle' || s.agentStatus === 'done')).length}
+          runningCount={sessions.filter((s) => s.status === 'running').length}
+        />
+        <span style={{ width: 1, height: 16, background: theme.border.default }} />
         {info && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: theme.font.size.xs + 1, color: theme.text.muted, whiteSpace: 'nowrap' }}>
             <span>v{info.version}</span>
@@ -1281,64 +1352,10 @@ export function App(): JSX.Element {
             </button>
           </div>
         )}
-        <button
-          onClick={() => void newTerminal()}
-          disabled={view === 'recovery'}
-          title={`Novo terminal ${selectedAdapter} (Ctrl+N)`}
-          style={{
-            background: theme.surface.raised,
-            color: view === 'recovery' ? theme.text.faint : theme.text.primary,
-            border: `1px solid ${theme.border.default}`,
-            borderRadius: 6,
-            padding: '4px 12px',
-            fontSize: theme.font.size.sm,
-            cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
-          }}
-        >
-          + novo terminal
-        </button>
-        <button
-          onClick={createBrowserTile}
-          disabled={view === 'recovery'}
-          title="Novo preview de browser (Playwright)"
-          style={{
-            background: theme.surface.raised,
-            color: view === 'recovery' ? theme.text.faint : theme.text.primary,
-            border: `1px solid ${theme.border.default}`,
-            borderRadius: 6,
-            padding: '4px 12px',
-            fontSize: theme.font.size.sm,
-            cursor: view === 'recovery' ? 'not-allowed' : 'pointer'
-          }}
-        >
-          + browser
-        </button>
         {error && (
           <span style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.sm, color: theme.accent.danger }}>{error}</span>
         )}
       </header>
-
-      {/* Toolbar de ícones (Story 15.5, FR57) — só ações REAIS, com toggles
-          de colapso (FR58) e a pill de prontidão calculada das sessões. */}
-      <AppToolbar
-        onNewTerminal={() => {
-          if (view !== 'recovery') void newTerminal();
-        }}
-        onNewBrowser={createBrowserTile}
-        onOpenTimeline={() => setView('timeline')}
-        onOpenLearnings={() => setView('learnings')}
-        onOpenAgents={() => setView('agents')}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onZoomReset={() => setCanvasZoom(1)}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={() => toggleCollapsed('sidebarCollapsed', setSidebarCollapsed, sidebarCollapsed)}
-        telemetryCollapsed={telemetryCollapsed}
-        onToggleTelemetry={() => toggleCollapsed('telemetryCollapsed', setTelemetryCollapsed, telemetryCollapsed)}
-        sessionsBarCollapsed={sessionsBarCollapsed}
-        onToggleSessionsBar={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
-        readyCount={sessions.filter((s) => s.status === 'running' && (s.agentStatus === 'idle' || s.agentStatus === 'done')).length}
-        runningCount={sessions.filter((s) => s.status === 'running').length}
-      />
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {!sidebarCollapsed && (
@@ -1364,9 +1381,9 @@ export function App(): JSX.Element {
           onSelectFile={openFilePreview}
           selectedFilePath={previewFile?.path ?? null}
           systemEntries={[
-            { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => setView('timeline') },
-            { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => setView('learnings') },
-            { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => setView('agents') },
+            { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => toggleView('timeline') },
+            { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => toggleView('learnings') },
+            { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => toggleView('agents') },
             { icon: '⚙', label: 'Configurações', active: settingsOpen, onClick: () => setSettingsOpen(true) }
           ]}
           appVersion={info?.version ?? '—'}
@@ -1763,30 +1780,22 @@ export function App(): JSX.Element {
           />
         )}
 
-        {/* Painel direito de telemetria (Story 14.2, FR48) — decisões
-            pendentes reais + eventos da timeline (mock linhas 261-275). */}
-        {!telemetryCollapsed && (
-          <TelemetryPanel
-            pendingDecisionCount={pendingDecisionCount}
-            onOpenDecisions={() => setView('master')}
-            events={telemetryEvents}
-            sessions={sessions}
-            width={telemetryWidth}
-            onResize={setTelemetryWidth}
-            onResizeEnd={(w) => persistPanelWidth({ telemetryWidth: w })}
-          />
-        )}
       </div>
 
-      {/* Rodapé de cards de sessões (Story 14.2, FR48) — substitui a antiga
-          sidebar de sessões E a status bar da 13.3 (informação preservada:
-          daemon no header, branch/projeto na sidebar, decisões na telemetria). */}
-      <SessionCardsBar
+      {/* Rodapé ÚNICO de "Telemetria + status" (mock linhas 282-335): sessões,
+          decisões e eventos na MESMA faixa horizontal — antes espalhado entre
+          um rodapé de sessões e uma coluna vertical de telemetria à direita
+          do canvas (desvio do mock apontado pelo fundador). Toggles de
+          colapso já vivem na faixa de comando (AppToolbar `⌄`/`⟩`). */}
+      <StatusFooter
         sessions={sessions}
         focusedId={focusedId}
         onFocusSession={goToTerminal}
-        collapsed={sessionsBarCollapsed}
-        onToggleCollapsed={() => toggleCollapsed('sessionsBarCollapsed', setSessionsBarCollapsed, sessionsBarCollapsed)}
+        sessionsCollapsed={sessionsBarCollapsed}
+        decisions={pendingDecisions}
+        onOpenDecisions={() => setView('master')}
+        events={telemetryEvents}
+        telemetryCollapsed={telemetryCollapsed}
       />
       {/* Janela de Configurações (Story 15.3, FR54) — overlay estilo OmniRift. */}
       {settingsOpen && settings && (
@@ -1810,6 +1819,21 @@ export function App(): JSX.Element {
           onCancel={() => {
             promptState.resolve(null);
             setPromptState(null);
+          }}
+        />
+      )}
+      {confirmState && (
+        <ConfirmModal
+          message={confirmState.message}
+          danger={confirmState.danger}
+          {...(confirmState.confirmLabel !== undefined ? { confirmLabel: confirmState.confirmLabel } : {})}
+          onConfirm={() => {
+            confirmState.resolve(true);
+            setConfirmState(null);
+          }}
+          onCancel={() => {
+            confirmState.resolve(false);
+            setConfirmState(null);
           }}
         />
       )}
