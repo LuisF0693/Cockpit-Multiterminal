@@ -798,32 +798,54 @@ export function App(): JSX.Element {
   const clampZoom = (z: number): number => Math.min(1.6, Math.max(0.15, z));
 
   // Painel de preview de arquivo (Story 14.5, FR51) — efêmero por design.
-  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  // Múltiplos arquivos abertos como abas lado a lado (igual Cursor/VS Code) —
+  // antes só permitia 1 arquivo por vez, cada clique na árvore substituía
+  // o anterior.
+  const [openFiles, setOpenFiles] = useState<PreviewFile[]>([]);
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
 
   // Árvore de arquivos da sidebar (Story 14.2) — raiz recarrega na troca de
   // projeto (mesmo comportamento do ProjectFilesSidebar da 12.1, agora no App).
   const [rootEntries, setRootEntries] = useState<ProjectDirEntry[] | null>(null);
   useEffect(() => {
     setRootEntries(null);
-    setPreviewFile(null);
+    setOpenFiles([]);
+    setActiveFilePath(null);
     void window.cockpit.project
       .readDir(activeProjectId ? { projectId: activeProjectId } : {})
       .then(setRootEntries)
       .catch(() => setRootEntries([]));
   }, [activeProjectId]);
 
-  /** Abre um arquivo da árvore no painel de preview (Story 14.5, FR51). */
+  /** Abre um arquivo da árvore como aba nova (ou foca a aba já aberta) — Story 14.5, FR51. */
   const openFilePreview = (entry: ProjectDirEntry): void => {
+    if (openFiles.some((f) => f.path === entry.path)) {
+      setActiveFilePath(entry.path);
+      return;
+    }
     void window.cockpit.project
       .readFile({ path: entry.path, maxBytes: 262144 })
-      .then((res) =>
-        setPreviewFile(
-          res
-            ? { name: entry.name, path: entry.path, content: res.content, truncated: res.truncated }
-            : { name: entry.name, path: entry.path, content: '(arquivo binário ou ilegível)', truncated: false }
-        )
-      )
+      .then((res) => {
+        const file: PreviewFile = res
+          ? { name: entry.name, path: entry.path, content: res.content, truncated: res.truncated }
+          : { name: entry.name, path: entry.path, content: '(arquivo binário ou ilegível)', truncated: false };
+        setOpenFiles((prev) => [...prev, file]);
+        setActiveFilePath(entry.path);
+      })
       .catch(() => void 0);
+  };
+
+  /** Fecha uma aba — foca a vizinha à esquerda (ou a primeira restante) se era a ativa. */
+  const closeFilePreview = (path: string): void => {
+    setOpenFiles((prev) => {
+      const idx = prev.findIndex((f) => f.path === path);
+      const next = prev.filter((f) => f.path !== path);
+      if (activeFilePath === path) {
+        const neighbor = next[Math.max(0, idx - 1)] ?? null;
+        setActiveFilePath(neighbor?.path ?? null);
+      }
+      return next;
+    });
   };
 
   // Eventos pro painel de telemetria (Story 14.2, FR48) — poll leve SEMPRE
@@ -1379,7 +1401,7 @@ export function App(): JSX.Element {
             })
           }
           onSelectFile={openFilePreview}
-          selectedFilePath={previewFile?.path ?? null}
+          selectedFilePath={activeFilePath}
           systemEntries={[
             { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => toggleView('timeline') },
             { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => toggleView('learnings') },
@@ -1769,11 +1791,14 @@ export function App(): JSX.Element {
         </section>
 
         {/* Painel de preview de arquivo (Story 14.5, FR51) — entre o canvas
-            e a telemetria, como no mock (linhas 205-259). */}
-        {previewFile && (
+            e a telemetria, como no mock (linhas 205-259). Múltiplos arquivos
+            abertos como abas lado a lado (igual Cursor/VS Code). */}
+        {openFiles.length > 0 && (
           <FilePreviewPanel
-            file={previewFile}
-            onClose={() => setPreviewFile(null)}
+            files={openFiles}
+            activePath={activeFilePath}
+            onSelectTab={setActiveFilePath}
+            onCloseTab={closeFilePreview}
             width={previewWidth}
             onResize={setPreviewWidth}
             onResizeEnd={(w) => persistPanelWidth({ previewWidth: w })}
