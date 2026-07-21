@@ -1,0 +1,124 @@
+# Multiterminal Systems Squad v1.0
+# Squad Configuration
+
+pack:
+  name: multiterminal
+  title: "Multiterminal Systems Squad"
+  version: "1.0.0"
+  author: "AIOX Team"
+  description: >-
+    Squad de elite minds para arquitetura de sistemas multiterminal: engenharia de
+    multiplexação/terminal, frameworks de TUI/dashboard multi-painel e metodologia de
+    orquestração/loop de agentes de IA.
+  icon: "🖥️"
+  slash_prefix: "multiterminal"
+
+entry_agent: multiterminal-chief
+tested: false
+
+metadata:
+  version: "1.0.0"
+  created_at: "2026-07-21"
+  creation_mode: YOLO
+  fidelity_estimate: "60-75%"
+  fidelity_note: >-
+    Squad criado via pesquisa web pública (blogs, talks, entrevistas, GitHub), sem acesso a
+    livros/cursos/transcrições licenciadas. Todas as citações e frameworks nos agents carregam
+    tag [SOURCE:] quando são citação literal; o restante é síntese razoável do trabalho
+    documentado publicamente. Ver bloco `provenance` em cada agent para as fontes usadas.
+
+research_process:
+  workflow: wf-mind-research-loop (squad-creator-pro)
+  iterations_executed: 3
+  broad_list_count: 19
+  after_devils_advocate: 12
+  after_framework_validation: 10
+  final_elite: 5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+agents:
+  - id: multiterminal-chief
+    path: agents/multiterminal-chief.md
+    tier: orch
+    role: "Orquestrador — roteia entre os 5 especialistas por domínio"
+    executor_profile:
+      sinkra_type: Agent
+      human_in_the_loop: true
+      story_role: executor
+
+  - id: addy-osmani
+    path: agents/addy-osmani.md
+    tier: 0
+    role: "Diagnóstico e taxonomia de padrões de orquestração multi-agente"
+    executor_profile:
+      sinkra_type: Clone
+      human_in_the_loop: true
+      story_role: executor
+
+  - id: mitchell-hashimoto
+    path: agents/mitchell-hashimoto.md
+    tier: 1
+    role: "Engenharia de terminal desde as fundações (Ghostty)"
+    executor_profile:
+      sinkra_type: Clone
+      human_in_the_loop: true
+      story_role: executor
+
+  - id: nicholas-marriott
+    path: agents/nicholas-marriott.md
+    tier: 1
+    role: "Modelo de referência de multiplexação — session/window/pane (tmux)"
+    executor_profile:
+      sinkra_type: Clone
+      human_in_the_loop: true
+      story_role: executor
+
+  - id: christian-rocha
+    path: agents/christian-rocha.md
+    tier: 2
+    role: "Framework replicável de TUI/dashboard multi-painel (Bubble Tea/Charm)"
+    executor_profile:
+      sinkra_type: Clone
+      human_in_the_loop: true
+      story_role: executor
+
+  - id: geoffrey-huntley
+    path: agents/geoffrey-huntley.md
+    tier: 2
+    role: "Loop determinístico de agentes nativo de terminal (Ralph Wiggum Technique)"
+    executor_profile:
+      sinkra_type: Clone
+      human_in_the_loop: true
+      story_role: executor
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MINDS CONSIDERADAS MAS NÃO SELECIONADAS (transparência do processo de pesquisa)
+# ═══════════════════════════════════════════════════════════════════════════════
+minds_not_selected:
+  - name: "Wez Furlong (WezTerm)"
+    reason: "Redundante com Mitchell Hashimoto (mesmo ângulo de rewrite moderno do terminal)"
+  - name: "Kovid Goyal (Kitty)"
+    reason: "Redundante com Mitchell Hashimoto (ângulo contrarian já coberto)"
+  - name: "João Moura (CrewAI)"
+    reason: "Camada de lib Python de orquestração, não terminal/dashboard"
+  - name: "Harrison Chase (LangGraph)"
+    reason: "Mesma razão do CrewAI + documentação mais fraca no domínio específico"
+  - name: "Simon Willison (LLM CLI)"
+    reason: "Excelente, mas escopo é ergonomia de CLI single-tool, não sistemas multiterminal"
+  - name: "Fernand Galiana (k9s) / Jesse Duffield (lazygit)"
+    reason: "TUIs de domínio único, abaixo do score mínimo de documentação nesta pesquisa"
+  - name: "Zach Lloyd (Warp)"
+    reason: "Visão de produto forte, metodologia pouco replicável fora do produto comercial"
+
+domain_model:
+  declared:
+    - label: Diagnóstico
+      focus: "avaliar o sistema atual antes de recomendar arquitetura nova"
+    - label: Engenharia de Terminal
+      focus: "fundação de renderização, protocolo, modelo de sessão/multiplexação"
+    - label: TUI/Dashboard
+      focus: "estado da UI, componentes, layout multi-painel"
+    - label: Orquestração de Agentes
+      focus: "loop de execução, dispatch, critério de conclusão"
