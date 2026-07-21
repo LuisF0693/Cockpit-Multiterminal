@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import {
   classifyTaskRoles,
   type Learning,
@@ -30,6 +30,77 @@ const queueButtonStyle: React.CSSProperties = {
 
 /** Superfície tingida pelo âmbar de waiting-input — deriva do STATUS_COLORS, não é um hex novo. */
 const WAITING_TINT = `${statusColor('waiting-input')}14`;
+
+/**
+ * Estado efêmero de UI do MasterDashboard, consolidado num único Model +
+ * reducer (Model/Update/View) em vez de 7 `useState` soltos — dados de
+ * domínio (sessions/tasks/learnings/terminalLinks) continuam como props,
+ * elevados pro dono certo; isso cobre só rascunhos/formulários locais da tela.
+ */
+interface DashboardUiModel {
+  drafts: Record<string, string>;
+  sentAt: Record<string, number>;
+  redirectTargets: Record<string, string>;
+  learningDraft: { text: string; category: string };
+  linkDraft: { source: string; target: string; mode: TerminalLinkMode };
+}
+
+const initialUiModel: DashboardUiModel = {
+  drafts: {},
+  sentAt: {},
+  redirectTargets: {},
+  learningDraft: { text: '', category: 'gotcha' },
+  linkDraft: { source: '', target: '', mode: 'manual' }
+};
+
+type DashboardUiMsg =
+  | { type: 'draft-changed'; sessionId: string; text: string }
+  | { type: 'instruction-sent'; sessionId: string }
+  | { type: 'sent-flash-cleared'; sessionId: string }
+  | { type: 'redirect-target-changed'; taskId: string; sessionId: string }
+  | { type: 'redirect-consumed'; taskId: string }
+  | { type: 'learning-text-changed'; value: string }
+  | { type: 'learning-category-changed'; value: string }
+  | { type: 'learning-submitted' }
+  | { type: 'link-source-changed'; value: string }
+  | { type: 'link-target-changed'; value: string }
+  | { type: 'link-mode-changed'; value: TerminalLinkMode }
+  | { type: 'link-created' };
+
+function dashboardUiReducer(model: DashboardUiModel, msg: DashboardUiMsg): DashboardUiModel {
+  switch (msg.type) {
+    case 'draft-changed':
+      return { ...model, drafts: { ...model.drafts, [msg.sessionId]: msg.text } };
+    case 'instruction-sent':
+      return {
+        ...model,
+        drafts: { ...model.drafts, [msg.sessionId]: '' },
+        sentAt: { ...model.sentAt, [msg.sessionId]: Date.now() }
+      };
+    case 'sent-flash-cleared':
+      return { ...model, sentAt: { ...model.sentAt, [msg.sessionId]: 0 } };
+    case 'redirect-target-changed':
+      return { ...model, redirectTargets: { ...model.redirectTargets, [msg.taskId]: msg.sessionId } };
+    case 'redirect-consumed':
+      return { ...model, redirectTargets: { ...model.redirectTargets, [msg.taskId]: '' } };
+    case 'learning-text-changed':
+      return { ...model, learningDraft: { ...model.learningDraft, text: msg.value } };
+    case 'learning-category-changed':
+      return { ...model, learningDraft: { ...model.learningDraft, category: msg.value } };
+    case 'learning-submitted':
+      return { ...model, learningDraft: { ...model.learningDraft, text: '' } };
+    case 'link-source-changed':
+      return { ...model, linkDraft: { ...model.linkDraft, source: msg.value } };
+    case 'link-target-changed':
+      return { ...model, linkDraft: { ...model.linkDraft, target: msg.value } };
+    case 'link-mode-changed':
+      return { ...model, linkDraft: { ...model.linkDraft, mode: msg.value } };
+    case 'link-created':
+      return { ...model, linkDraft: { ...model.linkDraft, source: '', target: '' } };
+    default:
+      return model;
+  }
+}
 
 /**
  * MasterDashboard (Story 3.1) — o Conductor: visão agregada de todos os
@@ -95,14 +166,7 @@ export function MasterDashboard({
   onPromptText
 }: MasterDashboardProps): JSX.Element {
   const [, setTick] = useState(0);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [sentAt, setSentAt] = useState<Record<string, number>>({});
-  const [redirectTargets, setRedirectTargets] = useState<Record<string, string>>({});
-  const [learningText, setLearningText] = useState('');
-  const [learningCategory, setLearningCategory] = useState('gotcha');
-  const [linkSource, setLinkSource] = useState('');
-  const [linkTarget, setLinkTarget] = useState('');
-  const [linkMode, setLinkMode] = useState<TerminalLinkMode>('manual');
+  const [ui, dispatch] = useReducer(dashboardUiReducer, initialUiModel);
   const sessionName = useMemo(() => {
     const byId = new Map(sessions.map((s) => [s.id, s.name]));
     return (id: string): string => byId.get(id) ?? '—';
@@ -120,21 +184,20 @@ export function MasterDashboard({
   }, []);
 
   const submit = (id: string): void => {
-    const text = (drafts[id] ?? '').trim();
+    const text = (ui.drafts[id] ?? '').trim();
     if (!text) return;
     void onInstruct(id, text).then((sent) => {
       if (!sent) return;
-      setDrafts((d) => ({ ...d, [id]: '' }));
-      setSentAt((s) => ({ ...s, [id]: Date.now() }));
-      setTimeout(() => setSentAt((s) => ({ ...s, [id]: 0 })), 2500);
+      dispatch({ type: 'instruction-sent', sessionId: id });
+      setTimeout(() => dispatch({ type: 'sent-flash-cleared', sessionId: id }), 2500);
     });
   };
 
   const submitLearning = (): void => {
-    const text = learningText.trim();
+    const text = ui.learningDraft.text.trim();
     if (!text) return;
-    onCreateLearning(text, learningCategory.trim() || 'geral');
-    setLearningText('');
+    onCreateLearning(text, ui.learningDraft.category.trim() || 'geral');
+    dispatch({ type: 'learning-submitted' });
   };
 
   return (
@@ -151,8 +214,8 @@ export function MasterDashboard({
           📝
         </span>
         <input
-          value={learningText}
-          onChange={(e) => setLearningText(e.target.value)}
+          value={ui.learningDraft.text}
+          onChange={(e) => dispatch({ type: 'learning-text-changed', value: e.target.value })}
           onKeyDown={(e) => {
             if (e.key === 'Enter') submitLearning();
           }}
@@ -169,8 +232,8 @@ export function MasterDashboard({
           }}
         />
         <input
-          value={learningCategory}
-          onChange={(e) => setLearningCategory(e.target.value)}
+          value={ui.learningDraft.category}
+          onChange={(e) => dispatch({ type: 'learning-category-changed', value: e.target.value })}
           list="learning-categories"
           placeholder="categoria"
           style={{
@@ -188,7 +251,7 @@ export function MasterDashboard({
           <option value="decisão" />
           <option value="padrão" />
         </datalist>
-        <button onClick={submitLearning} disabled={!learningText.trim()} style={queueButtonStyle}>
+        <button onClick={submitLearning} disabled={!ui.learningDraft.text.trim()} style={queueButtonStyle}>
           registrar
         </button>
         <span style={{ fontSize: theme.font.size.xs, color: theme.text.faint }} title="learnings no banco global">
@@ -322,8 +385,8 @@ export function MasterDashboard({
                     ✗ rejeitar
                   </button>
                   <select
-                    value={redirectTargets[t.id] ?? ''}
-                    onChange={(e) => setRedirectTargets((d) => ({ ...d, [t.id]: e.target.value }))}
+                    value={ui.redirectTargets[t.id] ?? ''}
+                    onChange={(e) => dispatch({ type: 'redirect-target-changed', taskId: t.id, sessionId: e.target.value })}
                     title="Novo agente para redirecionar"
                     style={{
                       background: theme.surface.raised,
@@ -343,12 +406,12 @@ export function MasterDashboard({
                   </select>
                   <button
                     onClick={() => {
-                      const redirectTo = redirectTargets[t.id];
+                      const redirectTo = ui.redirectTargets[t.id];
                       if (!redirectTo) return;
                       onDecide(t.id, 'redirect', { redirectTo });
-                      setRedirectTargets((d) => ({ ...d, [t.id]: '' }));
+                      dispatch({ type: 'redirect-consumed', taskId: t.id });
                     }}
-                    disabled={!redirectTargets[t.id]}
+                    disabled={!ui.redirectTargets[t.id]}
                     style={queueButtonStyle}
                     title="redirecionar → outro agente"
                   >
@@ -453,8 +516,8 @@ export function MasterDashboard({
               </span>
               <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input
-                  value={drafts[s.id] ?? ''}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [s.id]: e.target.value }))}
+                  value={ui.drafts[s.id] ?? ''}
+                  onChange={(e) => dispatch({ type: 'draft-changed', sessionId: s.id, text: e.target.value })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') submit(s.id);
                   }}
@@ -470,7 +533,7 @@ export function MasterDashboard({
                     fontSize: theme.font.size.sm
                   }}
                 />
-                {(sentAt[s.id] ?? 0) > 0 && (
+                {(ui.sentAt[s.id] ?? 0) > 0 && (
                   <span style={{ color: theme.accent.ok, fontSize: theme.font.size.sm }} title="instrução enviada">
                     ✓
                   </span>
@@ -512,8 +575,8 @@ export function MasterDashboard({
       </h3>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
         <select
-          value={linkSource}
-          onChange={(e) => setLinkSource(e.target.value)}
+          value={ui.linkDraft.source}
+          onChange={(e) => dispatch({ type: 'link-source-changed', value: e.target.value })}
           title="Terminal de origem"
           style={selectStyle}
         >
@@ -526,14 +589,14 @@ export function MasterDashboard({
         </select>
         <span style={{ color: theme.text.faint, fontSize: theme.font.size.sm }}>→</span>
         <select
-          value={linkTarget}
-          onChange={(e) => setLinkTarget(e.target.value)}
+          value={ui.linkDraft.target}
+          onChange={(e) => dispatch({ type: 'link-target-changed', value: e.target.value })}
           title="Terminal alvo"
           style={selectStyle}
         >
           <option value="">alvo…</option>
           {runningSessions
-            .filter((s) => s.id !== linkSource)
+            .filter((s) => s.id !== ui.linkDraft.source)
             .map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -541,8 +604,8 @@ export function MasterDashboard({
             ))}
         </select>
         <select
-          value={linkMode}
-          onChange={(e) => setLinkMode(e.target.value as TerminalLinkMode)}
+          value={ui.linkDraft.mode}
+          onChange={(e) => dispatch({ type: 'link-mode-changed', value: e.target.value as TerminalLinkMode })}
           title="Modo do vínculo — manual: botão enviar; auto: dispara sozinho no status da origem"
           style={selectStyle}
         >
@@ -551,12 +614,11 @@ export function MasterDashboard({
         </select>
         <button
           onClick={() => {
-            if (!linkSource || !linkTarget) return;
-            onCreateLink(linkSource, linkTarget, linkMode);
-            setLinkSource('');
-            setLinkTarget('');
+            if (!ui.linkDraft.source || !ui.linkDraft.target) return;
+            onCreateLink(ui.linkDraft.source, ui.linkDraft.target, ui.linkDraft.mode);
+            dispatch({ type: 'link-created' });
           }}
-          disabled={!linkSource || !linkTarget}
+          disabled={!ui.linkDraft.source || !ui.linkDraft.target}
           style={queueButtonStyle}
         >
           + vincular
