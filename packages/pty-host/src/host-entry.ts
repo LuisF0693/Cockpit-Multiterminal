@@ -222,6 +222,10 @@ parentPort.on('message', (e) => {
       send({ type: 'adapters', requestId: msg.requestId, adapters: registry.list() });
       break;
     }
+    case 'write': {
+      sessions.get(msg.id)?.session.write(msg.text);
+      break;
+    }
     case 'shutdown': {
       void (async () => {
         let orphans = 0;

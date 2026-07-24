@@ -155,6 +155,10 @@ export class DaemonManager {
     this.client?.resize(ptyId, cols, rows);
   }
 
+  writePty(sessionId: string, text: string): void {
+    this.client?.write(sessionId, new TextEncoder().encode(text));
+  }
+
   /**
    * Empurra o snapshot do histórico de despachos pro cache do daemon (Story
    * 18.5) — best-effort como resizePty acima: sem client conectado (boot

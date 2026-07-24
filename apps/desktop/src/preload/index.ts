@@ -31,13 +31,20 @@ import {
   TerminalLinkSchema,
   TerminalLinkEventSchema,
   TerminalLinkRoutedEventSchema,
+  TerminalLinkGatePendEventSchema,
+  TerminalLinkGateResolveRequestSchema,
   BrowserTileSchema,
   BrowserTileEventSchema,
   LearningSchema,
   LearningEventSchema,
   DispatchRecordSchema,
+  TerminalSendRequestSchema,
+  ScratchpadChangedEventSchema,
+  ScratchpadReadRequestSchema,
+  ScratchpadAppendRequestSchema,
   type AppInfo,
   type CockpitApi,
+  type TerminalSendRequest,
   type LayoutUpdateRequest,
   type RecoveryResolveRequest,
   type SessionCloseRequest,
@@ -70,6 +77,8 @@ import {
   type TerminalLinkSetModeRequest,
   type TerminalLinkEvent,
   type TerminalLinkRoutedEvent,
+  type TerminalLinkGatePendEvent,
+  type TerminalLinkGateResolveRequest,
   type BrowserTileCreateRequest,
   type BrowserTileIdRequest,
   type BrowserNavigateRequest,
@@ -78,7 +87,10 @@ import {
   type BrowserTileEvent,
   type LearningCreateRequest,
   type LearningUpdateStatusRequest,
-  type LearningEvent
+  type LearningEvent,
+  type ScratchpadReadRequest,
+  type ScratchpadAppendRequest,
+  type ScratchpadChangedEvent
 } from '@cockpit/shared';
 
 /**
@@ -272,6 +284,17 @@ const api: CockpitApi = {
       };
       ipcRenderer.on(IpcChannels.terminalLinkRouted, listener);
       return () => ipcRenderer.removeListener(IpcChannels.terminalLinkRouted, listener);
+    },
+    onGatePend: (cb: (event: TerminalLinkGatePendEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(TerminalLinkGatePendEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.terminalLinkGatePend, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.terminalLinkGatePend, listener);
+    },
+    gateResolve: async (req: TerminalLinkGateResolveRequest) => {
+      const validated = TerminalLinkGateResolveRequestSchema.parse(req);
+      await ipcRenderer.invoke(IpcChannels.terminalLinkGateResolve, validated);
     }
   },
   browser: {
@@ -398,6 +421,30 @@ const api: CockpitApi = {
     history: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.dispatchHistory);
       return DispatchRecordSchema.array().parse(raw);
+    }
+  },
+  terminal: {
+    send: async (req: TerminalSendRequest) => {
+      const validated = TerminalSendRequestSchema.parse(req);
+      await ipcRenderer.invoke(IpcChannels.terminalSend, validated);
+    }
+  },
+  scratchpad: {
+    read: async (req: ScratchpadReadRequest) => {
+      const validated = ScratchpadReadRequestSchema.parse(req);
+      const raw: unknown = await ipcRenderer.invoke(IpcChannels.scratchpadRead, validated);
+      return raw === null ? null : String(raw);
+    },
+    append: async (req: ScratchpadAppendRequest) => {
+      const validated = ScratchpadAppendRequestSchema.parse(req);
+      await ipcRenderer.invoke(IpcChannels.scratchpadAppend, validated);
+    },
+    onChanged: (cb: (event: ScratchpadChangedEvent) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(ScratchpadChangedEventSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.scratchpadChanged, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.scratchpadChanged, listener);
     }
   }
 };

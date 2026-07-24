@@ -165,6 +165,10 @@ export class PtyHostManager {
     this.post({ type: 'resize', id: ptyId, cols, rows });
   }
 
+  writePty(ptyId: string, text: string): void {
+    this.post({ type: 'write', id: ptyId, text });
+  }
+
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
     const host = this.host;

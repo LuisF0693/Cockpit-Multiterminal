@@ -49,8 +49,8 @@ export interface PersistedTask {
   projectId: string | null;
 }
 
-/** Modo do vínculo terminal-a-terminal (Épico 9, FR25/FR26). */
-export type TerminalLinkMode = 'manual' | 'auto';
+/** Modo do vínculo terminal-a-terminal (Épico 9, FR25/FR26/P3). */
+export type TerminalLinkMode = 'manual' | 'auto' | 'gate';
 
 export interface PersistedTerminalLink {
   id: string;

@@ -1,4 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
+import { appendFileSync, mkdirSync, readFileSync, statSync, watch as fsWatch } from 'node:fs';
+import type { FSWatcher } from 'node:fs';
 import { readdir, readFile as fsReadFile, stat as fsStat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
@@ -14,6 +16,7 @@ import {
   planSdcCorrectionRouting,
   planSdcRedirect,
   planTerminalLinkRouting,
+  planTerminalLinkGating,
   planExternalAdoption,
   isSameProject,
   NON_DISPATCHABLE,
@@ -24,7 +27,8 @@ import {
   parseGitdirPointer,
   parseGitignorePatterns,
   ulid,
-  type StateStore
+  type StateStore,
+  type TerminalLinkGating
 } from '@cockpit/core';
 import {
   AdapterCheckCommandRequestSchema,
@@ -34,6 +38,10 @@ import {
   AppSettingsSchema,
   IpcChannels,
   SettingsUpdateRequestSchema,
+  TerminalSendRequestSchema,
+  TerminalLinkGateResolveRequestSchema,
+  ScratchpadReadRequestSchema,
+  ScratchpadAppendRequestSchema,
   type ApiProvider,
   type AppSettings,
   LayoutUpdateRequestSchema,
@@ -65,6 +73,7 @@ import {
   TerminalLinkSetModeRequestSchema,
   type ProjectDirEntry,
   type SessionEvent,
+  type SessionRecord,
   type TaskEvent,
   type TerminalLinkEvent
 } from '@cockpit/shared';
@@ -105,6 +114,11 @@ export interface PtyBackend {
    * método fica ausente e a chamada vira no-op (optional chaining no wiring).
    */
   pushDispatchHistory?(counts: AdapterOutcomeCount[]): void;
+  /**
+   * Escrita direta no stdin de uma sessão ativa (P1 — canal agente→agente).
+   * Fire-and-forget; sem ack. Implementado em ambos os backends.
+   */
+  writePty?(ptyId: string, text: string): void;
 }
 
 export interface SessionIpcHandle {
@@ -227,6 +241,47 @@ export function registerSessionIpc(
     }
   });
 
+  // P2: enriquece a mensagem de revisão com branch git + tail do scrollback
+  // do escritor. Leitura síncrona — listener não pode awaitar Promises.
+  // Falha silenciosa em qualquer campo: só omite o dado, nunca bloqueia o routing.
+  const enrichReviewMessage = (base: string, writer: SessionRecord): string => {
+    const metaParts: string[] = [];
+    let scrollbackContext = '';
+
+    // Branch git do projeto do escritor
+    if (writer.projectId) {
+      const { projects } = persistence.projects();
+      const project = projects.find((p) => p.id === writer.projectId);
+      if (project) {
+        try {
+          const root = resolve(project.rootPath);
+          let gitDir = join(root, '.git');
+          if (statSync(gitDir).isFile()) {
+            const pointer = parseGitdirPointer(readFileSync(gitDir, 'utf-8'));
+            if (pointer) gitDir = resolve(root, pointer);
+          }
+          const branch = parseGitHead(readFileSync(join(gitDir, 'HEAD'), 'utf-8'));
+          if (branch) metaParts.push(`branch: ${branch}`);
+        } catch { /* projeto sem repositório git — omite campo */ }
+      }
+    }
+
+    // Tail do scrollback persistido do escritor (últimos 4 KB)
+    if (opts?.scrollbackDir) {
+      try {
+        const file = join(opts.scrollbackDir, `${writer.id}.log`);
+        const tail = readScrollbackTail(file, 4096);
+        if (tail.byteLength > 0) {
+          const text = new TextDecoder().decode(tail).trim();
+          if (text) scrollbackContext = `\n\nContexto recente do escritor (4 KB):\n${text}`;
+        }
+      } catch { /* scrollback indisponível — omite campo */ }
+    }
+
+    const meta = metaParts.length > 0 ? `\n[${metaParts.join(' | ')}]` : '';
+    return `${base}${meta}${scrollbackContext}`;
+  };
+
   // Roteamento automático escritor → revisores (Story 7.2, FR17). AC4
   // (idempotência) é DE GRAÇA: markAgentStatus só emite 'status' quando o
   // valor REALMENTE muda (guard desde a 2.1) — este listener só roda em
@@ -245,8 +300,10 @@ export function registerSessionIpc(
       for (const reviewerId of routing.reviewerIds) {
         persistence.recordSdcReviewRequest(reviewerId, { taskId: routing.taskId, writerId: routing.writerId });
       }
+      // P2: mensagem enriquecida com branch e scrollback antes do broadcast
+      const enriched = { ...routing, message: enrichReviewMessage(routing.message, s) };
       for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(IpcChannels.sdcReviewRequested, routing);
+        win.webContents.send(IpcChannels.sdcReviewRequested, enriched);
       }
     } catch (err) {
       console.error('[sdc] roteamento automático de revisão falhou:', err);
@@ -282,6 +339,25 @@ export function registerSessionIpc(
       }
     } catch (err) {
       console.error('[terminalLink] roteamento automático falhou:', err);
+    }
+  });
+
+  // Gate de roteamento (P3): modo 'gate' — routing retido até APPROVE/REJECT
+  // humano. Gates são efêmeros: não persistidos; perdem-se no restart do app.
+  const pendingGates = new Map<string, TerminalLinkGating>();
+
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'status') return;
+    try {
+      const gating = planTerminalLinkGating(event.session, terminalLinkManager.list());
+      if (!gating) return;
+      const gateId = ulid();
+      pendingGates.set(gateId, gating);
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IpcChannels.terminalLinkGatePend, { gateId, ...gating });
+      }
+    } catch (err) {
+      console.error('[terminalLink] gate de roteamento falhou:', err);
     }
   });
 
@@ -706,6 +782,84 @@ export function registerSessionIpc(
   });
 
   ipcMain.handle(IpcChannels.adapterList, () => ptyHost.listAdapters());
+
+  // Canal agente→agente (P1): escreve texto no stdin do terminal alvo sem
+  // mediação humana. Lança se o alvo não existe ou já encerrou.
+  ipcMain.handle(IpcChannels.terminalSend, (_event, raw: unknown) => {
+    const req = TerminalSendRequestSchema.parse(raw);
+    const target = registry.list().find((s) => s.id === req.targetId);
+    if (!target) throw new Error(`terminal.send: alvo ${req.targetId} não encontrado`);
+    if (target.status !== 'running') throw new Error(`terminal.send: alvo ${req.targetId} não está running`);
+    ptyHost.writePty?.(registry.ptyIdOf(req.targetId), req.text);
+  });
+
+  // Resolução humana do gate (P3): APPROVE repassa o routing idêntico ao
+  // modo auto; REJECT descarta silenciosamente. Gate inexistente = no-op
+  // (expirado, duplicata de clique ou restart desde o pend).
+  ipcMain.handle(IpcChannels.terminalLinkGateResolve, (_event, raw: unknown) => {
+    const req = TerminalLinkGateResolveRequestSchema.parse(raw);
+    const gating = pendingGates.get(req.gateId);
+    if (!gating) return;
+    pendingGates.delete(req.gateId);
+    if (req.action === 'reject') return;
+
+    for (const targetId of gating.targetIds) {
+      persistence.recordTerminalLinkRouting(targetId, { sourceId: gating.sourceId });
+    }
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcChannels.terminalLinkRouted, gating);
+    }
+  });
+
+  // Scratchpad assíncrono por tarefa (P4) — `.cockpit/scratchpad/{taskId}.md`
+  // no raiz do projeto. Agentes acessam via $COCKPIT_SCRATCHPAD_DIR; o
+  // renderer acessa via IPC. Watcher por diretório push eventos ao renderer.
+  const scratchpadWatchers = new Map<string, FSWatcher>();
+
+  const scratchpadDirOf = (projectId?: string): { dir: string; id: string } | null => {
+    const { projects, activeId } = persistence.projects();
+    const proj = projects.find((p) => p.id === (projectId ?? activeId));
+    if (!proj) return null;
+    return { dir: join(resolve(proj.rootPath), '.cockpit', 'scratchpad'), id: proj.id };
+  };
+
+  const ensureScratchpadWatcher = (dir: string, projectId: string): void => {
+    if (scratchpadWatchers.has(dir)) return;
+    try {
+      const watcher = fsWatch(dir, { persistent: false }, (_event, filename) => {
+        if (!filename || !filename.endsWith('.md')) return;
+        const taskId = filename.slice(0, -3);
+        try {
+          const content = readFileSync(join(dir, filename), 'utf-8');
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send(IpcChannels.scratchpadChanged, { taskId, projectId, content });
+          }
+        } catch { /* arquivo removido — omite evento */ }
+      });
+      scratchpadWatchers.set(dir, watcher);
+    } catch { /* diretório ainda não existe — watcher iniciado na próxima append */ }
+  };
+
+  ipcMain.handle(IpcChannels.scratchpadRead, (_event, raw: unknown) => {
+    const req = ScratchpadReadRequestSchema.parse(raw);
+    const target = scratchpadDirOf(req.projectId);
+    if (!target) return null;
+    ensureScratchpadWatcher(target.dir, target.id);
+    try {
+      return readFileSync(join(target.dir, `${req.taskId}.md`), 'utf-8');
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(IpcChannels.scratchpadAppend, (_event, raw: unknown) => {
+    const req = ScratchpadAppendRequestSchema.parse(raw);
+    const target = scratchpadDirOf(req.projectId);
+    if (!target) throw new Error('projeto não encontrado para o scratchpad');
+    mkdirSync(target.dir, { recursive: true });
+    appendFileSync(join(target.dir, `${req.taskId}.md`), req.content, 'utf-8');
+    ensureScratchpadWatcher(target.dir, target.id);
+  });
 
   // Disponibilidade de comando no PATH (Story 13.4, FR45) — scan manual de
   // fs.access (nada é executado; `where` spawnaria um processo por checagem).

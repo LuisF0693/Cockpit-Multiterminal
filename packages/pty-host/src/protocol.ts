@@ -32,7 +32,9 @@ export type HostInbound =
   | { type: 'resize'; id: string; cols: number; rows: number }
   | { type: 'close'; requestId: number; id: string }
   | { type: 'list-adapters'; requestId: number }
-  | { type: 'shutdown' };
+  | { type: 'shutdown' }
+  /** Escrita direta no stdin de uma sessão (P1 — canal agente→agente). */
+  | { type: 'write'; id: string; text: string };
 
 export type HostOutbound =
   | { type: 'created'; requestId: number; id: string; pid: number }

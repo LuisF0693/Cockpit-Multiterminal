@@ -1,5 +1,5 @@
 import { createServer, type Server, type Socket } from 'node:net';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { AgentStatus } from '@cockpit/shared';
 import type { AgentSession } from '@cockpit/adapter-contract';
 import type { AdapterRegistry } from './adapter-registry';
@@ -46,10 +46,13 @@ export class DaemonServer {
   private shuttingDown = false;
   /** Cache do histórico de despachos (Story 18.5) — empurrado pelo Main, servido a qualquer cliente. */
   private dispatchHistoryCache: AdapterOutcomeCount[] = [];
+  /** Pipe path armazenado em listen() — injetado no env de todo PTY (P0). */
+  private pipePath = '';
 
   constructor(private readonly registry: AdapterRegistry) {}
 
   listen(pipePath: string): Promise<void> {
+    this.pipePath = pipePath;
     const server = createServer((socket) => this.onConnection(socket));
     this.server = server;
     return new Promise((resolve, reject) => {
@@ -148,6 +151,7 @@ export class DaemonServer {
               cwd,
               cols: msg.cols,
               rows: msg.rows,
+              env: this.buildSessionEnv(msg.tag, msg.cwd),
               ...(msg.args !== undefined ? { args: msg.args } : {}),
               ...(msg.initialInstruction !== undefined ? { initialInstruction: msg.initialInstruction } : {})
             });
@@ -328,5 +332,25 @@ export class DaemonServer {
     hosted.writer?.dispose();
     hosted.writer = null;
     this.sessions.delete(id);
+  }
+
+  /**
+   * Env vars injetadas em todo PTY spawned pelo daemon (P0/P4):
+   * - COCKPIT_DAEMON_PIPE    → pipe deste daemon (permite agent-dispatch sem --pipe)
+   * - COCKPIT_SESSION_ID     → id da sessão criada (permite --link-from automático)
+   * - COCKPIT_DISPATCH_CMD   → caminho absoluto do agent-dispatch.js (se detectável)
+   * - COCKPIT_SCRATCHPAD_DIR → diretório de scratchpad do projeto (P4)
+   */
+  private buildSessionEnv(sessionId: string, cwd?: string): Record<string, string> {
+    const env: Record<string, string> = {
+      COCKPIT_DAEMON_PIPE: this.pipePath,
+      COCKPIT_SESSION_ID: sessionId,
+      COCKPIT_SCRATCHPAD_DIR: join(cwd ?? process.cwd(), '.cockpit', 'scratchpad')
+    };
+    const entry = process.argv[1];
+    if (entry) {
+      env['COCKPIT_DISPATCH_CMD'] = join(dirname(entry), 'agent-dispatch.js');
+    }
+    return env;
   }
 }

@@ -22,6 +22,11 @@ import { DaemonClient, DEFAULT_DAEMON_PIPE, type AdapterOutcomeCount, type Daemo
  *     [--cwd F:\Projetos\App] [--adapter claude-code] [--pipe \\.\pipe\cockpit-daemon] \
  *     [--no-link] [--link-from <sessionId>] [--profile <adapters-profile.json>]
  *
+ * P0 — env vars injetadas pelo daemon em todo PTY (eliminam args manuais):
+ *   COCKPIT_DAEMON_PIPE  → usada como fallback de --pipe (sem precisar passar --pipe)
+ *   COCKPIT_SESSION_ID   → usada como fallback de --link-from (sem precisar de PID chain)
+ *   COCKPIT_DISPATCH_CMD → caminho absoluto deste arquivo (agentes localizam sem hardcode)
+ *
  * QUEM decide o modelo é o CHEFE que despacha (decisão do fundador,
  * 2026-07-17): ele avalia a demanda, explica por que o modelo serve e passa
  * `--adapter` explícito — perguntando ao usuário quando ambíguo. A matriz de
@@ -160,7 +165,8 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
   const cwd = argValue(argv, '--cwd') ?? process.cwd();
   const explicitAdapter = argValue(argv, '--adapter');
   const model = argValue(argv, '--model');
-  const pipe = argValue(argv, '--pipe') ?? DEFAULT_DAEMON_PIPE;
+  // P0: COCKPIT_DAEMON_PIPE injetado pelo daemon evita --pipe manual
+  const pipe = argValue(argv, '--pipe') ?? process.env['COCKPIT_DAEMON_PIPE'] ?? DEFAULT_DAEMON_PIPE;
   const { matrix, source: matrixSource } = loadAdapterMatrix(argv);
 
   // Modelo é escolha por CLI — sem adapter explícito a política poderia cair
@@ -234,7 +240,12 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
     // a menos que o chefe desligue (--no-link) ou force a origem (--link-from).
     // --no-link é a trava de segurança: vence mesmo se --link-from também vier.
     const noLink = argv.includes('--no-link');
-    let dispatchedBy = noLink ? undefined : argValue(argv, '--link-from');
+    // P0: prioridade de resolução do chefe:
+    //   1. --link-from explícito (máxima prioridade)
+    //   2. COCKPIT_SESSION_ID injetado pelo daemon no PTY pai (evita PID chain)
+    //   3. Cadeia de PIDs via PowerShell CIM (fallback legado — Windows only)
+    const envSessionId = !noLink ? (process.env['COCKPIT_SESSION_ID'] ?? undefined) : undefined;
+    let dispatchedBy = noLink ? undefined : (argValue(argv, '--link-from') ?? envSessionId);
     // A cadeia de PIDs só é útil pro vínculo — `listSessions` (abaixo) também
     // alimenta a checagem de ociosidade (18.1), então é buscada sempre,
     // independente do vínculo estar ligado.

@@ -66,6 +66,10 @@ export const IpcChannels = {
   terminalLinkEvent: 'terminalLink.event',
   /** Push Main → renderer: roteamento automático de vínculo (Story 9.2). */
   terminalLinkRouted: 'terminalLink.routed',
+  /** Push Main → renderer: gate de roteamento pendente (P3 — modo 'gate'). */
+  terminalLinkGatePend: 'terminalLink.gate.pend',
+  /** Renderer → Main: resolução humana do gate (APPROVE/REJECT). */
+  terminalLinkGateResolve: 'terminalLink.gate.resolve',
   /** Preview de browser via Playwright (Épico 10, FR28/FR29). */
   browserCreate: 'browser.create',
   browserRemove: 'browser.remove',
@@ -111,7 +115,14 @@ export const IpcChannels = {
   /** Push Main → renderer com o estado do vínculo com o daemon (Story 6.4). */
   daemonStatus: 'daemon.status',
   /** Evento Main → renderer que transfere a MessagePort de dados (tag = session id). */
-  terminalPort: 'terminal.port'
+  terminalPort: 'terminal.port',
+  /** Escrita direta no stdin de um terminal alvo (P1 — canal agente→agente). */
+  terminalSend: 'terminal.send',
+  /** Scratchpad assíncrono por tarefa (P4 — comunicação agente↔agente via arquivo). */
+  scratchpadRead: 'scratchpad.read',
+  scratchpadAppend: 'scratchpad.append',
+  /** Push Main → renderer: arquivo de scratchpad foi modificado. */
+  scratchpadChanged: 'scratchpad.changed'
 } as const;
 
 /** Estado do daemon de terminais (Story 6.4) — badge no header. */
@@ -566,9 +577,10 @@ export type ProjectReadFileResponse = z.infer<typeof ProjectReadFileResponseSche
 /**
  * Vínculo terminal-a-terminal (Épico 9, FR25) — INDEPENDENTE de tarefa; um
  * agente na origem pode comandar o terminal alvo. `manual` só habilita o
- * botão de enviar (9.3); `auto` dispara sozinho no status da origem (9.2).
+ * botão de enviar (9.3); `auto` dispara sozinho no status da origem (9.2);
+ * `gate` retém o roteamento para aprovação humana antes de disparar (P3).
  */
-export const TerminalLinkModeSchema = z.enum(['manual', 'auto']);
+export const TerminalLinkModeSchema = z.enum(['manual', 'auto', 'gate']);
 export type TerminalLinkMode = z.infer<typeof TerminalLinkModeSchema>;
 
 export const TerminalLinkSchema = z.object({
@@ -618,6 +630,52 @@ export const TerminalLinkRoutedEventSchema = z.object({
   message: z.string().min(1)
 });
 export type TerminalLinkRoutedEvent = z.infer<typeof TerminalLinkRoutedEventSchema>;
+
+/**
+ * Gate de roteamento pendente (P3) — push do Main ao renderer quando um
+ * vínculo em modo `gate` retém um roteamento aguardando decisão humana.
+ * `gateId` identifica esta pendência; o renderer usa-o ao resolver.
+ */
+export const TerminalLinkGatePendEventSchema = z.object({
+  gateId: z.string().min(1),
+  sourceId: z.string().min(1),
+  targetIds: z.string().min(1).array().min(1),
+  message: z.string().min(1)
+});
+export type TerminalLinkGatePendEvent = z.infer<typeof TerminalLinkGatePendEventSchema>;
+
+/** Resolução humana do gate: APPROVE encaminha, REJECT descarta (P3). */
+export const TerminalLinkGateResolveRequestSchema = z.object({
+  gateId: z.string().min(1),
+  action: z.enum(['approve', 'reject'])
+});
+export type TerminalLinkGateResolveRequest = z.infer<typeof TerminalLinkGateResolveRequestSchema>;
+
+/**
+ * Scratchpad assíncrono por tarefa (P4) — arquivo `.cockpit/scratchpad/{taskId}.md`
+ * no projeto, acessível por agentes via `$COCKPIT_SCRATCHPAD_DIR` e pelo
+ * renderer via IPC. Push `scratchpadChanged` quando o arquivo muda em disco.
+ */
+export const ScratchpadReadRequestSchema = z.object({
+  taskId: z.string().min(1),
+  projectId: z.string().min(1).optional()
+});
+export type ScratchpadReadRequest = z.infer<typeof ScratchpadReadRequestSchema>;
+
+export const ScratchpadAppendRequestSchema = z.object({
+  taskId: z.string().min(1),
+  content: z.string().min(1).max(65536),
+  projectId: z.string().min(1).optional()
+});
+export type ScratchpadAppendRequest = z.infer<typeof ScratchpadAppendRequestSchema>;
+
+/** Push Main → renderer quando um arquivo de scratchpad é criado ou modificado. */
+export const ScratchpadChangedEventSchema = z.object({
+  taskId: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
+  content: z.string()
+});
+export type ScratchpadChangedEvent = z.infer<typeof ScratchpadChangedEventSchema>;
 
 /**
  * Tile de preview de browser (Épico 10, FR28) — a posição/tamanho no canvas
@@ -744,6 +802,19 @@ export const LayoutUpdateRequestSchema = z.object({
 export type LayoutUpdateRequest = z.infer<typeof LayoutUpdateRequestSchema>;
 
 /**
+ * Escrita direta no stdin de um terminal alvo (P1 — canal agente→agente).
+ * O texto é enviado como entrada de teclado — sem newline automático; o
+ * chamador controla o conteúdo (incluir `\r` para submeter como linha).
+ */
+export const TerminalSendRequestSchema = z.object({
+  /** Session id do terminal alvo (deve estar `running`). */
+  targetId: z.string().min(1),
+  /** Texto a escrever no stdin do terminal alvo (max 64 KiB por chamada). */
+  text: z.string().min(1).max(65536)
+});
+export type TerminalSendRequest = z.infer<typeof TerminalSendRequestSchema>;
+
+/**
  * Mensagem postada pelo preload na window do renderer transferindo a
  * MessagePort de dados do terminal (padrão Electron p/ sandbox+contextIsolation).
  */
@@ -851,6 +922,10 @@ export interface CockpitApi {
     onEvent(cb: (event: TerminalLinkEvent) => void): () => void;
     /** Roteamento automático de vínculo (Story 9.2, FR26); retorna unsubscribe. */
     onRouted(cb: (event: TerminalLinkRoutedEvent) => void): () => void;
+    /** Gate pendente de aprovação humana (P3 — modo 'gate'); retorna unsubscribe. */
+    onGatePend(cb: (event: TerminalLinkGatePendEvent) => void): () => void;
+    /** Resolve um gate pendente (APPROVE → roteia; REJECT → descarta). */
+    gateResolve(req: TerminalLinkGateResolveRequest): Promise<void>;
   };
   browser: {
     /** Cria um tile de preview de browser (Story 10.1, AC1) — Chromium via Playwright no Main. */
@@ -900,5 +975,21 @@ export interface CockpitApi {
   dispatch: {
     /** Histórico de despachos rastreáveis (Story 18.4, AC5) — lista completa, sem paginação. */
     history(): Promise<DispatchRecord[]>;
+  };
+  terminal: {
+    /**
+     * Escreve texto diretamente no stdin de outro terminal (P1).
+     * Permite comunicação agente→agente sem mediação humana.
+     * Lança se o terminal alvo não existe ou não está `running`.
+     */
+    send(req: TerminalSendRequest): Promise<void>;
+  };
+  scratchpad: {
+    /** Lê o conteúdo de `.cockpit/scratchpad/{taskId}.md`; null se não existe. */
+    read(req: ScratchpadReadRequest): Promise<string | null>;
+    /** Anexa conteúdo ao scratchpad da tarefa, criando o arquivo se necessário. */
+    append(req: ScratchpadAppendRequest): Promise<void>;
+    /** Assina mudanças em qualquer scratchpad do projeto ativo; retorna unsubscribe. */
+    onChanged(cb: (event: ScratchpadChangedEvent) => void): () => void;
   };
 }

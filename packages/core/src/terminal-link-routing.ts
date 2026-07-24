@@ -26,3 +26,28 @@ export function planTerminalLinkRouting(session: SessionRecord, allLinks: Termin
 
   return { sourceId: session.id, targetIds, message };
 }
+
+/**
+ * Gate de roteamento (P3) — mesma condição de disparo do `planTerminalLinkRouting`,
+ * mas seleciona vínculos `gate`: o routing é retido pelo Main até o humano
+ * aprovar (APPROVE) ou descartar (REJECT). Pura — o gateId é gerado pelo
+ * chamador para manter a função livre de efeitos aleatórios.
+ */
+export interface TerminalLinkGating {
+  sourceId: string;
+  targetIds: string[];
+  message: string;
+}
+
+export function planTerminalLinkGating(session: SessionRecord, allLinks: TerminalLink[]): TerminalLinkGating | null {
+  if (session.agentStatus !== 'done' && session.agentStatus !== 'waiting-input') return null;
+
+  const targetIds = allLinks.filter((l) => l.sourceId === session.id && l.mode === 'gate').map((l) => l.targetId);
+  if (targetIds.length === 0) return null;
+
+  const message =
+    `Gate de roteamento: o terminal "${session.name}" (${session.adapterId}) concluiu. ` +
+    `Aprove para encaminhar a instrução ao(s) terminal(is) alvo, ou rejeite para descartar.`;
+
+  return { sourceId: session.id, targetIds, message };
+}

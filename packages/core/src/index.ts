@@ -29,8 +29,8 @@ export { parseGitignorePatterns, isGitignored, isPathWithin, ALWAYS_HIDDEN_NAMES
 export { parseGitHead, parseGitdirPointer } from './git-info';
 export { TerminalLinkManager } from './terminal-link-manager';
 export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';
-export { planTerminalLinkRouting } from './terminal-link-routing';
-export type { TerminalLinkRouting } from './terminal-link-routing';
+export { planTerminalLinkRouting, planTerminalLinkGating } from './terminal-link-routing';
+export type { TerminalLinkRouting, TerminalLinkGating } from './terminal-link-routing';
 export { planExternalAdoption } from './external-adoption';
 export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
 export {
