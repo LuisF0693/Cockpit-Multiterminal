@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { renderMarkdownLite } from './markdown-lite';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
@@ -34,7 +35,7 @@ export interface FilePreviewPanelProps {
 }
 
 const isMd = (name: string): boolean => /\.mdx?$/i.test(name);
-const iconFor = (name: string): string => (isMd(name) ? '📘' : '📄');
+const iconFor = (name: string): LucideIcon => (isMd(name) ? Icons.fileMarkdown : Icons.file);
 
 export function FilePreviewPanel({
   files,
@@ -94,7 +95,7 @@ export function FilePreviewPanel({
                 maxWidth: 180
               }}
             >
-              <span style={{ fontSize: theme.font.size.sm + 1 }}>{iconFor(f.name)}</span>
+              <Icon glyph={iconFor(f.name)} size={ICON_SIZE.sm} />
               <span
                 style={{
                   fontSize: theme.font.size.sm + 1,
@@ -112,19 +113,23 @@ export function FilePreviewPanel({
                   onCloseTab(f.path);
                 }}
                 title="fechar aba"
+                aria-label={`Fechar ${f.name}`}
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   width: 18,
                   height: 18,
                   border: 'none',
                   background: 'transparent',
                   color: theme.text.faint,
                   cursor: 'pointer',
-                  fontSize: 13,
                   borderRadius: 3,
-                  flexShrink: 0
+                  flexShrink: 0,
+                  padding: 0
                 }}
               >
-                ×
+                <Icon glyph={Icons.close} size={ICON_SIZE.sm} />
               </button>
             </div>
           );
@@ -133,7 +138,7 @@ export function FilePreviewPanel({
       </div>
 
       <div style={{ height: 34, minHeight: 34, display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', borderBottom: `1px solid ${theme.border.subtle}` }}>
-        <span style={{ fontSize: theme.font.size.sm + 0.5 }}>{iconFor(active.name)}</span>
+        <Icon glyph={iconFor(active.name)} size={ICON_SIZE.sm} />
         <span style={{ fontSize: theme.font.size.sm + 0.5, color: theme.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={active.path}>
           {active.name}
           {active.truncated ? ' · (truncado)' : ''}

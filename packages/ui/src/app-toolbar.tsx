@@ -1,3 +1,4 @@
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { theme } from './theme';
 
 /**
@@ -34,31 +35,33 @@ export interface AppToolbarProps {
 export function AppToolbar(props: AppToolbarProps): JSX.Element {
   return (
     <>
-      <ToolButton glyph="⌨+" title="Novo terminal (Ctrl+N)" onClick={props.onNewTerminal} />
-      <ToolButton glyph="🌐+" title="Novo preview de browser (Playwright)" onClick={props.onNewBrowser} />
+      {/* "abrir um terminal" e "abrir um browser" — os dois botões que o
+          fundador citou nominalmente ao pedir a troca dos emojis por ícones. */}
+      <ToolButton glyph={Icons.terminalNew} title="Novo terminal (Ctrl+N)" onClick={props.onNewTerminal} badge="add" />
+      <ToolButton glyph={Icons.browser} title="Novo preview de browser (Playwright)" onClick={props.onNewBrowser} badge="add" />
 
       <Divider />
 
-      <ToolButton glyph="≡" title="Timeline de eventos (Ctrl+T)" onClick={props.onOpenTimeline} />
-      <ToolButton glyph="🎓" title="Learnings (banco global)" onClick={props.onOpenLearnings} />
-      <ToolButton glyph="🤖" title="Catálogo de agentes" onClick={props.onOpenAgents} />
+      <ToolButton glyph={Icons.timeline} title="Timeline de eventos (Ctrl+T)" onClick={props.onOpenTimeline} />
+      <ToolButton glyph={Icons.learnings} title="Learnings (banco global)" onClick={props.onOpenLearnings} />
+      <ToolButton glyph={Icons.agents} title="Catálogo de agentes" onClick={props.onOpenAgents} />
 
       <Divider />
 
       <ToolButton
-        glyph="⟨"
+        glyph={Icons.panelLeft}
         title={props.sidebarCollapsed ? 'Mostrar sidebar' : 'Ocultar sidebar (canvas maior)'}
         active={props.sidebarCollapsed}
         onClick={props.onToggleSidebar}
       />
       <ToolButton
-        glyph="⟩"
+        glyph={Icons.panelRight}
         title={props.telemetryCollapsed ? 'Mostrar telemetria' : 'Ocultar telemetria (canvas maior)'}
         active={props.telemetryCollapsed}
         onClick={props.onToggleTelemetry}
       />
       <ToolButton
-        glyph="⌄"
+        glyph={Icons.panelBottom}
         title={props.sessionsBarCollapsed ? 'Mostrar rodapé de sessões' : 'Ocultar rodapé de sessões (canvas maior)'}
         active={props.sessionsBarCollapsed}
         onClick={props.onToggleSessionsBar}
@@ -98,28 +101,39 @@ export function AppToolbar(props: AppToolbarProps): JSX.Element {
         );
       })()}
 
-      <ToolButton glyph="⛶" title="Zoom 100%" onClick={props.onZoomReset} />
-      <ToolButton glyph="⚙" title="Configurações" onClick={props.onOpenSettings} />
+      <ToolButton glyph={Icons.zoomReset} title="Zoom 100%" onClick={props.onZoomReset} />
+      <ToolButton glyph={Icons.settings} title="Configurações" onClick={props.onOpenSettings} />
     </>
   );
 }
 
+/**
+ * Botão de ícone da faixa: o ícone é o ÚNICO conteúdo, então o `title` (que
+ * já existia como tooltip) vira TAMBÉM o nome acessível via `aria-label` —
+ * sem isso o botão é literalmente mudo para leitor de tela.
+ * `badge="add"` desenha um "+" miúdo no canto, que era o que os antigos
+ * "⌨+"/"🌐+" comunicavam ("criar um novo", não "abrir o existente").
+ */
 function ToolButton({
   glyph,
   title,
   onClick,
-  active
+  active,
+  badge
 }: {
-  glyph: string;
+  glyph: LucideIcon;
   title: string;
   onClick: () => void;
   active?: boolean;
+  badge?: 'add';
 }): JSX.Element {
   return (
     <button
       onClick={onClick}
       title={title}
+      aria-label={title}
       style={{
+        position: 'relative',
         minWidth: 24,
         height: 24,
         display: 'flex',
@@ -131,11 +145,13 @@ function ToolButton({
         background: active ? theme.accent.soft : 'transparent',
         color: active ? theme.accent.bright : theme.text.muted,
         cursor: 'pointer',
-        fontSize: theme.font.size.sm + 1,
         fontFamily: theme.font.ui
       }}
     >
-      {glyph}
+      <Icon glyph={glyph} size={ICON_SIZE.md} />
+      {badge === 'add' && (
+        <Icon glyph={Icons.add} size={ICON_SIZE.xs - 2} style={{ position: 'absolute', right: 1, bottom: 1 }} />
+      )}
     </button>
   );
 }

@@ -2,6 +2,7 @@ import type { AdapterInfo, Project, ProjectDirEntry } from '@cockpit/shared';
 import { adapterCatalogEntry } from './adapter-catalog';
 import { adapterColor } from './adapter-colors';
 import { FileTree } from './file-tree';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { theme } from './theme';
 
@@ -31,8 +32,13 @@ export interface AppSidebarProps {
   onReadDir: (dirPath?: string) => Promise<ProjectDirEntry[]>;
   onSelectFile: (entry: ProjectDirEntry) => void;
   selectedFilePath: string | null;
-  /** Entradas de APP & SISTEMA — views secundárias reais (label + ícone + ativo). */
-  systemEntries: Array<{ icon: string; label: string; active: boolean; onClick: () => void }>;
+  /**
+   * Entradas de APP & SISTEMA — views secundárias reais. `icon` agora é um
+   * componente Lucide (antes era um emoji/glifo em string), pelo mesmo motivo
+   * do resto da varredura: emoji não herda o tema vivo nem desenha igual em
+   * toda máquina.
+   */
+  systemEntries: Array<{ icon: LucideIcon; label: string; active: boolean; onClick: () => void }>;
   appVersion: string;
   /** Largura atual (Story 15.1, FR52) — redimensionável por arraste. */
   width: number;
@@ -94,14 +100,16 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
               >
                 git-native
               </span>
-              <span style={{ color: theme.accent.bright, fontSize: theme.font.size.xs }}>
-                {props.gitBranch ? `⎇ ${props.gitBranch}` : '⎇ —'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: theme.accent.bright, fontSize: theme.font.size.xs }}>
+                <Icon glyph={Icons.branch} size={ICON_SIZE.xs} />
+                {props.gitBranch ?? '—'}
               </span>
             </div>
           </div>
         ) : (
           <button onClick={props.onCreateProject} style={{ ...rowButtonStyle, marginBottom: 14 }}>
-            📁 Selecionar pasta…
+            <Icon glyph={Icons.folderOpen} size={ICON_SIZE.sm} />
+            Selecionar pasta…
           </button>
         )}
 
@@ -157,9 +165,10 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
           <button
             onClick={props.onCreateProject}
             title="Novo projeto (escolhe a pasta)"
-            style={{ background: 'transparent', border: 'none', color: theme.text.faint, cursor: 'pointer', fontSize: 13, padding: 0 }}
+            aria-label="Novo projeto (escolhe a pasta)"
+            style={{ display: 'flex', background: 'transparent', border: 'none', color: theme.text.faint, cursor: 'pointer', padding: 0 }}
           >
-            +
+            <Icon glyph={Icons.add} size={ICON_SIZE.md} />
           </button>
         </SectionTitle>
         {props.projects.map((p) => {
@@ -203,18 +212,19 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
                 <button
                   onClick={() => props.onRemoveProject(p.id)}
                   title={`Excluir projeto "${p.name}"…`}
+                  aria-label={`Excluir projeto ${p.name}`}
                   style={{
+                    display: 'flex',
                     background: 'transparent',
                     border: 'none',
                     color: theme.text.faint,
                     cursor: 'pointer',
-                    fontSize: 12,
                     padding: '2px 4px',
                     flexShrink: 0,
                     borderRadius: theme.radius.sm
                   }}
                 >
-                  ×
+                  <Icon glyph={Icons.close} size={ICON_SIZE.sm} />
                 </button>
               )}
             </div>
@@ -250,7 +260,9 @@ export function AppSidebar(props: AppSidebarProps): JSX.Element {
               textAlign: 'left'
             }}
           >
-            <span style={{ fontSize: theme.font.size.xs, width: 13, textAlign: 'center' }}>{entry.icon}</span>
+            <span style={{ display: 'flex', width: 13, justifyContent: 'center' }}>
+              <Icon glyph={entry.icon} size={ICON_SIZE.sm} />
+            </span>
             <span>{entry.label}</span>
           </button>
         ))}

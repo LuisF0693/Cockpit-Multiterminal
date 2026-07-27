@@ -1,4 +1,5 @@
 import { classifyTaskRoles, type SessionRecord, type Task } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { statusColor, statusLabel } from './status-colors';
 import { theme } from './theme';
 
@@ -26,7 +27,8 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
     return (
       <section style={{ flex: 1, minWidth: 0, padding: 24 }}>
         <button onClick={onBack} style={buttonStyle}>
-          ← voltar
+          <Icon glyph={Icons.back} size={ICON_SIZE.sm} />
+          voltar
         </button>
         <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted, marginTop: 16 }}>
           Tarefa não encontrada.
@@ -41,11 +43,13 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
         <button onClick={onBack} style={buttonStyle}>
-          ← voltar
+          <Icon glyph={Icons.back} size={ICON_SIZE.sm} />
+          voltar
         </button>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, flex: 1 }}>Revisão · {task.title}</h2>
         <button onClick={onRefresh} style={buttonStyle}>
-          ↻ atualizar
+          <Icon glyph={Icons.reload} size={ICON_SIZE.sm} />
+          atualizar
         </button>
       </div>
 
@@ -62,9 +66,14 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
             marginTop: 20
           }}
         >
-          <AgentColumn label="✍ escritor" session={roles.writer!} transcript={transcripts[roles.writer!.id] ?? ''} />
+          <AgentColumn
+            icon={Icons.writer}
+            label="escritor"
+            session={roles.writer!}
+            transcript={transcripts[roles.writer!.id] ?? ''}
+          />
           {roles.reviewers.map((r) => (
-            <AgentColumn key={r.id} label="👁 revisor" session={r} transcript={transcripts[r.id] ?? ''} />
+            <AgentColumn key={r.id} icon={Icons.reviewer} label="revisor" session={r} transcript={transcripts[r.id] ?? ''} />
           ))}
         </div>
       )}
@@ -73,10 +82,13 @@ export function ReviewPanel({ task, sessions, transcripts, onBack, onRefresh }: 
 }
 
 function AgentColumn({
+  icon,
   label,
   session,
   transcript
 }: {
+  /** Papel em ícone (antes ✍/👁 no próprio label) — ver `icons.tsx`. */
+  icon: LucideIcon;
   label: string;
   session: SessionRecord;
   transcript: string;
@@ -95,6 +107,7 @@ function AgentColumn({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+        <Icon glyph={icon} size={ICON_SIZE.sm} />
         <span>{label}</span>
         <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {session.name}
@@ -126,6 +139,9 @@ function AgentColumn({
 }
 
 const buttonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 5,
   background: theme.surface.raised,
   color: theme.text.primary,
   border: `1px solid ${theme.border.default}`,

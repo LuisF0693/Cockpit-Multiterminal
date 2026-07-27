@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { SessionRecord, TimelineEvent } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { theme } from './theme';
 
 /**
@@ -13,10 +14,17 @@ export interface TimelineViewProps {
   onRefresh: () => void;
 }
 
-const ORIGIN_ICON: Record<TimelineEvent['origin'], string> = {
-  system: '⚙️',
-  agent: '🤖',
-  human: '👤'
+/** Origem do evento em ícone (antes ⚙️/🤖/👤) — ver `icons.tsx` para o porquê da troca. */
+const ORIGIN_ICON: Record<TimelineEvent['origin'], LucideIcon> = {
+  system: Icons.originSystem,
+  agent: Icons.originAgent,
+  human: Icons.originHuman
+};
+
+const ORIGIN_LABEL: Record<TimelineEvent['origin'], string> = {
+  system: 'sistema',
+  agent: 'agente',
+  human: 'humano'
 };
 
 export function TimelineView({ events, sessions, onRefresh }: TimelineViewProps): JSX.Element {
@@ -53,8 +61,9 @@ export function TimelineView({ events, sessions, onRefresh }: TimelineViewProps)
             </option>
           ))}
         </select>
-        <button onClick={onRefresh} style={{ ...selectStyle, cursor: 'pointer' }}>
-          ↻ atualizar
+        <button onClick={onRefresh} style={{ ...selectStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Icon glyph={Icons.reload} size={ICON_SIZE.sm} />
+          atualizar
         </button>
       </div>
 
@@ -81,7 +90,9 @@ export function TimelineView({ events, sessions, onRefresh }: TimelineViewProps)
             <span style={{ color: theme.text.faint, fontFamily: theme.font.mono }}>
               {new Date(e.ts).toLocaleTimeString('pt-BR')} · {new Date(e.ts).toLocaleDateString('pt-BR')}
             </span>
-            <span title={e.origin}>{ORIGIN_ICON[e.origin]}</span>
+            <span title={e.origin} style={{ display: 'flex', color: theme.text.muted }}>
+              <Icon glyph={ORIGIN_ICON[e.origin]} size={ICON_SIZE.sm} label={`origem: ${ORIGIN_LABEL[e.origin]}`} />
+            </span>
             <span style={{ color: theme.text.primary, fontFamily: theme.font.mono }}>{e.type}</span>
             <span style={{ color: theme.text.muted }}>{nameOf(e.terminalId)}</span>
             <span

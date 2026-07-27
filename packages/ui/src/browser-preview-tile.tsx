@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BrowserTile } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
 import type { TileLayout } from './layout';
 
@@ -170,27 +171,35 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           flexShrink: 0
         }}
       >
-        <span title="preview de browser (Playwright)" style={{ fontSize: 11 }}>
-          🌐
+        <span title="preview de browser (Playwright)" style={{ display: 'flex', color: theme.text.secondary }}>
+          <Icon glyph={Icons.browser} size={ICON_SIZE.sm} label="preview de browser" />
         </span>
-        <button onPointerDown={(e) => e.stopPropagation()} onClick={props.onBack} title="voltar" style={navButtonStyle}>
-          ←
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={props.onBack}
+          title="voltar"
+          aria-label="Voltar"
+          style={navButtonStyle}
+        >
+          <Icon glyph={Icons.back} size={ICON_SIZE.sm} />
         </button>
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={props.onForward}
           title="avançar"
+          aria-label="Avançar"
           style={navButtonStyle}
         >
-          →
+          <Icon glyph={Icons.forward} size={ICON_SIZE.sm} />
         </button>
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={props.onReload}
           title="recarregar"
+          aria-label="Recarregar"
           style={navButtonStyle}
         >
-          ↻
+          <Icon glyph={Icons.reload} size={ICON_SIZE.sm} />
         </button>
         <input
           value={urlDraft}
@@ -216,6 +225,7 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setAutomationOpen((v) => !v)}
           title="automação (Story 10.2): clicar/ler texto por seletor CSS"
+          aria-label="Automação: clicar ou ler texto por seletor CSS"
           style={{
             ...navButtonStyle,
             width: 'auto',
@@ -223,15 +233,16 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
             color: automationOpen ? theme.accent.primary : theme.text.muted
           }}
         >
-          ⚙
+          <Icon glyph={Icons.settings} size={ICON_SIZE.sm} />
         </button>
         <button
           onClick={props.onClose}
           onPointerDown={(e) => e.stopPropagation()}
           title="fechar preview"
-          style={{ background: 'transparent', color: theme.text.muted, border: 'none', cursor: 'pointer', fontSize: 14 }}
+          aria-label="Fechar preview de browser"
+          style={{ display: 'flex', background: 'transparent', color: theme.text.muted, border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          ×
+          <Icon glyph={Icons.close} size={ICON_SIZE.md} />
         </button>
       </header>
 
@@ -324,13 +335,16 @@ export function BrowserPreviewTile(props: BrowserPreviewTileProps): JSX.Element 
 }
 
 const navButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   background: 'transparent',
   color: theme.text.muted,
   border: `1px solid ${theme.border.default}`,
   borderRadius: theme.radius.sm,
   width: 20,
   height: 20,
-  lineHeight: '16px',
+  padding: 0,
   cursor: 'pointer',
   fontSize: theme.font.size.sm
 };

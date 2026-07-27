@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ApiProvider, ApiProviderCreateRequest, AppSettings } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import {
   ACCENT_OPTIONS,
   FONT_MONO_OPTIONS,
@@ -83,11 +84,13 @@ export function SettingsWindow({
             borderBottom: `1px solid ${theme.border.default}`
           }}
         >
-          <span style={{ color: theme.accent.primary, fontSize: theme.font.size.md }}>⚙</span>
+          <span style={{ display: 'flex', color: theme.accent.primary }}>
+            <Icon glyph={Icons.settings} size={ICON_SIZE.md} />
+          </span>
           <strong style={{ fontSize: theme.font.size.md, color: theme.text.bright }}>Configurações</strong>
           <div style={{ flex: 1 }} />
-          <button onClick={onClose} title="Fechar" style={closeButtonStyle}>
-            ×
+          <button onClick={onClose} title="Fechar" aria-label="Fechar configurações" style={closeButtonStyle}>
+            <Icon glyph={Icons.close} size={ICON_SIZE.md} />
           </button>
         </div>
 
@@ -103,13 +106,13 @@ export function SettingsWindow({
               gap: 2
             }}
           >
-            <NavItem icon="🛠" label="Geral" active={section === 'geral'} onClick={() => setSection('geral')} />
-            <NavItem icon="🛡" label="Privacidade" active={section === 'privacidade'} onClick={() => setSection('privacidade')} />
+            <NavItem icon={Icons.tools} label="Geral" active={section === 'geral'} onClick={() => setSection('geral')} />
+            <NavItem icon={Icons.privacy} label="Privacidade" active={section === 'privacidade'} onClick={() => setSection('privacidade')} />
             <div style={{ fontSize: 9, letterSpacing: 0.8, color: theme.text.faint, fontWeight: 600, margin: '10px 6px 4px' }}>
               MAIS
             </div>
-            <NavItem icon="🎨" label="Aparência" active={section === 'aparencia'} onClick={() => setSection('aparencia')} />
-            <NavItem icon="🔑" label="Central de API" active={section === 'api'} onClick={() => setSection('api')} />
+            <NavItem icon={Icons.appearance} label="Aparência" active={section === 'aparencia'} onClick={() => setSection('aparencia')} />
+            <NavItem icon={Icons.key} label="Central de API" active={section === 'api'} onClick={() => setSection('api')} />
           </nav>
 
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '18px 22px' }}>
@@ -126,7 +129,18 @@ export function SettingsWindow({
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }): JSX.Element {
+function NavItem({
+  icon,
+  label,
+  active,
+  onClick
+}: {
+  /** Ícone da seção (antes emoji 🛠/🛡/🎨/🔑) — ver `icons.tsx`. */
+  icon: LucideIcon;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}): JSX.Element {
   return (
     <button
       onClick={onClick}
@@ -146,7 +160,9 @@ function NavItem({ icon, label, active, onClick }: { icon: string; label: string
         fontFamily: theme.font.ui
       }}
     >
-      <span style={{ width: 14, textAlign: 'center', fontSize: theme.font.size.xs }}>{icon}</span>
+      <span style={{ display: 'flex', width: 14, justifyContent: 'center' }}>
+        <Icon glyph={icon} size={ICON_SIZE.sm} />
+      </span>
       {label}
     </button>
   );
@@ -233,12 +249,16 @@ function GeneralSection({
           fontFamily: theme.font.ui
         }}
       >
-        <span style={{ color: theme.accent.bright }}>🎨</span>
+        <span style={{ display: 'flex', color: theme.accent.bright }}>
+          <Icon glyph={Icons.appearance} size={ICON_SIZE.md} />
+        </span>
         <span style={{ flex: 1 }}>
           <div style={{ fontSize: theme.font.size.sm + 1, color: theme.text.primary }}>Aparência</div>
           <div style={{ fontSize: theme.font.size.xs, color: theme.text.muted }}>Tema, cores e fontes</div>
         </span>
-        <span style={{ color: theme.text.faint }}>↗</span>
+        <span style={{ display: 'flex', color: theme.text.faint }}>
+          <Icon glyph={Icons.external} size={ICON_SIZE.sm} />
+        </span>
       </button>
     </div>
   );
@@ -260,21 +280,27 @@ function PrivacySection(): JSX.Element {
           gap: 10
         }}
       >
-        <span style={{ color: theme.accent.bright }}>🔒</span>
+        <span style={{ display: 'flex', color: theme.accent.bright, paddingTop: 2 }}>
+          <Icon glyph={Icons.lock} size={ICON_SIZE.md} />
+        </span>
         <p style={{ margin: 0, fontSize: theme.font.size.sm + 1, lineHeight: 1.6, color: theme.text.primary }}>
           O Meu Cockpit roda 100% na sua máquina. Sessões, código e o trabalho dos agentes NUNCA saem daqui — zero
           telemetria, zero coleta de dados.
         </p>
       </div>
       <div style={{ display: 'flex', gap: 10, padding: '4px 2px' }}>
-        <span style={{ color: theme.accent.bright }}>🛡</span>
+        <span style={{ display: 'flex', color: theme.accent.bright, paddingTop: 2 }}>
+          <Icon glyph={Icons.shield} size={ICON_SIZE.md} />
+        </span>
         <p style={{ margin: 0, fontSize: theme.font.size.sm + 1, lineHeight: 1.6, color: theme.text.secondary }}>
           Os adapters não interceptam, armazenam nem logam credenciais dos CLIs — a autenticação fica nos próprios
           CLIs (Claude, Codex, Gemini…), na SUA conta ("bring your own subscription").
         </p>
       </div>
       <div style={{ display: 'flex', gap: 10, padding: '4px 2px' }}>
-        <span style={{ color: theme.accent.bright }}>🗝</span>
+        <span style={{ display: 'flex', color: theme.accent.bright, paddingTop: 2 }}>
+          <Icon glyph={Icons.key} size={ICON_SIZE.md} />
+        </span>
         <p style={{ margin: 0, fontSize: theme.font.size.sm + 1, lineHeight: 1.6, color: theme.text.secondary }}>
           Chaves cadastradas na Central de API são criptografadas pelo keychain do Windows (DPAPI) e nunca ficam em
           texto plano nem são exibidas de volta.
@@ -427,9 +453,10 @@ function AppearanceSection({
             onUpdate({ themePreset: 'multerminal-dark', accentColor: '#22D3EE', fontText: 'JetBrains Mono', fontMono: 'JetBrains Mono' })
           }
           title="Resetar pro padrão"
-          style={{ ...pillIdleStyle, cursor: 'pointer' }}
+          style={{ ...pillIdleStyle, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
         >
-          ↺ padrão
+          <Icon glyph={Icons.reset} size={ICON_SIZE.sm} />
+          padrão
         </button>
       </div>
     </div>
@@ -479,7 +506,12 @@ function ApiCenterSection({
 
   return (
     <div>
-      <SectionTitle>🔑 Central de API</SectionTitle>
+      <SectionTitle>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Icon glyph={Icons.key} size={ICON_SIZE.md} />
+          Central de API
+        </span>
+      </SectionTitle>
 
       <FieldLabel>CHAVES CADASTRADAS</FieldLabel>
       {providers.length === 0 ? (
@@ -501,7 +533,9 @@ function ApiCenterSection({
                 borderRadius: theme.radius.md
               }}
             >
-              <span style={{ color: theme.accent.bright }}>🔑</span>
+              <span style={{ display: 'flex', color: theme.accent.bright }}>
+                <Icon glyph={Icons.key} size={ICON_SIZE.md} />
+              </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: theme.font.size.sm + 1, color: theme.text.primary }}>
                   {p.name} <span style={{ color: theme.text.faint }}>· {p.type}</span>
@@ -631,12 +665,15 @@ const inputStyle: React.CSSProperties = {
 };
 
 const closeButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   width: 22,
   height: 22,
+  padding: 0,
   border: 'none',
   background: 'transparent',
   color: theme.text.faint,
   cursor: 'pointer',
-  fontSize: 15,
   borderRadius: 4
 };

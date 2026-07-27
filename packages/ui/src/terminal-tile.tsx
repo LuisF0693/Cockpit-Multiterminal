@@ -3,6 +3,7 @@ import type { SessionRecord } from '@cockpit/shared';
 import { TerminalView } from './terminal-view';
 import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
+import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
 import { MIN_TILE_HEIGHT, MIN_TILE_WIDTH } from './layout';
 import type { TileLayout } from './layout';
@@ -244,7 +245,9 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             flexShrink: 0
           }}
         >
-          <span style={{ fontSize: 10, color: theme.accent.bright }}>&gt;_</span>
+          <span style={{ display: 'flex', color: theme.accent.bright }}>
+            <Icon glyph={Icons.terminal} size={ICON_SIZE.sm} />
+          </span>
           <span
             title={`${session.adapterId} · ${statusLabel(session.agentStatus)}`}
             style={{
@@ -334,17 +337,19 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             onClick={props.onMaximize}
             onPointerDown={(e) => e.stopPropagation()}
             title="Maximizar/restaurar"
+            aria-label={`Maximizar ou restaurar ${session.name}`}
             style={headerButtonStyle}
           >
-            ⤢
+            <Icon glyph={Icons.maximize} size={ICON_SIZE.xs} />
           </button>
           <button
             onClick={props.onClose}
             onPointerDown={(e) => e.stopPropagation()}
             title="Fechar terminal (Ctrl+W)"
-            style={{ ...headerButtonStyle, fontSize: 13 }}
+            aria-label={`Fechar ${session.name}`}
+            style={headerButtonStyle}
           >
-            ×
+            <Icon glyph={Icons.close} size={ICON_SIZE.sm} />
           </button>
         </header>
 
@@ -404,13 +409,15 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
 }
 
 const headerButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   width: 18,
   height: 18,
   border: 'none',
   background: 'transparent',
   color: theme.text.faint,
   cursor: 'pointer',
-  fontSize: 11,
   borderRadius: 3,
   lineHeight: 1,
   padding: 0,

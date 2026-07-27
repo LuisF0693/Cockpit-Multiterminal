@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CrashSummary } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { theme } from './theme';
 
 /**
@@ -15,10 +16,17 @@ export interface RecoveryScreenProps {
   onResolve: (choice: 'all' | 'selective' | 'clean', keepIds?: string[]) => void;
 }
 
-const ORIGIN_ICON: Record<CrashSummary['lastEvents'][number]['origin'], string> = {
-  system: '⚙️',
-  agent: '🤖',
-  human: '👤'
+/** Mesma tabela de origem da TimelineView — ícones em vez de emoji (ver `icons.tsx`). */
+const ORIGIN_ICON: Record<CrashSummary['lastEvents'][number]['origin'], LucideIcon> = {
+  system: Icons.originSystem,
+  agent: Icons.originAgent,
+  human: Icons.originHuman
+};
+
+const ORIGIN_LABEL: Record<CrashSummary['lastEvents'][number]['origin'], string> = {
+  system: 'sistema',
+  agent: 'agente',
+  human: 'humano'
 };
 
 export function RecoveryScreen({ summary, onResolve }: RecoveryScreenProps): JSX.Element {
@@ -46,8 +54,19 @@ export function RecoveryScreen({ summary, onResolve }: RecoveryScreenProps): JSX
       }}
     >
       <div>
-        <h2 style={{ fontSize: theme.font.size.xl, fontWeight: 700, margin: '0 0 4px', color: theme.accent.warn }}>
-          ⚠️ Fechamento inesperado detectado
+        <h2
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: theme.font.size.xl,
+            fontWeight: 700,
+            margin: '0 0 4px',
+            color: theme.accent.warn
+          }}
+        >
+          <Icon glyph={Icons.warning} size={ICON_SIZE.xl} />
+          Fechamento inesperado detectado
         </h2>
         <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: 0 }}>
           O Cockpit não fechou graciosamente da última vez. Reveja o que estava em andamento antes de
@@ -115,7 +134,9 @@ export function RecoveryScreen({ summary, onResolve }: RecoveryScreenProps): JSX
               <span style={{ color: theme.text.faint, fontFamily: theme.font.mono }}>
                 {new Date(e.ts).toLocaleTimeString('pt-BR')}
               </span>
-              <span title={e.origin}>{ORIGIN_ICON[e.origin]}</span>
+              <span title={e.origin} style={{ display: 'flex', color: theme.text.muted }}>
+                <Icon glyph={ORIGIN_ICON[e.origin]} size={ICON_SIZE.sm} label={`origem: ${ORIGIN_LABEL[e.origin]}`} />
+              </span>
               <span style={{ color: theme.text.primary, fontFamily: theme.font.mono }}>{e.type}</span>
               <span style={{ color: theme.text.faint }}>{e.terminalId ?? '—'}</span>
             </li>

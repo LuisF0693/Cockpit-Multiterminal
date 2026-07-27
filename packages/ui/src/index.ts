@@ -44,6 +44,8 @@ export {
 } from './status-colors';
 export { ADAPTER_COLORS, DEFAULT_ADAPTER_COLOR, adapterColor } from './adapter-colors';
 export { PROJECT_PALETTE, canvasBackground, theme } from './theme';
+export { ICON_SIZE, ICON_STROKE, Icon, Icons } from './icons';
+export type { IconProps, LucideIcon } from './icons';
 export {
   ACCENT_OPTIONS,
   FONT_MONO_OPTIONS,

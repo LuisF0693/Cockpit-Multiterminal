@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
 
 /**
@@ -87,17 +88,18 @@ export function CanvasMinimap({ tiles, viewport, onFocusTile }: CanvasMinimapPro
         <button
           onClick={() => setCollapsed((v) => !v)}
           title={collapsed ? 'Expandir minimapa' : 'Recolher minimapa'}
+          aria-label={collapsed ? 'Expandir minimapa' : 'Recolher minimapa'}
           style={{
+            display: 'flex',
             background: 'transparent',
             border: 'none',
             color: theme.text.muted,
             cursor: 'pointer',
-            fontSize: 11,
             lineHeight: 1,
             padding: 0
           }}
         >
-          {collapsed ? '▲' : '▼'}
+          <Icon glyph={collapsed ? Icons.chevronUp : Icons.chevronDown} size={ICON_SIZE.sm} />
         </button>
       </div>
       {!collapsed && (

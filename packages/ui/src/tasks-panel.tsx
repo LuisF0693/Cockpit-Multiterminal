@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { TASK_NEXT_STATES, TASK_STATE_LABEL } from './task-lifecycle-ui';
 import { theme } from './theme';
 
-const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
+/** Papel do agente em ícone (antes ✍/👁) — ver `icons.tsx`. */
+const ROLE_ICON: Record<'writer' | 'reviewer', LucideIcon> = { writer: Icons.writer, reviewer: Icons.reviewer };
 
 /**
  * TasksPanel (Story 5.1) — superfície mínima do CRUD/lifecycle (AC1/2/3):
@@ -91,7 +93,8 @@ export function TasksPanel({
           }}
         />
         <button onClick={submit} style={buttonStyle}>
-          + criar
+          <Icon glyph={Icons.add} size={ICON_SIZE.sm} />
+          criar
         </button>
       </div>
 
@@ -123,8 +126,11 @@ export function TasksPanel({
                 </strong>
                 {isThreeBrain && (
                   <>
-                    <span title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores" style={{ fontSize: 12 }}>
-                      🧠
+                    <span
+                      title="Modo three-brain (Story 7.1): 1 escritor + 2+ revisores"
+                      style={{ display: 'flex', color: theme.text.muted }}
+                    >
+                      <Icon glyph={Icons.threeBrain} size={ICON_SIZE.md} label="modo three-brain" />
                     </span>
                     <button
                       onClick={() => onOpenReview(t.id)}
@@ -139,7 +145,8 @@ export function TasksPanel({
                 <span style={{ display: 'flex', gap: 6 }}>
                   {TASK_NEXT_STATES[t.state].map((next) => (
                     <button key={next} onClick={() => onTransition(t.id, next)} style={buttonStyle}>
-                      → {TASK_STATE_LABEL[next]}
+                      <Icon glyph={Icons.goTo} size={ICON_SIZE.sm} />
+                      {TASK_STATE_LABEL[next]}
                     </button>
                   ))}
                 </span>
@@ -166,21 +173,28 @@ export function TasksPanel({
                         fontSize: theme.font.size.xs
                       }}
                     >
-                      {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
+                      {s.taskRole && (
+                        <Icon
+                          glyph={ROLE_ICON[s.taskRole]}
+                          size={ICON_SIZE.xs}
+                          label={s.taskRole === 'writer' ? 'escritor' : 'revisor'}
+                        />
+                      )}
                       {s.name}
                       <button
                         onClick={() => onUnlink(s.id)}
                         title="desvincular"
+                        aria-label={`Desvincular ${s.name}`}
                         style={{
+                          display: 'flex',
                           background: 'transparent',
                           color: theme.text.muted,
                           border: 'none',
                           cursor: 'pointer',
-                          fontSize: theme.font.size.sm,
                           padding: '0 4px'
                         }}
                       >
-                        ×
+                        <Icon glyph={Icons.close} size={ICON_SIZE.sm} />
                       </button>
                     </span>
                   ))
@@ -208,6 +222,7 @@ export function TasksPanel({
                     }}
                   />
                   <button onClick={() => submitInstruction(t.id)} style={buttonStyle}>
+                    <Icon glyph={Icons.send} size={ICON_SIZE.sm} />
                     enviar
                   </button>
                 </div>
@@ -221,6 +236,9 @@ export function TasksPanel({
 }
 
 const buttonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
   background: theme.surface.raised,
   color: theme.text.primary,
   border: `1px solid ${theme.border.default}`,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ProjectDirEntry } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
 
 /**
@@ -80,11 +81,14 @@ function TreeNode({
           cursor: 'pointer'
         }}
       >
-        <span style={{ width: 12, color: theme.text.faint, fontSize: 10 }}>
-          {entry.isDirectory ? (expanded ? '▾' : '▸') : ''}
+        <span style={{ display: 'flex', width: 12, color: theme.text.faint }}>
+          {entry.isDirectory && <Icon glyph={expanded ? Icons.chevronDown : Icons.chevronRight} size={ICON_SIZE.xs} />}
         </span>
-        <span style={{ fontSize: theme.font.size.xs, opacity: 0.7, width: 12, textAlign: 'center' }}>
-          {entry.isDirectory ? '📁' : entry.name.endsWith('.md') ? '📘' : '📄'}
+        <span style={{ display: 'flex', width: 12, justifyContent: 'center', opacity: 0.75 }}>
+          <Icon
+            glyph={entry.isDirectory ? (expanded ? Icons.folderOpen : Icons.folder) : entry.name.endsWith('.md') ? Icons.fileMarkdown : Icons.file}
+            size={ICON_SIZE.sm}
+          />
         </span>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
       </button>

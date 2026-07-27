@@ -13,11 +13,15 @@ import {
 /** Espelho leve de TaskDecisionRequestSchema['action'] (Story 5.3). */
 export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
 import { formatDuration } from './format-duration';
+import { ICON_SIZE, Icon, Icons } from './icons';
 import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
 import { theme } from './theme';
 
 const queueButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
   background: theme.surface.raised,
   color: theme.text.primary,
   border: `1px solid ${theme.border.default}`,
@@ -210,8 +214,8 @@ export function MasterDashboard({
       {/* Captura rápida de learning (Épico 11, Story 11.1, AC2) — sem
           precisar navegar a uma tela dedicada para o caso comum. */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 20 }}>
-        <span style={{ fontSize: 12 }} title="registrar aprendizado">
-          📝
+        <span style={{ display: 'flex', color: theme.text.muted }} title="registrar aprendizado">
+          <Icon glyph={Icons.note} size={ICON_SIZE.md} label="registrar aprendizado" />
         </span>
         <input
           value={ui.learningDraft.text}
@@ -275,8 +279,18 @@ export function MasterDashboard({
               borderRadius: theme.radius.md
             }}
           >
-            <h3 style={{ margin: '0 0 10px', fontSize: theme.font.size.md, color: theme.text.muted }}>
-              🎓 Learnings para qualificar ({pending.length})
+            <h3
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                margin: '0 0 10px',
+                fontSize: theme.font.size.md,
+                color: theme.text.muted
+              }}
+            >
+              <Icon glyph={Icons.learnings} size={ICON_SIZE.md} />
+              Learnings para qualificar ({pending.length})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {pending.map((l) => (
@@ -299,7 +313,8 @@ export function MasterDashboard({
                       style={queueButtonStyle}
                       title="qualificar como reutilizável"
                     >
-                      ✓ reutilizável
+                      <Icon glyph={Icons.approve} size={ICON_SIZE.sm} />
+                      reutilizável
                     </button>
                   )}
                   <button
@@ -307,7 +322,8 @@ export function MasterDashboard({
                     style={queueButtonStyle}
                     title="descartar"
                   >
-                    ✗ descartar
+                    <Icon glyph={Icons.reject} size={ICON_SIZE.sm} />
+                    descartar
                   </button>
                 </div>
               ))}
@@ -502,15 +518,20 @@ export function MasterDashboard({
                     borderRadius: 6,
                     padding: '4px 4px',
                     fontSize: theme.font.size.xs,
-                    width: 34
+                    // 34px cabia o glifo ✍/👁; rótulo textual precisa de mais.
+                    width: 52
                   }}
                 >
                   <option value="">—</option>
+                  {/* `<option>` só renderiza TEXTO (o SO desenha o popup) —
+                      ícone SVG aqui simplesmente não aparece. Trocado o par
+                      ✍/👁 por rótulos textuais curtos, que é o único formato
+                      que um select nativo consegue mostrar de verdade. */}
                   <option value="writer" title="escritor">
-                    ✍
+                    esc
                   </option>
                   <option value="reviewer" title="revisor">
-                    👁
+                    rev
                   </option>
                 </select>
               </span>
@@ -534,8 +555,8 @@ export function MasterDashboard({
                   }}
                 />
                 {(ui.sentAt[s.id] ?? 0) > 0 && (
-                  <span style={{ color: theme.accent.ok, fontSize: theme.font.size.sm }} title="instrução enviada">
-                    ✓
+                  <span style={{ display: 'flex', color: theme.accent.ok }} title="instrução enviada">
+                    <Icon glyph={Icons.approve} size={ICON_SIZE.md} label="instrução enviada" />
                   </span>
                 )}
               </span>
@@ -550,6 +571,9 @@ export function MasterDashboard({
                 <button
                   onClick={() => onGoToTerminal(s.id)}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
                     background: theme.surface.raised,
                     color: theme.text.primary,
                     border: `1px solid ${theme.border.default}`,
@@ -560,7 +584,8 @@ export function MasterDashboard({
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  ir ao terminal →
+                  ir ao terminal
+                  <Icon glyph={Icons.goTo} size={ICON_SIZE.sm} />
                 </button>
               </span>
             </article>
@@ -570,8 +595,19 @@ export function MasterDashboard({
 
       {/* Vínculos terminal-a-terminal (Épico 9, Story 9.3) — independentes
           de tarefa; um agente na origem pode comandar o alvo. */}
-      <h3 style={{ fontSize: theme.font.size.md, fontWeight: 700, margin: '24px 0 10px', color: theme.text.muted }}>
-        🔗 Vínculos entre terminais ({terminalLinks.length})
+      <h3
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          fontSize: theme.font.size.md,
+          fontWeight: 700,
+          margin: '24px 0 10px',
+          color: theme.text.muted
+        }}
+      >
+        <Icon glyph={Icons.link} size={ICON_SIZE.md} />
+        Vínculos entre terminais ({terminalLinks.length})
       </h3>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
         <select
@@ -587,7 +623,9 @@ export function MasterDashboard({
             </option>
           ))}
         </select>
-        <span style={{ color: theme.text.faint, fontSize: theme.font.size.sm }}>→</span>
+        <span style={{ display: 'flex', color: theme.text.faint }}>
+          <Icon glyph={Icons.goTo} size={ICON_SIZE.sm} />
+        </span>
         <select
           value={ui.linkDraft.target}
           onChange={(e) => dispatch({ type: 'link-target-changed', value: e.target.value })}
@@ -621,7 +659,8 @@ export function MasterDashboard({
           disabled={!ui.linkDraft.source || !ui.linkDraft.target}
           style={queueButtonStyle}
         >
-          + vincular
+          <Icon glyph={Icons.add} size={ICON_SIZE.sm} />
+          vincular
         </button>
       </div>
       {terminalLinks.length === 0 ? (
@@ -630,18 +669,22 @@ export function MasterDashboard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {terminalLinks.map((l) => (
             <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <span>
-                {sessionName(l.sourceId)} → {sessionName(l.targetId)}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                {sessionName(l.sourceId)}
+                <Icon glyph={Icons.goTo} size={ICON_SIZE.xs} />
+                {sessionName(l.targetId)}
               </span>
               <span style={{ color: theme.text.faint }}>({l.mode})</span>
               <span style={{ flex: 1 }} />
               {l.mode === 'manual' && (
                 <button onClick={() => onSendLink(l)} style={queueButtonStyle} title="enviar instrução agora">
-                  → enviar
+                  <Icon glyph={Icons.send} size={ICON_SIZE.sm} />
+                  enviar
                 </button>
               )}
               <button onClick={() => onRemoveLink(l.id)} style={queueButtonStyle} title="remover vínculo">
-                ✗ remover
+                <Icon glyph={Icons.close} size={ICON_SIZE.sm} />
+                remover
               </button>
             </div>
           ))}

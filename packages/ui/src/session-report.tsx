@@ -1,5 +1,6 @@
 import type { SessionReport, TimelineEvent } from '@cockpit/shared';
 import { formatDuration } from './format-duration';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { theme } from './theme';
 
 /**
@@ -16,10 +17,17 @@ export interface SessionReportViewProps {
   onRefresh: () => void;
 }
 
-const ORIGIN_ICON: Record<TimelineEvent['origin'], string> = {
-  system: '⚙️',
-  agent: '🤖',
-  human: '👤'
+/** Mesma tabela de origem da TimelineView — ícones em vez de emoji (ver `icons.tsx`). */
+const ORIGIN_ICON: Record<TimelineEvent['origin'], LucideIcon> = {
+  system: Icons.originSystem,
+  agent: Icons.originAgent,
+  human: Icons.originHuman
+};
+
+const ORIGIN_LABEL: Record<TimelineEvent['origin'], string> = {
+  system: 'sistema',
+  agent: 'agente',
+  human: 'humano'
 };
 
 export function SessionReportView({ report, events, onBack, onRefresh }: SessionReportViewProps): JSX.Element {
@@ -27,7 +35,8 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
     return (
       <section style={{ flex: 1, minWidth: 0, padding: 24 }}>
         <button onClick={onBack} style={buttonStyle}>
-          ← voltar ao master
+          <Icon glyph={Icons.back} size={ICON_SIZE.sm} />
+          voltar ao master
         </button>
         <p style={{ fontFamily: theme.font.mono, fontSize: theme.font.size.md, color: theme.text.muted, marginTop: 16 }}>
           Sessão ainda não persistida — sem relatório.
@@ -53,11 +62,13 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
     <section style={{ flex: 1, minWidth: 0, padding: 24, overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
         <button onClick={onBack} style={buttonStyle}>
-          ← master
+          <Icon glyph={Icons.back} size={ICON_SIZE.sm} />
+          master
         </button>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, flex: 1 }}>Relatório · {report.name}</h2>
         <button onClick={onRefresh} style={buttonStyle}>
-          ↻ atualizar
+          <Icon glyph={Icons.reload} size={ICON_SIZE.sm} />
+          atualizar
         </button>
       </div>
       <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, margin: '0 0 20px', fontFamily: theme.font.mono }}>{report.cwd}</p>
@@ -104,7 +115,9 @@ export function SessionReportView({ report, events, onBack, onRefresh }: Session
             <span style={{ color: theme.text.faint, fontFamily: theme.font.mono }}>
               {new Date(e.ts).toLocaleTimeString('pt-BR')} · {new Date(e.ts).toLocaleDateString('pt-BR')}
             </span>
-            <span title={e.origin}>{ORIGIN_ICON[e.origin]}</span>
+            <span title={e.origin} style={{ display: 'flex', color: theme.text.muted }}>
+              <Icon glyph={ORIGIN_ICON[e.origin]} size={ICON_SIZE.sm} label={`origem: ${ORIGIN_LABEL[e.origin]}`} />
+            </span>
             <span style={{ color: theme.text.primary, fontFamily: theme.font.mono }}>{e.type}</span>
             <span
               style={{ color: theme.text.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -127,6 +140,9 @@ function summarize(payload: Record<string, unknown>): string {
 }
 
 const buttonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 5,
   background: theme.surface.raised,
   color: theme.text.primary,
   border: `1px solid ${theme.border.default}`,

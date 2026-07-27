@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { classifyTaskRoles, type SessionRecord, type Task, type TaskState } from '@cockpit/shared';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { statusColor, statusLabel } from './status-colors';
 import { TASK_STATE_LABEL, TASK_STATE_ORDER, canTransitionTask } from './task-lifecycle-ui';
 import { theme } from './theme';
 
-const ROLE_ICON: Record<'writer' | 'reviewer', string> = { writer: '✍', reviewer: '👁' };
+/** Papel do agente em ícone (antes ✍/👁) — ver `icons.tsx`. */
+const ROLE_ICON: Record<'writer' | 'reviewer', LucideIcon> = { writer: Icons.writer, reviewer: Icons.reviewer };
 
 /**
  * LifecycleBoard (Story 5.4) — colunas por estado do lifecycle (AC1); mover
@@ -85,7 +87,8 @@ export function LifecycleBoard({
           }}
         />
         <button onClick={submit} style={buttonStyle}>
-          + criar
+          <Icon glyph={Icons.add} size={ICON_SIZE.sm} />
+          criar
         </button>
       </div>
 
@@ -180,15 +183,17 @@ export function LifecycleBoard({
                         <button
                           onClick={() => onOpenReview(t.id)}
                           title="painel de revisão lado a lado (Story 7.3) — Modo three-brain: 1 escritor + 2+ revisores"
+                          aria-label={`Abrir revisão lado a lado de "${t.title}"`}
                           style={{
+                            display: 'flex',
                             background: 'transparent',
                             border: 'none',
+                            color: theme.text.muted,
                             cursor: 'pointer',
-                            fontSize: 11,
                             padding: 0
                           }}
                         >
-                          🧠
+                          <Icon glyph={Icons.threeBrain} size={ICON_SIZE.sm} />
                         </button>
                       )}
                     </span>
@@ -202,7 +207,13 @@ export function LifecycleBoard({
                             style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: theme.font.size.xs, color: theme.text.muted }}
                           >
                             <span style={{ color: statusColor(s.agentStatus) }}>●</span>
-                            {s.taskRole && <span title={s.taskRole === 'writer' ? 'escritor' : 'revisor'}>{ROLE_ICON[s.taskRole]}</span>}
+                            {s.taskRole && (
+                              <Icon
+                                glyph={ROLE_ICON[s.taskRole]}
+                                size={ICON_SIZE.xs}
+                                label={s.taskRole === 'writer' ? 'escritor' : 'revisor'}
+                              />
+                            )}
                             {s.name} · {statusLabel(s.agentStatus)}
                           </span>
                         ))}
@@ -220,6 +231,9 @@ export function LifecycleBoard({
 }
 
 const buttonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
   background: theme.surface.raised,
   color: theme.text.primary,
   border: `1px solid ${theme.border.default}`,

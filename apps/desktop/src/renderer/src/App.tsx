@@ -22,6 +22,9 @@ import {
   nextAttentionTile,
   PromptModal,
   ConfirmModal,
+  ICON_SIZE,
+  Icon,
+  Icons,
   RecoveryScreen,
   ReviewPanel,
   SessionReportView,
@@ -1230,17 +1233,24 @@ export function App(): JSX.Element {
               fontSize: theme.font.size.sm
             }}
           >
+            {/* `<option>` só aceita texto (o SO desenha o popup) — o antigo
+                📁 foi removido em vez de virar ícone: SVG não renderiza aqui. */}
             {workspaces.names.map((w) => (
               <option key={w} value={w}>
-                📁 {w}
+                {w}
               </option>
             ))}
           </select>
-          <button onClick={createWorkspace} title="Novo workspace" style={wsButtonStyle}>
-            +
+          <button onClick={createWorkspace} title="Novo workspace" aria-label="Novo workspace" style={wsButtonStyle}>
+            <Icon glyph={Icons.add} size={ICON_SIZE.sm} />
           </button>
-          <button onClick={renameWorkspace} title="Renomear workspace ativo" style={wsButtonStyle}>
-            ✎
+          <button
+            onClick={renameWorkspace}
+            title="Renomear workspace ativo"
+            aria-label="Renomear workspace ativo"
+            style={wsButtonStyle}
+          >
+            <Icon glyph={Icons.rename} size={ICON_SIZE.sm} />
           </button>
         </span>
         {/* Abas de view principais — estilo aba do mock (linhas 28-32);
@@ -1359,8 +1369,13 @@ export function App(): JSX.Element {
               padding: 2
             }}
           >
-            <button onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))} title="Diminuir zoom (Ctrl+scroll)" style={zoomBtnStyle}>
-              −
+            <button
+              onClick={() => setCanvasZoom((z) => clampZoom(z - 0.1))}
+              title="Diminuir zoom (Ctrl+scroll)"
+              aria-label="Diminuir zoom"
+              style={zoomBtnStyle}
+            >
+              <Icon glyph={Icons.remove} size={ICON_SIZE.sm} />
             </button>
             <button
               onClick={() => setCanvasZoom(1)}
@@ -1369,8 +1384,13 @@ export function App(): JSX.Element {
             >
               {Math.round(canvasZoom * 100)}%
             </button>
-            <button onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))} title="Aumentar zoom (Ctrl+scroll)" style={zoomBtnStyle}>
-              +
+            <button
+              onClick={() => setCanvasZoom((z) => clampZoom(z + 0.1))}
+              title="Aumentar zoom (Ctrl+scroll)"
+              aria-label="Aumentar zoom"
+              style={zoomBtnStyle}
+            >
+              <Icon glyph={Icons.add} size={ICON_SIZE.sm} />
             </button>
           </div>
         )}
@@ -1403,10 +1423,10 @@ export function App(): JSX.Element {
           onSelectFile={openFilePreview}
           selectedFilePath={activeFilePath}
           systemEntries={[
-            { icon: '≡', label: 'Timeline', active: view === 'timeline', onClick: () => toggleView('timeline') },
-            { icon: '🎓', label: 'Learnings', active: view === 'learnings', onClick: () => toggleView('learnings') },
-            { icon: '🤖', label: 'Agentes', active: view === 'agents', onClick: () => toggleView('agents') },
-            { icon: '⚙', label: 'Configurações', active: settingsOpen, onClick: () => setSettingsOpen(true) }
+            { icon: Icons.timeline, label: 'Timeline', active: view === 'timeline', onClick: () => toggleView('timeline') },
+            { icon: Icons.learnings, label: 'Learnings', active: view === 'learnings', onClick: () => toggleView('learnings') },
+            { icon: Icons.agents, label: 'Agentes', active: view === 'agents', onClick: () => toggleView('agents') },
+            { icon: Icons.settings, label: 'Configurações', active: settingsOpen, onClick: () => setSettingsOpen(true) }
           ]}
           appVersion={info?.version ?? '—'}
           width={sidebarWidth}
@@ -1867,18 +1887,25 @@ export function App(): JSX.Element {
 }
 
 const wsButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   background: 'transparent',
   color: theme.text.muted,
   border: `1px solid ${theme.border.default}`,
   borderRadius: theme.radius.sm,
   width: 24,
   height: 24,
+  padding: 0,
   cursor: 'pointer',
   fontSize: theme.font.size.sm
 };
 
 /** Botões do pill de zoom do header (mock, linhas 41-45). */
 const zoomBtnStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   width: 22,
   height: 22,
   border: 'none',
