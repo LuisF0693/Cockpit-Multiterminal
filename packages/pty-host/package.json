@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "vitest run --config vitest.smoke.config.ts",
+    "smoke:codex": "vitest run --config vitest.smoke.config.ts src/codex-delivery.smoke.ts"
   },
   "dependencies": {
     "@cockpit/adapter-antigravity": "workspace:*",
