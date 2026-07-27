@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { matchShortcut } from './shortcuts';
+import { needsPasteConfirmation, sanitizePastedText } from './terminal-clipboard';
+import { theme } from './theme';
 import { getActiveTheme, subscribeTheme, type ThemeData } from './theme-runtime';
 import '@xterm/xterm/css/xterm.css';
 
@@ -16,6 +19,13 @@ import '@xterm/xterm/css/xterm.css';
  * Tiles desfocados escrevem em lote (~10fps) para não competir com o focado
  * (spec de performance da Story 1.3); o backpressure segue funcionando pois
  * os acks são enviados quando o lote é consumido.
+ *
+ * Copiar/colar (pedido do fundador: "não consigo copiar nem colar"): o xterm
+ * NÃO traz isso pronto — ele manda `\x03`/`\x16` e cancela o evento do
+ * navegador. As regras vivem aqui, com a convenção do Windows Terminal / VS
+ * Code: Ctrl+C copia SE houver seleção, senão é SIGINT (quebrar o SIGINT
+ * seria pior que o bug); Ctrl+V cola sanitizado; Ctrl+Shift+C/V são
+ * incondicionais. Menu de contexto no botão direito oferece os dois.
  */
 
 const UNFOCUSED_FLUSH_MS = 100;
@@ -27,6 +37,12 @@ export interface TerminalViewProps {
   focused?: boolean;
   /** Notifica cols/rows para o resize do PTY (canal de controle). */
   onResize?: (size: { cols: number; rows: number }) => void;
+  /**
+   * Confirma uma colagem que submeteria VÁRIOS comandos sozinha (sem
+   * bracketed paste). O dono (App) responde com o modal temático; ausente,
+   * a colagem segue direto — este componente nunca abre dialog nativo.
+   */
+  onConfirmMultilinePaste?: (submits: number) => Promise<boolean>;
 }
 
 // Tema do xterm coordenado pelo tema ATIVO (Story 15.2, FR55) — xterm não
@@ -36,14 +52,29 @@ const xtermTheme = (t: ThemeData): { background: string; foreground: string; cur
   ...t.terminal
 });
 
-export function TerminalView({ port, focused = true, onResize }: TerminalViewProps): JSX.Element {
+export function TerminalView({
+  port,
+  focused = true,
+  onResize,
+  onConfirmMultilinePaste
+}: TerminalViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const onResizeRef = useRef(onResize);
   onResizeRef.current = onResize;
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
+  // Lido dentro dos handlers registrados no mount — ref evita a closure
+  // obsoleta (mesmo gotcha já resolvido no TerminalTile p/ move/resize).
+  const confirmPasteRef = useRef(onConfirmMultilinePaste);
+  confirmPasteRef.current = onConfirmMultilinePaste;
   const termRef = useRef<Terminal | null>(null);
   const flushRef = useRef<(() => void) | null>(null);
+  // Menu de contexto (botão direito) — o Electron não desenha um menu nativo
+  // de edição sobre o canvas do xterm, então o caminho "sem atalho" para
+  // copiar/colar precisa existir aqui.
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; hasSelection: boolean } | null>(null);
+  const copyRef = useRef<() => void>(() => void 0);
+  const pasteFromClipboardRef = useRef<() => void>(() => void 0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -66,9 +97,104 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
       term.options.fontFamily = t.font.mono;
     });
 
-    // Atalhos globais (Ctrl+N/W/1..9) não são consumidos pelo xterm:
-    // retornar false pula o handling interno e deixa o evento subir à window.
-    term.attachCustomKeyEventHandler((e) => matchShortcut(e) === null);
+    /**
+     * Copia a seleção. `writeText` não exige permissão especial (é escrita,
+     * dentro de um gesto do usuário); falha silenciosa em vez de derrubar o
+     * terminal — copiar nunca deve virar exceção no meio de um comando.
+     */
+    const copySelection = (): boolean => {
+      const selection = term.getSelection();
+      if (!selection) return false;
+      void navigator.clipboard.writeText(selection).catch(() => void 0);
+      // Limpa a seleção como o Windows Terminal: sem isso o próximo Ctrl+C
+      // copiaria de novo em vez de mandar SIGINT, e o fundador ficaria sem
+      // conseguir interromper o processo.
+      term.clearSelection();
+      return true;
+    };
+    copyRef.current = () => void copySelection();
+
+    /** Cola texto já sanitizado, confirmando quando submeteria vários comandos. */
+    const applyPaste = async (raw: string): Promise<void> => {
+      const text = sanitizePastedText(raw);
+      if (!text) return;
+      if (needsPasteConfirmation(text, term.modes.bracketedPasteMode)) {
+        const confirm = confirmPasteRef.current;
+        const submits = text.split('\r').length - 1;
+        if (confirm && !(await confirm(submits))) return;
+      }
+      if (disposed) return;
+      // `term.paste` (e não escrita direta na porta) porque é ele quem embrulha
+      // o texto em bracketed paste quando o processo pediu esse modo — é o que
+      // faz o Claude/Codex receberem a colagem como UM bloco.
+      term.paste(text);
+    };
+
+    pasteFromClipboardRef.current = () => {
+      // Caminho do MENU de contexto: aqui não existe evento `paste` do
+      // navegador com o conteúdo pronto, então é leitura assíncrona mesmo.
+      void navigator.clipboard
+        .readText()
+        .then((text) => applyPaste(text))
+        .catch(() => void 0);
+    };
+
+    /**
+     * Atalhos globais (Ctrl+N/W/1..9) não são consumidos pelo xterm: retornar
+     * false pula o handling interno e deixa o evento subir à window.
+     * Copiar/colar entram ANTES do matcher porque usam Shift (o
+     * `matchShortcut` ignora combinações com Shift por contrato).
+     */
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return matchShortcut(e) === null;
+      const mod = e.ctrlKey && !e.altKey && !e.metaKey;
+      const key = e.key.toLowerCase();
+
+      if (mod && key === 'c') {
+        // Ctrl+Shift+C: copiar incondicional. Ctrl+C: copia SE houver
+        // seleção; sem seleção segue para o xterm virar `\x03` (SIGINT) —
+        // convenção do Windows Terminal/VS Code.
+        if (e.shiftKey) {
+          copySelection();
+          return false;
+        }
+        if (term.hasSelection()) {
+          copySelection();
+          return false;
+        }
+        return true;
+      }
+
+      if (mod && key === 'v') {
+        // Devolvendo false o xterm não manda `\x16` NEM cancela o evento —
+        // o `paste` nativo do Chromium dispara e cai no listener abaixo, que
+        // sanitiza. Isso evita depender da permissão de LEITURA de clipboard.
+        return false;
+      }
+
+      return matchShortcut(e) === null;
+    });
+
+    // Intercepta o `paste` na captura (antes do textarea interno do xterm,
+    // que colaria o texto cru sem sanitização nem confirmação).
+    const onPasteEvent = (event: ClipboardEvent): void => {
+      const raw = event.clipboardData?.getData('text') ?? '';
+      event.preventDefault();
+      event.stopPropagation();
+      if (raw) void applyPaste(raw);
+    };
+    container.addEventListener('paste', onPasteEvent, true);
+
+    const onContextMenu = (event: MouseEvent): void => {
+      event.preventDefault();
+      const rect = container.getBoundingClientRect();
+      setContextMenu({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        hasSelection: term.hasSelection()
+      });
+    };
+    container.addEventListener('contextmenu', onContextMenu);
 
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -140,6 +266,8 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
       if (flushTimer !== null) clearTimeout(flushTimer);
       flushRef.current = null;
       termRef.current = null;
+      container.removeEventListener('paste', onPasteEvent, true);
+      container.removeEventListener('contextmenu', onContextMenu);
       observer.disconnect();
       unsubTheme();
       inputSub.dispose();
@@ -160,5 +288,105 @@ export function TerminalView({ port, focused = true, onResize }: TerminalViewPro
     }
   }, [focused]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 0 }} />;
+  // Qualquer clique/Esc fecha o menu de contexto — registrado só enquanto ele
+  // existe (nada de listener global permanente por tile).
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = (): void => setContextMenu(null);
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
+      {contextMenu && (
+        <div
+          // `data-no-pan` porque o canvas do App faz pan ao arrastar o fundo;
+          // sem isso, clicar no menu arrastaria o mundo junto.
+          data-no-pan
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 300,
+            minWidth: 150,
+            padding: 4,
+            background: theme.surface.overlay,
+            border: `1px solid ${theme.border.strong}`,
+            borderRadius: theme.radius.md,
+            boxShadow: theme.shadow.overlay,
+            fontFamily: theme.font.ui
+          }}
+        >
+          <ContextMenuItem
+            icon={Icons.copy}
+            label="Copiar"
+            hint="Ctrl+Shift+C"
+            disabled={!contextMenu.hasSelection}
+            onClick={() => {
+              copyRef.current();
+              setContextMenu(null);
+            }}
+          />
+          <ContextMenuItem
+            icon={Icons.paste}
+            label="Colar"
+            hint="Ctrl+Shift+V"
+            onClick={() => {
+              pasteFromClipboardRef.current();
+              setContextMenu(null);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContextMenuItem({
+  icon,
+  label,
+  hint,
+  disabled,
+  onClick
+}: {
+  icon: LucideIcon;
+  label: string;
+  hint: string;
+  disabled?: boolean;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        width: '100%',
+        padding: '5px 8px',
+        border: 'none',
+        borderRadius: theme.radius.sm,
+        background: 'transparent',
+        color: disabled ? theme.text.faint : theme.text.primary,
+        cursor: disabled ? 'default' : 'pointer',
+        fontSize: theme.font.size.sm + 0.5,
+        fontFamily: theme.font.ui,
+        textAlign: 'left'
+      }}
+    >
+      <Icon glyph={icon} size={ICON_SIZE.sm} />
+      <span style={{ flex: 1 }}>{label}</span>
+      <span style={{ color: theme.text.faint, fontSize: theme.font.size.xs }}>{hint}</span>
+    </button>
+  );
 }

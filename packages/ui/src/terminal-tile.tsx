@@ -40,6 +40,12 @@ export interface TerminalTileProps {
   projectColor?: string | null;
   /** Zoom do canvas — deltas de arraste divididos por isso (12.6/14.3). */
   zoom: number;
+  /**
+   * Confirma colagem multi-linha no terminal (pedido do fundador: não
+   * executar 30 comandos sem querer). Repassado ao TerminalView; o dono é
+   * quem sabe abrir o modal temático.
+   */
+  onConfirmMultilinePaste?: (submits: number) => Promise<boolean>;
 }
 
 type ResizeEdges = { n?: boolean; e?: boolean; s?: boolean; w?: boolean };
@@ -355,7 +361,14 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
 
         <div style={{ flex: 1, minHeight: 0, padding: 4 }}>
           {port ? (
-            <TerminalView port={port} focused={focused} onResize={props.onResizePty} />
+            <TerminalView
+              port={port}
+              focused={focused}
+              onResize={props.onResizePty}
+              {...(props.onConfirmMultilinePaste !== undefined
+                ? { onConfirmMultilinePaste: props.onConfirmMultilinePaste }
+                : {})}
+            />
           ) : (
             <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, padding: theme.space.sm, fontFamily: theme.font.mono }}>
               conectando PTY…

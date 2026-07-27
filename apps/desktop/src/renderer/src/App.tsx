@@ -529,6 +529,29 @@ export function App(): JSX.Element {
   }, []);
 
   /**
+   * Rede de segurança do Ctrl+C FORA do terminal (pedido do fundador: "não
+   * consigo copiar nem colar no cockpit" — geral, não só no terminal). Campos
+   * de texto e o xterm têm caminho próprio e são deliberadamente ignorados
+   * aqui: dentro de um `<input>` a seleção NÃO aparece em
+   * `window.getSelection()`, então copiar daqui gravaria string vazia e
+   * DESTRUIRIA o clipboard em vez de ajudar.
+   * O resto do cockpit (painéis, listas, transcripts) passa a ter cópia
+   * garantida mesmo sem menu de edição nativo registrado no Main.
+   */
+  useEffect(() => {
+    const onCopyShortcut = (e: KeyboardEvent): void => {
+      if (!e.ctrlKey || e.altKey || e.metaKey || e.key.toLowerCase() !== 'c') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"], .xterm')) return;
+      const text = window.getSelection()?.toString() ?? '';
+      if (!text) return;
+      void navigator.clipboard.writeText(text).catch(() => void 0);
+    };
+    window.addEventListener('keydown', onCopyShortcut);
+    return () => window.removeEventListener('keydown', onCopyShortcut);
+  }, []);
+
+  /**
    * Seed (sessões restauradas/adotadas + layout salvo — Story 1.4) + primeiro
    * terminal se vazio. Guardado por bootRef (uma vez, mesmo sob StrictMode);
    * chamado no mount SE não há crash pendente, ou após resolver a Recovery
@@ -618,6 +641,18 @@ export function App(): JSX.Element {
   ): Promise<boolean> =>
     new Promise((resolve) =>
       setConfirmState({ message, danger: opts?.danger ?? false, confirmLabel: opts?.confirmLabel, resolve })
+    );
+
+  /**
+   * Colagem multi-linha no terminal (pedido do fundador: "não deixe o
+   * fundador executar 30 comandos sem querer"). Reusa o `confirmDialog`
+   * temático — mesma decisão da auditoria Don Norman (achado #2): nada de
+   * `window.confirm` nativo cinza no meio do cockpit.
+   */
+  const confirmMultilinePaste = (submits: number): Promise<boolean> =>
+    confirmDialog(
+      `Este texto tem ${submits} quebras de linha — colar vai EXECUTAR ${submits} comandos de uma vez neste terminal.`,
+      { danger: true, confirmLabel: 'colar mesmo assim' }
     );
 
   /** Workspaces (3.6): operações sempre re-sincronizam a lista do Main. */
@@ -1724,6 +1759,7 @@ export function App(): JSX.Element {
                 }
                 onStartLink={() => startTerminalLinkDrag(session.id, tile.x + tile.width / 2, tile.y + tile.height / 2)}
                 onMaximize={() => toggleMaximizeTile(session.id)}
+                onConfirmMultilinePaste={confirmMultilinePaste}
                 linking={linkDrag?.sourceId === session.id}
                 projectColor={projectColorOf(session.projectId)}
                 zoom={canvasZoom}

@@ -32,6 +32,7 @@ export {
 } from './layout';
 export type { CanvasLayout, TileLayout } from './layout';
 export { matchShortcut } from './shortcuts';
+export { countPasteSubmits, needsPasteConfirmation, sanitizePastedText } from './terminal-clipboard';
 export type { KeyStroke, ShortcutAction } from './shortcuts';
 export { attentionTiles, nextAttentionTile } from './attention-cycle';
 export type { AttentionCandidate } from './attention-cycle';
