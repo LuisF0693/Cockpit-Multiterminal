@@ -5,7 +5,7 @@ import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
 import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
-import { MIN_TILE_HEIGHT, MIN_TILE_WIDTH } from './layout';
+import { MIN_TILE_HEIGHT, MIN_TILE_WIDTH, terminalContentScale } from './layout';
 import type { TileLayout } from './layout';
 
 /**
@@ -170,6 +170,11 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
     else setDraft(session.name);
   };
 
+  // Fator que leva a caixa lógica do terminal ao espaço do MUNDO do canvas.
+  // Como o mundo já aplica `scale(zoom)`, a escala efetiva do texto na tela é
+  // `contentFactor * zoom` = `terminalContentScale(...)` — 1 quando há espaço,
+  // menor só na miniatura de zoom extremo.
+  const contentFactor = terminalContentScale(layout, props.zoom) / props.zoom;
   const exited = session.status === 'exited';
   const dotColor = statusColor(session.agentStatus);
   const waiting = session.agentStatus === 'waiting-input' && !exited;
@@ -359,16 +364,59 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           </button>
         </header>
 
-        <div style={{ flex: 1, minHeight: 0, padding: 4 }}>
+        {/*
+          O TERMINAL NUNCA ESCALA (decisão do fundador).
+
+          O canvas continua com zoom — é como ele navega entre tiles — mas o
+          mundo inteiro vinha com `scale(canvasZoom)` no wrapper do App, e o
+          conteúdo do terminal ia junto: em qualquer zoom ≠ 100% o texto era
+          um bitmap esticado/encolhido, e borrava.
+
+          Aqui o conteúdo é CONTRA-ESCALADO: a caixa interna é dimensionada em
+          `zoom × 100%` e recebe `scale(1/zoom)`. Composto com o `scale(zoom)`
+          do mundo, a escala efetiva do texto é exatamente 1 — cada pixel CSS
+          do xterm vira um pixel de tela, e o WebGL rasteriza nítido. É a mesma
+          técnica de contra-escala que Figma/VS Code usam para conteúdo textual
+          dentro de uma superfície com zoom.
+
+          CONSEQUÊNCIA ACEITA: com a fonte fixa em 100%, a área útil passa a ser
+          medida em pixels de TELA — logo cols/rows mudam com o zoom (zoom out =
+          menos colunas). É o comportamento correto para texto: melhor reduzir a
+          janela visível do que reduzir a legibilidade da fonte. O reflow real
+          acontece no `TerminalView` (fit + resize da PTY), com debounce para
+          não disparar um resize de PTY por quadro durante o gesto de zoom.
+
+          PISO de tamanho: abaixo de MIN_CONTENT_*_PX a caixa PARA de encolher e
+          passa a ser recortada pelo `overflow: hidden` do pai. Sem isso, um
+          zoom de 15% (o mínimo da faixa) reflowaria todo terminal para ~8
+          colunas e destruiria o layout de qualquer TUI rodando. Abaixo do piso
+          o conteúdo volta a ser escalado por CSS — miniatura embaçada, porém
+          COMPLETA e sem reflow, num nível de zoom em que ninguém está lendo
+          texto, só navegando entre tiles.
+
+          A caixa interna é sempre `100/fator %` do pai e leva `scale(fator)`,
+          então ela preenche a área útil EXATAMENTE em qualquer zoom — nada de
+          recorte nem de sobra.
+        */}
+        <div style={{ flex: 1, minHeight: 0, padding: 4, overflow: 'hidden' }}>
           {port ? (
-            <TerminalView
-              port={port}
-              focused={focused}
-              onResize={props.onResizePty}
-              {...(props.onConfirmMultilinePaste !== undefined
-                ? { onConfirmMultilinePaste: props.onConfirmMultilinePaste }
-                : {})}
-            />
+            <div
+              style={{
+                width: `${100 / contentFactor}%`,
+                height: `${100 / contentFactor}%`,
+                transform: contentFactor === 1 ? undefined : `scale(${contentFactor})`,
+                transformOrigin: '0 0'
+              }}
+            >
+              <TerminalView
+                port={port}
+                focused={focused}
+                onResize={props.onResizePty}
+                {...(props.onConfirmMultilinePaste !== undefined
+                  ? { onConfirmMultilinePaste: props.onConfirmMultilinePaste }
+                  : {})}
+              />
+            </div>
           ) : (
             <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, padding: theme.space.sm, fontFamily: theme.font.mono }}>
               conectando PTY…

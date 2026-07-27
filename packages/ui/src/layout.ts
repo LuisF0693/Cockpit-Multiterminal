@@ -26,6 +26,36 @@ export const DEFAULT_TILE_HEIGHT = 400;
 /** Deslocamento em cascata para novos tiles não nascerem empilhados. */
 const CASCADE_OFFSET = 32;
 
+/**
+ * Piso da caixa lógica do terminal (≈28 colunas × 7 linhas na fonte padrão) e
+ * cromo do tile (bordas + header 30px + rodapé 24px + padding 4+4).
+ * Usados por `terminalContentScale` — geometria de tile, mora aqui junto com
+ * o resto do modelo puro, longe do xterm (que exige DOM).
+ */
+const MIN_CONTENT_WIDTH_PX = 240;
+const MIN_CONTENT_HEIGHT_PX = 120;
+const TILE_CHROME_WIDTH = 10;
+const TILE_CHROME_HEIGHT = 64;
+
+/**
+ * "O TERMINAL NUNCA ESCALA" (decisão do fundador) — escala em que o CONTEÚDO
+ * do terminal é rasterizado, dado o tamanho do tile e o zoom do canvas.
+ *
+ * `1` significa um pixel CSS do xterm por pixel de tela: texto nítido, e a
+ * variação de zoom vira variação de COLUNAS/LINHAS em vez de tamanho de
+ * fonte. `< 1` só acontece quando o tile já ficou pequeno demais na tela para
+ * caber o piso — aí o conteúdo vira miniatura escalada por CSS em vez de
+ * reflowar para ~8 colunas e destruir o layout de uma TUI rodando.
+ *
+ * NUNCA passa de 1: ampliar o bitmap do texto é exatamente o defeito que
+ * estamos consertando.
+ */
+export function terminalContentScale(layout: Pick<TileLayout, 'width' | 'height'>, zoom: number): number {
+  const screenWidth = Math.max(1, layout.width - TILE_CHROME_WIDTH) * zoom;
+  const screenHeight = Math.max(1, layout.height - TILE_CHROME_HEIGHT) * zoom;
+  return Math.min(1, screenWidth / MIN_CONTENT_WIDTH_PX, screenHeight / MIN_CONTENT_HEIGHT_PX);
+}
+
 export function createLayout(): CanvasLayout {
   return { layoutVersion: 1, tiles: [] };
 }

@@ -196,10 +196,9 @@ export function MasterDashboard({
     const byId = new Map(sessions.map((s) => [s.id, s.name]));
     return (id: string): string => byId.get(id) ?? '—';
   }, [sessions]);
-  const taskTitle = useMemo(() => {
-    const byId = new Map(tasks.map((t) => [t.id, t.title]));
-    return (id: string | null): string => (id ? (byId.get(id) ?? '—') : '—');
-  }, [tasks]);
+  // (o antigo `taskTitle` saiu daqui: a tarefa vinculada de um agente em
+  // waiting-input agora vem pronta no `detail` do item da fila unificada —
+  // ver `decision-queue.ts`; manter o mapa aqui duplicaria a mesma verdade)
   const runningSessions = useMemo(() => sessions.filter((s) => s.status === 'running'), [sessions]);
 
   // Tempo no status precisa andar sozinho (tick 1s).

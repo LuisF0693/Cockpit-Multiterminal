@@ -30,6 +30,13 @@ import '@xterm/xterm/css/xterm.css';
 
 const UNFOCUSED_FLUSH_MS = 100;
 
+/** Janela de silêncio antes de refazer o fit e reportar cols/rows à PTY. */
+const RESIZE_DEBOUNCE_MS = 80;
+
+/** Tamanho nominal do menu de contexto — usado só para não abri-lo fora do tile. */
+const CONTEXT_MENU_WIDTH = 168;
+const CONTEXT_MENU_HEIGHT = 62;
+
 export interface TerminalViewProps {
   /** Porta de dados binária negociada pelo Main (uma por sessão PTY). */
   port: MessagePort;
@@ -188,9 +195,12 @@ export function TerminalView({
     const onContextMenu = (event: MouseEvent): void => {
       event.preventDefault();
       const rect = container.getBoundingClientRect();
+      // Clampa dentro do tile: o conteúdo do terminal vive sob `overflow:
+      // hidden` (recorte da contra-escala do zoom), então um menu aberto perto
+      // da borda inferior/direita seria cortado pela metade.
       setContextMenu({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
+        x: Math.max(0, Math.min(event.clientX - rect.left, container.clientWidth - CONTEXT_MENU_WIDTH)),
+        y: Math.max(0, Math.min(event.clientY - rect.top, container.clientHeight - CONTEXT_MENU_HEIGHT)),
         hasSelection: term.hasSelection()
       });
     };
@@ -258,12 +268,26 @@ export function TerminalView({
       fit.fit();
       onResizeRef.current?.({ cols: term.cols, rows: term.rows });
     };
-    const observer = new ResizeObserver(notifyResize);
+    /**
+     * Reflow com debounce. Antes o ResizeObserver chamava `fit`+resize da PTY
+     * a cada quadro; com o terminal contra-escalado (o tile não escala mais o
+     * texto — ver TerminalTile), um gesto de zoom no canvas muda o tamanho em
+     * CSS px continuamente e viraria uma rajada de `session.resize` por
+     * segundo, cada um atravessando IPC e chegando ao processo real. 80ms
+     * espera o gesto parar sem que o usuário perceba atraso.
+     */
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleResize = (): void => {
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(notifyResize, RESIZE_DEBOUNCE_MS);
+    };
+    const observer = new ResizeObserver(scheduleResize);
     observer.observe(container);
 
     return () => {
       disposed = true;
       if (flushTimer !== null) clearTimeout(flushTimer);
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
       flushRef.current = null;
       termRef.current = null;
       container.removeEventListener('paste', onPasteEvent, true);
@@ -317,7 +341,7 @@ export function TerminalView({
             left: contextMenu.x,
             top: contextMenu.y,
             zIndex: 300,
-            minWidth: 150,
+            minWidth: CONTEXT_MENU_WIDTH,
             padding: 4,
             background: theme.surface.overlay,
             border: `1px solid ${theme.border.strong}`,

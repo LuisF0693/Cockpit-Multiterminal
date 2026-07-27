@@ -32,6 +32,7 @@ export {
   removeTile,
   resizeTile,
   snapToGrid,
+  terminalContentScale,
   DEFAULT_TILE_HEIGHT,
   DEFAULT_TILE_WIDTH,
   GRID_SNAP,
