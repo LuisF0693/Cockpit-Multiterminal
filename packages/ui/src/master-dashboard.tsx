@@ -12,8 +12,9 @@ import {
 
 /** Espelho leve de TaskDecisionRequestSchema['action'] (Story 5.3). */
 export type TaskDecisionAction = 'approve' | 'reject' | 'redirect';
+import type { DecisionItem, DecisionKind } from './decision-queue';
 import { formatDuration } from './format-duration';
-import { ICON_SIZE, Icon, Icons } from './icons';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
 import { theme } from './theme';
@@ -34,6 +35,13 @@ const queueButtonStyle: React.CSSProperties = {
 
 /** Superfície tingida pelo âmbar de waiting-input — deriva do STATUS_COLORS, não é um hex novo. */
 const WAITING_TINT = `${statusColor('waiting-input')}14`;
+
+/** Mesmo vocabulário de ícones da coluna DECISÕES do rodapé — uma pendência, um símbolo. */
+const DECISION_KIND_ICON: Record<DecisionKind, LucideIcon> = {
+  'task-decision': Icons.warning,
+  'link-gate': Icons.link,
+  'agent-waiting': Icons.waiting
+};
 
 /**
  * Estado efêmero de UI do MasterDashboard, consolidado num único Model +
@@ -130,6 +138,16 @@ export interface MasterDashboardProps {
   onDecide: (taskId: string, action: TaskDecisionAction, opts?: { justification?: string; redirectTo?: string }) => void;
   /** Abre o painel de revisão lado a lado (Story 7.3) — só faz sentido em modo three-brain. */
   onOpenReview: (taskId: string) => void;
+  /**
+   * Fila unificada JÁ montada pelo dono (`buildDecisionQueue`) — o dashboard
+   * não recalcula: a MESMA lista alimenta o rodapé e o badge do header, então
+   * as três superfícies nunca podem divergir (era o risco de montar inline).
+   */
+  decisions: DecisionItem[];
+  /** Deep-link do item — leva ao terminal/tarefa de origem (AC3 da 3.4). */
+  onOpenDecision: (item: DecisionItem) => void;
+  /** Resolve um gate de vínculo retido (APPROVE injeta a instrução, REJECT descarta). */
+  onResolveGate?: (gateId: string, action: 'approve' | 'reject') => void;
   /** Vínculos terminal-a-terminal (Épico 9, FR25) — independentes de tarefa. */
   terminalLinks: TerminalLink[];
   onCreateLink: (sourceId: string, targetId: string, mode: TerminalLinkMode) => void;
@@ -160,6 +178,9 @@ export function MasterDashboard({
   onLinkTask,
   onDecide,
   onOpenReview,
+  decisions,
+  onOpenDecision,
+  onResolveGate,
   terminalLinks,
   onCreateLink,
   onRemoveLink,
@@ -332,110 +353,272 @@ export function MasterDashboard({
         );
       })()}
 
-      {/* Fila de decisões pendentes (Story 3.4/FR9) — unificada com tarefas
-          em awaiting_decision desde a Story 5.3, AC3 */}
+      {/*
+        Fila de decisões (Story 3.4/FR9 + Story 5.3 AC3), reescrita com o
+        feedback do fundador: "quando aparecer que eu preciso verificar alguma
+        coisa, aparecer lá nas decisões; melhora o visual também, acho que está
+        mal otimizado".
+
+        O que mudou de verdade:
+        - a lista vem do `buildDecisionQueue` (puro, testado), que também traz
+          os GATES de vínculo — antes eles nem chegavam à UI;
+        - HIERARQUIA: o que REPRESA trabalho (decisão de tarefa / gate) fica em
+          cima, com superfície e borda próprias; o que só aguarda resposta
+          (agente em waiting-input) fica abaixo, plano. Antes tudo dividia o
+          mesmo bloco âmbar, então "aprove isto agora" e "um agente parou" se
+          pareciam;
+        - CADA item tem deep-link para a origem;
+        - estado vazio explícito em vez de sumir da tela.
+      */}
       {(() => {
-        const waitingList = sessions.filter(
-          (s) => s.agentStatus === 'waiting-input' && s.status === 'running'
+        const blockingItems = decisions.filter((d) => d.severity === 'blocking');
+        const attentionItems = decisions.filter((d) => d.severity === 'attention');
+
+        /** Ações completas de uma tarefa em awaiting_decision (5.3 AC1). */
+        const taskActions = (taskId: string): JSX.Element => (
+          <>
+            {classifyTaskRoles(sessions, taskId).isThreeBrain && (
+              <button
+                onClick={() => onOpenReview(taskId)}
+                style={queueButtonStyle}
+                title="painel de revisão lado a lado (Story 7.3)"
+              >
+                <Icon glyph={Icons.threeBrain} size={ICON_SIZE.sm} />
+                revisão
+              </button>
+            )}
+            <button
+              onClick={() => onDecide(taskId, 'approve')}
+              style={{ ...queueButtonStyle, borderColor: theme.accent.ok, color: theme.accent.ok }}
+              title="aprovar → revisada"
+            >
+              <Icon glyph={Icons.approve} size={ICON_SIZE.sm} />
+              aprovar
+            </button>
+            <button
+              onClick={() => {
+                if (!onPromptText) {
+                  onDecide(taskId, 'reject', {});
+                  return;
+                }
+                void onPromptText('Motivo da rejeição (opcional):').then((justification) => {
+                  onDecide(taskId, 'reject', justification ? { justification } : {});
+                });
+              }}
+              style={{ ...queueButtonStyle, borderColor: theme.accent.danger, color: theme.accent.danger }}
+              title="rejeitar → em execução, com feedback"
+            >
+              <Icon glyph={Icons.reject} size={ICON_SIZE.sm} />
+              rejeitar
+            </button>
+            <select
+              value={ui.redirectTargets[taskId] ?? ''}
+              onChange={(e) => dispatch({ type: 'redirect-target-changed', taskId, sessionId: e.target.value })}
+              title="Novo agente para redirecionar"
+              style={{
+                background: theme.surface.raised,
+                color: theme.text.primary,
+                border: `1px solid ${theme.border.default}`,
+                borderRadius: 6,
+                padding: '3px 6px',
+                fontSize: theme.font.size.xs
+              }}
+            >
+              <option value="">redirecionar para…</option>
+              {runningSessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                const redirectTo = ui.redirectTargets[taskId];
+                if (!redirectTo) return;
+                onDecide(taskId, 'redirect', { redirectTo });
+                dispatch({ type: 'redirect-consumed', taskId });
+              }}
+              disabled={!ui.redirectTargets[taskId]}
+              style={queueButtonStyle}
+              title="redirecionar → outro agente"
+            >
+              <Icon glyph={Icons.goTo} size={ICON_SIZE.sm} />
+              redirecionar
+            </button>
+          </>
         );
-        const decidingTasks = tasks.filter((t) => t.state === 'awaiting_decision');
-        const total = waitingList.length + decidingTasks.length;
-        if (total === 0) return null;
-        return (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: 14,
-              background: WAITING_TINT,
-              border: `1px solid ${statusColor('waiting-input')}`,
-              borderRadius: theme.radius.md
-            }}
-          >
-            <h3 style={{ margin: '0 0 10px', fontSize: theme.font.size.md, color: statusColor('waiting-input') }}>
-              ⏳ Decisões pendentes ({total})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {waitingList.map((s) => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
-                  <strong style={{ minWidth: 140 }}>{s.name}</strong>
-                  <span style={{ color: theme.text.muted }}>tarefa: {taskTitle(s.taskId)}</span>
-                  <span style={{ color: statusColor('waiting-input'), fontFamily: theme.font.mono }}>
-                    aguarda há {formatDuration(Date.now() - s.lastStatusChangeAt)}
-                  </span>
-                  <span style={{ flex: 1 }} />
-                  <button onClick={() => onGoToTerminal(s.id)} style={queueButtonStyle}>
-                    ir ao terminal →
-                  </button>
-                </div>
-              ))}
-              {decidingTasks.map((t) => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <strong style={{ minWidth: 140 }}>{t.title}</strong>
-                  <span style={{ color: theme.text.muted }}>aguardando decisão</span>
-                  <span style={{ flex: 1 }} />
-                  {classifyTaskRoles(sessions, t.id).isThreeBrain && (
-                    <button
-                      onClick={() => onOpenReview(t.id)}
-                      style={queueButtonStyle}
-                      title="painel de revisão lado a lado (Story 7.3)"
-                    >
-                      🧠 revisão
-                    </button>
-                  )}
-                  <button onClick={() => onDecide(t.id, 'approve')} style={queueButtonStyle} title="aprovar → revisada">
-                    ✓ aprovar
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!onPromptText) {
-                        onDecide(t.id, 'reject', {});
-                        return;
-                      }
-                      void onPromptText('Motivo da rejeição (opcional):').then((justification) => {
-                        onDecide(t.id, 'reject', justification ? { justification } : {});
-                      });
-                    }}
-                    style={queueButtonStyle}
-                    title="rejeitar → em execução, com feedback"
-                  >
-                    ✗ rejeitar
-                  </button>
-                  <select
-                    value={ui.redirectTargets[t.id] ?? ''}
-                    onChange={(e) => dispatch({ type: 'redirect-target-changed', taskId: t.id, sessionId: e.target.value })}
-                    title="Novo agente para redirecionar"
-                    style={{
-                      background: theme.surface.raised,
-                      color: theme.text.primary,
-                      border: `1px solid ${theme.border.default}`,
-                      borderRadius: 6,
-                      padding: '3px 6px',
-                      fontSize: theme.font.size.xs
-                    }}
-                  >
-                    <option value="">redirecionar para…</option>
-                    {runningSessions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      const redirectTo = ui.redirectTargets[t.id];
-                      if (!redirectTo) return;
-                      onDecide(t.id, 'redirect', { redirectTo });
-                      dispatch({ type: 'redirect-consumed', taskId: t.id });
-                    }}
-                    disabled={!ui.redirectTargets[t.id]}
-                    style={queueButtonStyle}
-                    title="redirecionar → outro agente"
-                  >
-                    → redirecionar
-                  </button>
-                </div>
-              ))}
+
+        /** Ações de um gate de vínculo retido — APPROVE injeta, REJECT descarta. */
+        const gateActions = (gateId: string): JSX.Element => (
+          <>
+            <button
+              onClick={() => onResolveGate?.(gateId, 'approve')}
+              style={{ ...queueButtonStyle, borderColor: theme.accent.ok, color: theme.accent.ok }}
+              title="aprovar: a instrução entra no terminal alvo agora"
+            >
+              <Icon glyph={Icons.approve} size={ICON_SIZE.sm} />
+              liberar
+            </button>
+            <button
+              onClick={() => onResolveGate?.(gateId, 'reject')}
+              style={{ ...queueButtonStyle, borderColor: theme.accent.danger, color: theme.accent.danger }}
+              title="rejeitar: a instrução é descartada e nada é injetado"
+            >
+              <Icon glyph={Icons.reject} size={ICON_SIZE.sm} />
+              descartar
+            </button>
+          </>
+        );
+
+        const row = (d: DecisionItem): JSX.Element => {
+          const tone = d.severity === 'blocking' ? theme.accent.danger : statusColor('waiting-input');
+          const gateId = d.kind === 'link-gate' ? d.id.slice('gate-'.length) : null;
+          const taskId = d.kind === 'task-decision' ? d.id.slice('task-'.length) : null;
+          return (
+            <div
+              key={d.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px',
+                background: d.severity === 'blocking' ? `color-mix(in srgb, ${tone} 10%, transparent)` : WAITING_TINT,
+                border: `1px solid color-mix(in srgb, ${tone} ${d.severity === 'blocking' ? 45 : 30}%, transparent)`,
+                borderLeft: `3px solid ${tone}`,
+                borderRadius: theme.radius.md,
+                fontSize: 12
+              }}
+            >
+              <span style={{ display: 'flex', color: tone }}>
+                <Icon glyph={DECISION_KIND_ICON[d.kind]} size={ICON_SIZE.lg} />
+              </span>
+              {/* O TÍTULO é o alvo do deep-link: clicar leva ao terminal/tarefa
+                  que originou (AC3 da 3.4) — nada de caçar o tile no canvas. */}
+              <button
+                onClick={() => onOpenDecision(d)}
+                title="ir ao contexto que originou esta pendência"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  flex: 1,
+                  minWidth: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: theme.font.ui
+                }}
+              >
+                <strong
+                  style={{
+                    fontSize: 13,
+                    color: theme.text.bright,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {d.title}
+                </strong>
+                <span
+                  style={{
+                    fontSize: theme.font.size.sm,
+                    color: theme.text.muted,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {d.detail}
+                </span>
+              </button>
+              <span
+                title="há quanto tempo aguarda (Story 3.4, AC2)"
+                style={{ color: tone, fontFamily: theme.font.mono, fontSize: theme.font.size.sm, flexShrink: 0 }}
+              >
+                {formatDuration(d.waitingMs)}
+              </span>
+              {taskId && taskActions(taskId)}
+              {gateId && gateActions(gateId)}
+              {d.kind === 'agent-waiting' && (
+                <button onClick={() => onOpenDecision(d)} style={queueButtonStyle}>
+                  responder
+                  <Icon glyph={Icons.goTo} size={ICON_SIZE.sm} />
+                </button>
+              )}
             </div>
+          );
+        };
+
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <h3
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                margin: '0 0 10px',
+                fontSize: theme.font.size.md,
+                color: decisions.length === 0 ? theme.text.muted : statusColor('waiting-input')
+              }}
+            >
+              <Icon glyph={Icons.waiting} size={ICON_SIZE.md} />
+              Decisões pendentes ({decisions.length})
+              {blockingItems.length > 0 && (
+                <span
+                  style={{
+                    fontSize: theme.font.size.xs,
+                    fontWeight: 700,
+                    color: theme.accent.danger,
+                    border: `1px solid ${theme.accent.danger}`,
+                    borderRadius: theme.radius.pill,
+                    padding: '1px 8px'
+                  }}
+                >
+                  {blockingItems.length} represando trabalho
+                </span>
+              )}
+            </h3>
+
+            {decisions.length === 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '14px 16px',
+                  border: `1px dashed ${theme.border.default}`,
+                  borderRadius: theme.radius.md,
+                  color: theme.text.muted,
+                  fontSize: theme.font.size.md
+                }}
+              >
+                <Icon glyph={Icons.approve} size={ICON_SIZE.md} color={theme.accent.ok} />
+                Nada aguardando você. Pendências de agente, tarefa e vínculo aparecem aqui automaticamente.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {blockingItems.map(row)}
+                {/* Separador só existe quando os DOIS grupos existem — sem ele
+                    a fila vira uma lista chapada de novo. */}
+                {blockingItems.length > 0 && attentionItems.length > 0 && (
+                  <div
+                    style={{
+                      fontSize: 9.5,
+                      letterSpacing: 0.6,
+                      color: theme.text.faint,
+                      textTransform: 'uppercase',
+                      margin: '6px 0 0'
+                    }}
+                  >
+                    aguardando sua resposta
+                  </div>
+                )}
+                {attentionItems.map(row)}
+              </div>
+            )}
           </div>
         );
       })()}

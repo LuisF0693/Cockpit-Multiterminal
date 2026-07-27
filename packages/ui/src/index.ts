@@ -11,7 +11,15 @@ export type { AppSidebarProps } from './app-sidebar';
 export { FileTree } from './file-tree';
 export type { FileTreeProps } from './file-tree';
 export { StatusFooter } from './status-footer';
-export type { StatusFooterProps, DecisionItem } from './status-footer';
+export type { StatusFooterProps } from './status-footer';
+export { buildDecisionQueue, countBlocking } from './decision-queue';
+export type {
+  DecisionItem,
+  DecisionKind,
+  DecisionSeverity,
+  DecisionTarget,
+  PendingLinkGate
+} from './decision-queue';
 export { FilePreviewPanel } from './file-preview-panel';
 export type { FilePreviewPanelProps, PreviewFile } from './file-preview-panel';
 export { PanelResizeHandle } from './panel-resize-handle';

@@ -1,6 +1,8 @@
 import type { SessionRecord, TimelineEvent } from '@cockpit/shared';
 import { adapterColor } from './adapter-colors';
+import { countBlocking, type DecisionItem, type DecisionKind } from './decision-queue';
 import { formatDuration } from './format-duration';
+import { ICON_SIZE, Icon, Icons, type LucideIcon } from './icons';
 import { statusColor, statusLabel } from './status-colors';
 import { theme } from './theme';
 
@@ -10,15 +12,22 @@ import { theme } from './theme';
  * eventos), substituindo o layout anterior que espalhava sessões no rodapé
  * e decisões/eventos numa coluna vertical à direita do canvas — desvio do
  * mock notado pelo fundador. Os toggles de colapso já existem na faixa de
- * comando (AppToolbar `⌄`/`⟩`); este componente não duplica esses controles.
+ * comando (AppToolbar); este componente não duplica esses controles.
+ *
+ * Coluna DECISÕES (pedido do fundador: "nas decisões já linka … melhora o
+ * visual também, acho que está mal otimizado"): cada item agora é CLICÁVEL e
+ * abre direto o contexto que originou a pendência (AC3 da 3.4), com ícone por
+ * tipo, severidade real na cor e o tempo de espera à direita. Antes era um
+ * `<div>` inerte com um glifo âmbar fixo — a mesma cor para tudo, sem
+ * hierarquia e sem nenhuma forma de chegar à origem.
  */
 
-export interface DecisionItem {
-  id: string;
-  /** '⚠' = tarefa aguardando decisão, '◎' = agente aguardando instrução. */
-  icon: string;
-  text: string;
-}
+/** Ícone por tipo de pendência — a forma diz o QUE é antes de ler o texto. */
+const KIND_ICON: Record<DecisionKind, LucideIcon> = {
+  'task-decision': Icons.warning,
+  'link-gate': Icons.link,
+  'agent-waiting': Icons.waiting
+};
 
 export interface StatusFooterProps {
   sessions: SessionRecord[];
@@ -26,7 +35,10 @@ export interface StatusFooterProps {
   onFocusSession: (id: string) => void;
   sessionsCollapsed: boolean;
   decisions: DecisionItem[];
+  /** Abre a fila completa (master) — usado no título da coluna. */
   onOpenDecisions: () => void;
+  /** Deep-link do item: leva ao terminal/tarefa que originou (AC3 da 3.4). */
+  onOpenDecision: (item: DecisionItem) => void;
   events: TimelineEvent[];
   telemetryCollapsed: boolean;
 }
@@ -54,10 +66,12 @@ export function StatusFooter({
   sessionsCollapsed,
   decisions,
   onOpenDecisions,
+  onOpenDecision,
   events,
   telemetryCollapsed
 }: StatusFooterProps): JSX.Element | null {
   const active = sessions.filter((s) => s.status === 'running');
+  const blocking = countBlocking(decisions);
   const showSessions = !sessionsCollapsed;
   const showTelemetry = !telemetryCollapsed;
   if (!showSessions && !showTelemetry) return null;
@@ -91,7 +105,9 @@ export function StatusFooter({
           borderBottom: `1px solid ${theme.border.subtle}`
         }}
       >
-        <span style={{ fontSize: 11, color: theme.accent.bright }}>▸</span>
+        <span style={{ display: 'flex', color: theme.accent.bright }}>
+          <Icon glyph={Icons.chevronRight} size={ICON_SIZE.sm} />
+        </span>
         <span style={{ fontSize: 11, color: theme.text.bright, fontWeight: 600, letterSpacing: 0.3 }}>
           Telemetria + status
         </span>
@@ -163,11 +179,14 @@ export function StatusFooter({
           <>
             <div
               style={{
-                width: 220,
-                minWidth: 220,
+                // 220px cortava título + tempo de espera na mesma linha; com
+                // os itens agora clicáveis, a coluna precisa de alvo de clique
+                // legível (Fitts) em vez de texto espremido.
+                width: 264,
+                minWidth: 264,
                 display: 'flex',
                 flexDirection: 'column',
-                padding: '6px 12px',
+                padding: '6px 10px 6px 12px',
                 overflow: 'hidden',
                 borderRight: `1px solid ${theme.border.subtle}`
               }}
@@ -178,20 +197,91 @@ export function StatusFooter({
                 title={decisions.length > 0 ? 'Ir à fila de decisões (master)' : 'Nenhuma decisão pendente'}
                 style={{
                   all: 'unset',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
                   cursor: decisions.length > 0 ? 'pointer' : 'default',
                   ...columnTitleStyle,
                   marginBottom: 5
                 }}
               >
-                DECISÕES · <span style={{ color: decisions.length > 0 ? theme.accent.warn : theme.text.faint }}>{decisions.length} pendente{decisions.length === 1 ? '' : 's'}</span>
+                DECISÕES
+                {/* Contagem separa o que REPRESA trabalho do resto — antes
+                    tudo era um número âmbar só, sem hierarquia. */}
+                {blocking > 0 && (
+                  <span style={{ color: theme.accent.danger, fontWeight: 700 }}>{blocking} bloqueando</span>
+                )}
+                {decisions.length - blocking > 0 && (
+                  <span style={{ color: theme.accent.warn }}>{decisions.length - blocking} aguardando</span>
+                )}
+                {decisions.length === 0 && <span style={{ color: theme.text.faint }}>0 pendentes</span>}
               </button>
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {decisions.map((d) => (
-                  <div key={d.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', padding: '3px 0' }}>
-                    <span style={{ fontSize: 11, color: theme.accent.warn, flexShrink: 0 }}>{d.icon}</span>
-                    <span style={{ fontSize: 10.5, color: theme.text.secondary, lineHeight: 1.4 }}>{d.text}</span>
-                  </div>
-                ))}
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Estado vazio decente: confirma que está tudo em dia em vez
+                    de deixar um retângulo mudo (o antigo não mostrava nada). */}
+                {decisions.length === 0 && (
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      fontSize: theme.font.size.xs,
+                      color: theme.text.faint,
+                      alignSelf: 'center',
+                      margin: 'auto'
+                    }}
+                  >
+                    <Icon glyph={Icons.approve} size={ICON_SIZE.sm} />
+                    nada aguardando você
+                  </span>
+                )}
+                {decisions.map((d) => {
+                  const tone = d.severity === 'blocking' ? theme.accent.danger : theme.accent.warn;
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => onOpenDecision(d)}
+                      title={`${d.title} — ${d.detail}\nclique para ir ao contexto`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        width: '100%',
+                        padding: '3px 6px',
+                        // Só o que BLOQUEIA ganha superfície tingida; o resto
+                        // fica plano. Peso visual proporcional à urgência.
+                        background:
+                          d.severity === 'blocking' ? `color-mix(in srgb, ${tone} 12%, transparent)` : 'transparent',
+                        border: `1px solid ${d.severity === 'blocking' ? `color-mix(in srgb, ${tone} 35%, transparent)` : 'transparent'}`,
+                        borderLeft: `2px solid ${tone}`,
+                        borderRadius: theme.radius.sm,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontFamily: theme.font.ui
+                      }}
+                    >
+                      <span style={{ display: 'flex', color: tone }}>
+                        <Icon glyph={KIND_ICON[d.kind]} size={ICON_SIZE.sm} />
+                      </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 10.5,
+                          color: theme.text.secondary,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {d.title}
+                      </span>
+                      <span style={{ fontSize: 9.5, color: theme.text.faint, fontFamily: theme.font.mono, flexShrink: 0 }}>
+                        {formatDuration(d.waitingMs)}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

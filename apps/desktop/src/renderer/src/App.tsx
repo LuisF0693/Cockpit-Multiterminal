@@ -14,7 +14,9 @@ import {
   AppToolbar,
   attentionTiles,
   BrowserPreviewTile,
+  buildDecisionQueue,
   CanvasMinimap,
+  countBlocking,
   FilePreviewPanel,
   LearningsView,
   LifecycleBoard,
@@ -43,6 +45,7 @@ import {
   theme,
   type DecisionItem,
   type MinimapTile,
+  type PendingLinkGate,
   type PreviewFile
 } from '@cockpit/ui';
 import type {
@@ -223,6 +226,25 @@ export function App(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   // Vínculos terminal-a-terminal (Épico 9): lista espelhada via push.
   const [terminalLinks, setTerminalLinks] = useState<TerminalLink[]>([]);
+  /**
+   * Gates de vínculo retidos aguardando APPROVE/REJECT humano (modo 'gate').
+   * O Main já emitia `terminalLink.gate.pend` e o preload já expunha
+   * `onGatePend`, mas NINGUÉM assinava no renderer: o gate ficava pendurado
+   * para sempre no Main e a pendência nunca aparecia para o fundador. É
+   * exatamente o "preciso verificar alguma coisa" que ele pediu para cair na
+   * fila de Decisões. Efêmeros por design (o Main não os persiste): somem no
+   * restart do app, então o estado local aqui é a única cópia do renderer.
+   */
+  const [pendingGates, setPendingGates] = useState<PendingLinkGate[]>([]);
+  /**
+   * Gates que ESTE renderer acabou de aprovar. No APPROVE o Main já escreve a
+   * instrução no PTY do alvo E emite `terminalLinkRouted` — se `onRouted`
+   * também chamasse `instructAgent`, o agente receberia a mesma instrução
+   * DUAS vezes. A chave é `sourceId|message` (o que o evento roteado carrega)
+   * e é consumida uma única vez. Correção definitiva é no Main (não emitir o
+   * routed depois de já ter entregue) — território de outro agente.
+   */
+  const gateApprovedRef = useRef<Set<string>>(new Set());
   // Arraste de vínculo por gesture no canvas (Story 12.2) — linha de preview
   // segue o cursor (AC2); nulo quando nenhum arraste está em curso.
   const [linkDrag, setLinkDrag] = useState<{ sourceId: string; x: number; y: number } | null>(null);
@@ -424,7 +446,20 @@ export function App(): JSX.Element {
     // Roteamento automático de vínculo terminal-a-terminal (Story 9.2,
     // FR26) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
     const unsubTerminalLinkRouted = window.cockpit.terminalLink.onRouted((event) => {
+      // Gate aprovado por nós: o Main JÁ entregou a instrução (deliverToTerminal)
+      // antes de emitir este evento — instruir de novo duplicaria o comando.
+      const key = `${event.sourceId}|${event.message}`;
+      if (gateApprovedRef.current.delete(key)) return;
       for (const targetId of event.targetIds) void instructAgent(targetId, event.message);
+    });
+
+    // Gate de vínculo pendente (modo 'gate') → fila de Decisões. Sem este
+    // assinante o evento morria no preload e o roteamento ficava retido no
+    // Main sem nada na tela dizendo que havia algo a verificar.
+    const unsubTerminalLinkGate = window.cockpit.terminalLink.onGatePend((event) => {
+      setPendingGates((prev) =>
+        prev.some((g) => g.gateId === event.gateId) ? prev : [...prev, { ...event, receivedAt: Date.now() }]
+      );
     });
 
     // Portas binárias chegam via window message (tag = session id).
@@ -522,6 +557,7 @@ export function App(): JSX.Element {
       unsubSdc();
       unsubSdcCorrection();
       unsubTerminalLinkRouted();
+      unsubTerminalLinkGate();
       unsubTerminalLinks();
       unsubBrowserTiles();
       unsubLearnings();
@@ -1164,16 +1200,62 @@ export function App(): JSX.Element {
   const readTextBrowserTile = (id: string, selector: string): Promise<string | null> =>
     window.cockpit.browser.readText(selector ? { id, selector } : { id });
 
-  // Fila unificada (Story 5.3, AC3): agentes waiting-input + tarefas em
-  // awaiting_decision — badge do header + coluna de decisões do rodapé (14.2).
-  const waitingSessions = projectSessions.filter((s) => s.agentStatus === 'waiting-input' && s.status === 'running');
-  const awaitingTasks = projectTasks.filter((t) => t.state === 'awaiting_decision');
-  const pendingDecisionCount = waitingSessions.length + awaitingTasks.length;
-  /** Itens REAIS pra coluna "DECISÕES" do rodapé (mock linhas 311-321) — sem dado fabricado. */
-  const pendingDecisions: DecisionItem[] = [
-    ...awaitingTasks.map((t) => ({ id: `task-${t.id}`, icon: '⚠', text: t.title })),
-    ...waitingSessions.map((s) => ({ id: `session-${s.id}`, icon: '◎', text: `"${s.name}" aguardando instrução` }))
-  ];
+  /**
+   * Fila unificada de decisões (Story 3.4 + 5.3 AC3) — montada UMA vez pelo
+   * `buildDecisionQueue` (puro, testado em `decision-queue.test.ts`) e
+   * consumida pelas TRÊS superfícies: badge do header, coluna do rodapé e
+   * fila do master. Antes o App montava uma lista inline (só tarefa + agente)
+   * enquanto o master recalculava a sua própria: duas fontes para a mesma
+   * verdade, e os gates de vínculo em nenhuma das duas.
+   *
+   * `nowTick` é o "agora" em estado: sem ele o "aguarda há X" congelaria, já
+   * que `Date.now()` sozinho não dispara re-render (mesmo padrão do tick de
+   * 1s que o MasterDashboard já usava para os tempos de status).
+   */
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const sessionNameOf = (id: string): string =>
+    useCockpitStore.getState().sessions.find((s) => s.id === id)?.name ?? id.slice(0, 8);
+  const taskTitleOf = (id: string | null): string =>
+    id ? (tasks.find((t) => t.id === id)?.title ?? '—') : '—';
+  const pendingDecisions: DecisionItem[] = buildDecisionQueue({
+    sessions: projectSessions,
+    tasks: projectTasks,
+    // Gates NÃO são escopados por projeto: o evento do Main não carrega
+    // projectId, e reter uma pendência humana invisível seria pior que
+    // mostrá-la fora do escopo.
+    gates: pendingGates,
+    now: nowTick,
+    taskTitle: taskTitleOf,
+    sessionName: sessionNameOf
+  });
+  const pendingDecisionCount = pendingDecisions.length;
+  const blockingDecisionCount = countBlocking(pendingDecisions);
+
+  /** Deep-link do item da fila (AC3 da 3.4): leva ao terminal ou à tarefa de origem. */
+  const openDecision = (item: DecisionItem): void => {
+    if (item.target.type === 'terminal') {
+      // Foca E centraliza o canvas no tile — "ir ao contexto" de verdade,
+      // não só trocar de view e deixar o tile fora da área visível.
+      setView('canvas');
+      requestAnimationFrame(() => focusAndScrollTo(item.target.id));
+      return;
+    }
+    setView('tasks');
+  };
+
+  /** Resolve um gate retido; APPROVE injeta no alvo (o Main entrega), REJECT descarta. */
+  const resolveGate = (gateId: string, action: 'approve' | 'reject'): void => {
+    const gate = pendingGates.find((g) => g.gateId === gateId);
+    if (action === 'approve' && gate) gateApprovedRef.current.add(`${gate.sourceId}|${gate.message}`);
+    setPendingGates((prev) => prev.filter((g) => g.gateId !== gateId));
+    void window.cockpit.terminalLink
+      .gateResolve({ gateId, action })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
 
   // Mundo do canvas infinito (14.3) — tamanho explícito cobre o extent real
   // dos tiles (mínimo 2600×1800 como o mock); a navegação é por pan, o
@@ -1369,15 +1451,22 @@ export function App(): JSX.Element {
           </span>
         )}
         {(() => {
-          // Badge unificado (Story 5.3, AC3) — mesma contagem da status bar (13.3).
-          const waiting = pendingDecisionCount;
-          if (waiting === 0) return null;
+          // Badge unificado (Story 5.3, AC3 / 3.4 AC4) — MESMA fila do rodapé
+          // e do master. Vermelho quando algo REPRESA trabalho (decisão de
+          // tarefa ou gate de vínculo), âmbar quando só há agente aguardando
+          // resposta: o badge passa a dizer a urgência, não só a contagem.
+          if (pendingDecisionCount === 0) return null;
+          const blocking = blockingDecisionCount > 0;
           return (
             <button
               onClick={() => setView('master')}
-              title="Ir à fila de decisões pendentes"
+              title={
+                blocking
+                  ? `${blockingDecisionCount} pendência(s) represando trabalho — ir à fila de decisões`
+                  : 'Ir à fila de decisões pendentes'
+              }
               style={{
-                background: statusColor('waiting-input'),
+                background: blocking ? theme.accent.danger : statusColor('waiting-input'),
                 color: theme.text.inverse,
                 fontWeight: 700,
                 fontSize: theme.font.size.sm,
@@ -1387,7 +1476,7 @@ export function App(): JSX.Element {
                 cursor: 'pointer'
               }}
             >
-              {waiting} aguardando você
+              {pendingDecisionCount} aguardando você
             </button>
           );
         })()}
@@ -1487,6 +1576,9 @@ export function App(): JSX.Element {
             onLinkTask={linkTask}
             onDecide={decideTask}
             onOpenReview={goToReview}
+            decisions={pendingDecisions}
+            onOpenDecision={openDecision}
+            onResolveGate={resolveGate}
             terminalLinks={projectTerminalLinks}
             onCreateLink={createTerminalLink}
             onRemoveLink={removeTerminalLink}
@@ -1875,6 +1967,7 @@ export function App(): JSX.Element {
         sessionsCollapsed={sessionsBarCollapsed}
         decisions={pendingDecisions}
         onOpenDecisions={() => setView('master')}
+        onOpenDecision={openDecision}
         events={telemetryEvents}
         telemetryCollapsed={telemetryCollapsed}
       />
