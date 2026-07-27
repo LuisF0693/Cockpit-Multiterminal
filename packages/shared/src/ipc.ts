@@ -134,8 +134,13 @@ export type DaemonStatus = z.infer<typeof DaemonStatusSchema>;
 /**
  * Status de agente (data-models.md / FR5) — detectado pelo adapter.
  * Shell (process-only): working enquanto vivo, done/error no exit.
+ *
+ * `starting` existe para desambiguar a ORIGEM (ver `IDLE_AGENT_STATUSES`):
+ * "o CLI acabou de nascer" e "o agente devolveu o turno" eram os DOIS
+ * `idle`, e a colisão tornava todo tile de IA vivo ineligível para receber
+ * tarefa. Agora nascer é `starting` e devolver o turno é `idle`.
  */
-export const AgentStatusSchema = z.enum(['idle', 'working', 'waiting-input', 'done', 'error']);
+export const AgentStatusSchema = z.enum(['starting', 'idle', 'working', 'waiting-input', 'done', 'error']);
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
 /**
@@ -145,10 +150,20 @@ export type AgentStatus = z.infer<typeof AgentStatusSchema>;
  * core decide (`planTaskDelivery`/`findIdleCandidate`), o daemon entrega ou
  * enfileira (`daemon-server`) e a CLI reporta o desfecho ao chefe.
  *
- * `idle` fica DE FORA de propósito: é o estado do adapter antes do CLI ficar
- * pronto — escrever ali perde a instrução no boot do processo.
+ * `idle` entra: é EXATAMENTE o que os dois adapters de IA emitem ao terminar
+ * o turno (claude-code pelo hook `Stop`, codex pelo `notify` de
+ * agent-turn-complete). Excluí-lo — como fazia a versão anterior desta lista,
+ * justificando com "é o estado do adapter antes do CLI ficar pronto" — deixava
+ * `deliver-task` respondendo `queued` para sempre em QUALQUER tile de IA vivo,
+ * e `flushPendingTask` nunca disparava. O estado de boot agora tem nome
+ * próprio (`starting`) e é ele, não `idle`, que fica de fora.
+ *
+ * `starting` fica de fora POR PRECAUÇÃO: não foi possível determinar se o
+ * hook `SessionStart` do claude-code dispara ANTES ou DEPOIS de o CLI aceitar
+ * input. Na dúvida, não entregável — o pior caso é a tarefa esperar o primeiro
+ * fim de turno, e não sumir dentro do boot.
  */
-export const IDLE_AGENT_STATUSES: readonly AgentStatus[] = ['waiting-input', 'done'];
+export const IDLE_AGENT_STATUSES: readonly AgentStatus[] = ['idle', 'waiting-input', 'done'];
 
 export function isIdleAgentStatus(status: string): boolean {
   return (IDLE_AGENT_STATUSES as readonly string[]).includes(status);

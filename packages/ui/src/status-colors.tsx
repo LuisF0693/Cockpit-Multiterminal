@@ -7,7 +7,12 @@ import type { AgentStatus } from '@cockpit/shared';
 
 // Valores alinhados à paleta Multerminal (Story 14.1, FR47) — âmbar do
 // waiting-input preservado (contrato do FR9/teste).
+// `starting` (CLI nascendo, ainda não entregável) herda o cinza do `idle`
+// DE PROPÓSITO: para o olho do fundador os dois são "parado, sem turno em
+// curso" — quem precisa distinguir é o daemon, não a retina. Um tom próprio
+// aqui criaria um sexto código de cor para um estado que dura segundos.
 export const STATUS_COLORS: Record<AgentStatus, string> = {
+  starting: '#71717A',
   idle: '#71717A',
   working: '#4ADE80',
   'waiting-input': '#FBBF24',
@@ -16,6 +21,7 @@ export const STATUS_COLORS: Record<AgentStatus, string> = {
 };
 
 export const STATUS_LABELS: Record<AgentStatus, string> = {
+  starting: 'iniciando',
   idle: 'ocioso',
   working: 'trabalhando',
   'waiting-input': 'aguardando você',

@@ -80,8 +80,18 @@ describe('planTaskDelivery (Onda 1 — respeita o estado do alvo)', () => {
     expect(planTaskDelivery(tile({ status: 'working' })).decision).toBe('queue');
   });
 
-  it('idle também enfileira: o CLI pode ainda não estar pronto pra receber', () => {
-    expect(planTaskDelivery(tile({ status: 'idle' })).decision).toBe('queue');
+  // Antes este caso exigia FILA em 'idle', justificando com "o CLI pode ainda
+  // não estar pronto". Era o defeito: 'idle' é o status de FIM DE TURNO dos
+  // dois adapters de IA (claude-code pelo hook Stop, codex pelo notify), então
+  // a regra deixava todo tile vivo ineligível e `deliver-task` respondia
+  // `queued` para sempre. Quem representa "ainda não pronto" agora é
+  // 'starting' — nome próprio, sem colisão.
+  it('ENTREGA quando o alvo está idle — é o fim de turno dos CLIs de IA', () => {
+    expect(planTaskDelivery(tile({ status: 'idle' })).decision).toBe('deliver');
+  });
+
+  it('ENFILEIRA quando o alvo está starting: o CLI ainda está nascendo', () => {
+    expect(planTaskDelivery(tile({ status: 'starting' })).decision).toBe('queue');
   });
 
   it('RECUSA alvo em erro — enfileirar ali seria prometer entrega que nunca ocorre', () => {

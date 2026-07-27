@@ -10,9 +10,21 @@ import { join } from 'node:path';
  * APENAS hooks; nenhuma credencial passa por aqui.
  */
 
-/** Mapeamento evento do Claude Code → AgentStatus (Dev Notes da story). */
+/**
+ * Mapeamento evento do Claude Code → AgentStatus (Dev Notes da story).
+ *
+ * `SessionStart` era `idle`, o MESMO status do `Stop` — e essa colisão na
+ * ORIGEM era o defeito: "o CLI acabou de nascer" e "o agente devolveu o turno"
+ * viravam o mesmo sinal, então o consumidor (`IDLE_AGENT_STATUSES`) só
+ * conseguia tratar os dois juntos. Excluir `idle` matava a entrega em tile
+ * vivo; incluir arriscaria escrever durante o boot. Com `starting` os dois
+ * eventos passam a ser distinguíveis e cada camada decide o que quer.
+ *
+ * `SessionStart` ficou em `starting` (não entregável) por PRECAUÇÃO: não foi
+ * possível confirmar se o hook roda antes ou depois de o CLI aceitar input.
+ */
 export const HOOK_STATUS_MAP = {
-  SessionStart: 'idle',
+  SessionStart: 'starting',
   UserPromptSubmit: 'working',
   Stop: 'idle',
   Notification: 'waiting-input'

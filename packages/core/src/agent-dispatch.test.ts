@@ -175,13 +175,20 @@ describe('findIdleCandidate (Story 18.1, AC1)', () => {
     expect(findIdleCandidate('claude-code', sessions)).toBeNull();
   });
 
-  it('ignora sessões do mesmo adapter que não estão ociosas (working/idle/error)', () => {
+  it('ignora sessões do mesmo adapter que não estão ociosas (working/starting/error)', () => {
     const sessions = [
       { id: 'worker-1', adapterId: 'claude-code', status: 'working' },
-      { id: 'worker-2', adapterId: 'claude-code', status: 'idle' },
+      { id: 'worker-2', adapterId: 'claude-code', status: 'starting' },
       { id: 'worker-3', adapterId: 'claude-code', status: 'error' }
     ];
     expect(findIdleCandidate('claude-code', sessions)).toBeNull();
+  });
+
+  // 'idle' é o fim de turno dos adapters de IA — reaproveitar o tile é
+  // justamente o ponto do `findIdleCandidate`.
+  it('considera "idle" ocioso — é o status de fim de turno dos CLIs de IA', () => {
+    const sessions = [{ id: 'worker-1', adapterId: 'codex', status: 'idle' }];
+    expect(findIdleCandidate('codex', sessions)).toBe('worker-1');
   });
 
   it('sem sessões vivas devolve null', () => {
