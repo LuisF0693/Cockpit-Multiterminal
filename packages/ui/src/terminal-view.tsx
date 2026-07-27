@@ -33,6 +33,9 @@ const UNFOCUSED_FLUSH_MS = 100;
 /** Janela de silêncio antes de refazer o fit e reportar cols/rows à PTY. */
 const RESIZE_DEBOUNCE_MS = 80;
 
+/** Espera pelo evento `paste` nativo antes de cair na leitura do clipboard. */
+const PASTE_FALLBACK_MS = 60;
+
 /** Tamanho nominal do menu de contexto — usado só para não abri-lo fora do tile. */
 const CONTEXT_MENU_WIDTH = 168;
 const CONTEXT_MENU_HEIGHT = 62;
@@ -137,13 +140,36 @@ export function TerminalView({
       term.paste(text);
     };
 
-    pasteFromClipboardRef.current = () => {
-      // Caminho do MENU de contexto: aqui não existe evento `paste` do
-      // navegador com o conteúdo pronto, então é leitura assíncrona mesmo.
+    const pasteFromClipboard = (): void => {
+      // Caminho SEM evento `paste` do navegador (menu de contexto, ou o
+      // fallback abaixo): só resta a leitura assíncrona do clipboard.
       void navigator.clipboard
         .readText()
         .then((text) => applyPaste(text))
         .catch(() => void 0);
+    };
+    pasteFromClipboardRef.current = pasteFromClipboard;
+
+    /**
+     * Rede de segurança do Ctrl+V. O caminho principal é o evento `paste`
+     * nativo (não precisa de permissão de leitura), mas ele só dispara se o
+     * foco estiver no textarea auxiliar do xterm. Se em 60ms nenhum `paste`
+     * chegou, caímos na leitura direta do clipboard. O flag garante que
+     * exatamente UM dos dois caminhos executa — colar duas vezes seria pior
+     * que não colar.
+     */
+    let pasteFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const armPasteFallback = (): void => {
+      if (pasteFallbackTimer !== null) clearTimeout(pasteFallbackTimer);
+      pasteFallbackTimer = setTimeout(() => {
+        pasteFallbackTimer = null;
+        if (!disposed) pasteFromClipboard();
+      }, PASTE_FALLBACK_MS);
+    };
+    const cancelPasteFallback = (): void => {
+      if (pasteFallbackTimer === null) return;
+      clearTimeout(pasteFallbackTimer);
+      pasteFallbackTimer = null;
     };
 
     /**
@@ -176,6 +202,7 @@ export function TerminalView({
         // Devolvendo false o xterm não manda `\x16` NEM cancela o evento —
         // o `paste` nativo do Chromium dispara e cai no listener abaixo, que
         // sanitiza. Isso evita depender da permissão de LEITURA de clipboard.
+        armPasteFallback();
         return false;
       }
 
@@ -185,6 +212,7 @@ export function TerminalView({
     // Intercepta o `paste` na captura (antes do textarea interno do xterm,
     // que colaria o texto cru sem sanitização nem confirmação).
     const onPasteEvent = (event: ClipboardEvent): void => {
+      cancelPasteFallback();
       const raw = event.clipboardData?.getData('text') ?? '';
       event.preventDefault();
       event.stopPropagation();
@@ -288,6 +316,7 @@ export function TerminalView({
       disposed = true;
       if (flushTimer !== null) clearTimeout(flushTimer);
       if (resizeTimer !== null) clearTimeout(resizeTimer);
+      cancelPasteFallback();
       flushRef.current = null;
       termRef.current = null;
       container.removeEventListener('paste', onPasteEvent, true);
