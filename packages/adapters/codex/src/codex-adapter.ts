@@ -17,7 +17,8 @@ import { AgentStatusSchema, type AgentStatus } from '@cockpit/shared';
  * - notify do Codex (override por sessão via `-c notify=[...]`, TOML literal)
  *   dispara em agent-turn-complete → linha `idle` no arquivo de status.
  *   ⚠️ O Codex appenda um payload JSON como argumento extra ao programa de
- *   notify — o parser considera só o PRIMEIRO token de cada linha.
+ *   notify — ver `buildNotifyOverride` para o que isso quebrava com `cmd`.
+ *   O parser ainda considera só o PRIMEIRO token de cada linha.
  * - Heurística de input: write() contendo `\r` = prompt enviado → working
  *   (o CLI não notifica submissão de prompt).
  * - exit 0→done / ≠0→error.
@@ -50,6 +51,55 @@ const DEFAULT_COMMAND = 'codex.cmd';
 const KILL_GRACE_MS = 1500;
 const POLL_MS = 500;
 
+/** Delimitadores do bracketed paste (DEC 2004) — o protocolo que separa conteúdo COLADO de tecla digitada. */
+const PASTE_START = `${String.fromCharCode(27)}[200~`;
+const PASTE_END = `${String.fromCharCode(27)}[201~`;
+const CR = '\r';
+
+/**
+ * Intervalo entre o bloco colado e o Enter (Causa A). MEDIDO no Codex real
+ * (codex-cli 0.145.0, tile já bootado e composer vazio), escrevendo o texto
+ * como bracketed paste e o `\r` num write SEPARADO:
+ *
+ *   gap    0ms (setImmediate) → NÃO submeteu (45s de espera, nada)
+ *   gap   20ms                → NÃO submeteu
+ *   gap   40ms                → NÃO submeteu
+ *   gap   70ms                → SUBMETEU (resposta em 11,8s)
+ *   gap  120ms                → SUBMETEU (resposta em 3,1s)
+ *
+ * Ou seja: o piso real está entre 40ms e 70ms. O Codex trata um Enter que
+ * chega colado a uma colagem como NOVA LINHA no composer, não como submit —
+ * é comportamento deliberado dele (colar texto multi-linha não pode disparar
+ * o turno no primeiro `\n`), e a janela de graça é TEMPORAL: nenhuma
+ * codificação de bytes escapa dela, só a espera. 250ms é ~3,5x o piso medido
+ * e ~6x o maior gap que falhou — folga para jitter de scheduler/ConPTY sem
+ * latência perceptível (um turno de Codex leva segundos).
+ */
+export const CODEX_SUBMIT_GAP_MS = 250;
+
+/**
+ * Decide, de forma PURA, se um write é uma "linha submetida programaticamente"
+ * e como codificá-la. Devolve `null` quando o write deve passar intacto.
+ *
+ * Por que o texto vai embrulhado em bracketed paste em vez de cru: é o mesmo
+ * protocolo que o `term.paste()` do xterm usa do lado do renderer, e ele
+ * garante que o conteúdo seja tratado como BLOCO — uma instrução multi-linha
+ * (as mensagens do roteamento SDC são) não submete sozinha no primeiro `\n`
+ * interno. O `\r` fica de fora do bloco: é a tecla Enter, não conteúdo.
+ *
+ * Nunca dispara em digitação humana: tecla solta não termina em quebra, e
+ * Enter puro (`'\r'`) tem corpo vazio. Um write que JÁ vem embrulhado (o
+ * xterm colando com DEC 2004 ligado) passa intacto — quem embrulhou sabe o
+ * que está fazendo.
+ */
+export function splitSubmittedLine(data: string): { paste: string; enter: string } | null {
+  const body = data.replace(/[\r\n]+$/, '');
+  if (body === data) return null; // não termina em quebra: digitação comum
+  if (body === '') return null; // só quebras: Enter puro do teclado
+  if (body.includes(PASTE_START) || body.includes(PASTE_END)) return null;
+  return { paste: `${PASTE_START}${body}${PASTE_END}`, enter: CR };
+}
+
 function isPidAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -59,9 +109,37 @@ function isPidAlive(pid: number): boolean {
   }
 }
 
-/** Override TOML do notify (literal strings — paths Windows sem escaping). */
-export function buildNotifyOverride(statusPath: string): string {
-  return `notify=['cmd','/c','echo idle>> ${statusPath}']`;
+/**
+ * Override TOML do notify (literal strings — paths Windows sem escaping).
+ *
+ * Aponta para um script Node, NÃO para `cmd /c echo`. Motivo medido: o Codex
+ * anexa o payload do evento como ARGUMENTO EXTRA do programa de notify, e o
+ * payload é JSON. Com `cmd`, as aspas e os `<`/`>`/`&` do JSON são
+ * reinterpretados como sintaxe de shell e o comando inteiro morre:
+ *
+ *   sem payload   | status 0 | escreve "idle"
+ *   payload 'abc' | status 0 | escreve "idle abc"
+ *   payload JSON  | status 1 | "The filename, directory name, or volume label
+ *                 |          |  syntax is incorrect." — escreve NADA
+ *
+ * Ou seja: em sessão real o arquivo de status NUNCA era escrito e o
+ * `lastStatus` ficava preso no seed `working` até o exit. Com `node <script>`
+ * o argv é passado como VETOR (sem shell no meio), então o payload é só um
+ * argumento a mais que o script ignora — imune a qualquer conteúdo.
+ */
+export function buildNotifyOverride(notifyScriptPath: string): string {
+  return `notify=['node','${notifyScriptPath}']`;
+}
+
+/**
+ * Fonte do script de notify. O path do status vai EMBUTIDO (via
+ * `JSON.stringify`, que já escapa as barras invertidas do Windows) em vez de
+ * vir por argv: o argv desse processo pertence ao Codex, que planta o payload
+ * ali. `.cjs` porque o dir temporário não tem package.json — a extensão é o
+ * que garante `require` sem depender do modo de módulo do ambiente.
+ */
+export function buildNotifyScript(statusPath: string): string {
+  return `require('node:fs').appendFileSync(${JSON.stringify(statusPath)}, 'idle\\n');\n`;
 }
 
 /**
@@ -72,10 +150,10 @@ export function buildNotifyOverride(statusPath: string): string {
  * `-- <valor>` nesse erro. Pura: só monta a lista, quem faz spawn é o caller.
  */
 export function buildCodexArgs(
-  statusPath: string,
+  notifyScriptPath: string,
   config: Pick<SpawnConfig, 'args' | 'initialInstruction'>
 ): string[] {
-  const args = ['-c', buildNotifyOverride(statusPath), ...(config.args ?? [])];
+  const args = ['-c', buildNotifyOverride(notifyScriptPath), ...(config.args ?? [])];
   if (config.initialInstruction) args.push('--', config.initialInstruction);
   return args;
 }
@@ -109,7 +187,9 @@ export class CodexAdapter implements AgentAdapter {
     private readonly which: WhichFn = defaultWhich,
     private readonly command: string = DEFAULT_COMMAND,
     private readonly graceMs: number = KILL_GRACE_MS,
-    private readonly pollMs: number = POLL_MS
+    private readonly pollMs: number = POLL_MS,
+    /** Gap texto→Enter (Causa A); injetável para o teste não esperar 250ms. */
+    private readonly submitGapMs: number = CODEX_SUBMIT_GAP_MS
   ) {}
 
   async detectAvailability(): Promise<AdapterAvailability> {
@@ -123,10 +203,15 @@ export class CodexAdapter implements AgentAdapter {
   async spawn(config: SpawnConfig): Promise<AgentSession> {
     const dir = mkdtempSync(join(tmpdir(), `cockpit-codex-s${++sessionSeq}-`));
     const statusPath = join(dir, 'session.status');
+    // O script mora AO LADO do status, no mesmo dir temporário da sessão:
+    // o `cleanup()` já apaga o dir inteiro (rmSync recursive), então não há
+    // arquivo órfão a limpar separadamente.
+    const notifyScriptPath = join(dir, 'notify.cjs');
     writeFileSync(statusPath, '');
+    writeFileSync(notifyScriptPath, buildNotifyScript(statusPath));
     // args extras (17.3): ex.: ['--model','gpt-5.5-codex'] — escolha do chefe por sessão
-    const pty = this.spawnFn(this.command, buildCodexArgs(statusPath, config), config);
-    return new CodexSession(pty, dir, statusPath, this.graceMs, this.pollMs);
+    const pty = this.spawnFn(this.command, buildCodexArgs(notifyScriptPath, config), config);
+    return new CodexSession(pty, dir, statusPath, this.graceMs, this.pollMs, this.submitGapMs);
   }
 }
 
@@ -138,6 +223,10 @@ class CodexSession implements AgentSession {
   private offset = 0;
   private watcher: FSWatcher | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Enter adiado da linha submetida (Causa A) — null quando não há nenhum em voo. */
+  private pendingEnter: ReturnType<typeof setTimeout> | null = null;
+  /** Writes que chegaram durante a espera do Enter — drenados na ordem. */
+  private readonly backlog: string[] = [];
   private readonly statusCbs = new Set<(s: AgentStatus, detail?: string) => void>();
 
   constructor(
@@ -145,7 +234,8 @@ class CodexSession implements AgentSession {
     private readonly tempDir: string,
     private readonly statusPath: string,
     private readonly graceMs: number,
-    pollMs: number
+    pollMs: number,
+    private readonly submitGapMs: number = CODEX_SUBMIT_GAP_MS
   ) {
     this.terminalId = `codex-${pty.pid}`;
     this.pid = pty.pid;
@@ -168,12 +258,45 @@ class CodexSession implements AgentSession {
     // envenenaria o dedupe de `last`, engolindo o próximo 'working' legítimo.
   }
 
+  /**
+   * Causa A: uma linha submetida programaticamente (`${texto}\r` — o que
+   * `writeTaskLine`, o fallback do Main e o `instructAgent` produzem) NÃO
+   * submete turno nenhum no Codex quando texto e `\r` chegam no MESMO burst:
+   * o TUI trata o Enter colado como nova linha do composer e o texto fica
+   * parado esperando um humano. Aqui a linha é quebrada em dois bursts —
+   * bloco colado agora, Enter depois de `CODEX_SUBMIT_GAP_MS` (ver a medição
+   * na constante). Digitação humana passa intacta, sem atraso nenhum.
+   */
   write(data: string): void {
-    this.pty.write(data);
-    // Heurística de input: Enter = prompt submetido → working.
+    const line = splitSubmittedLine(data);
+    // Com Enter pendente TUDO espera na fila: um write que ultrapassasse o
+    // `\r` agendado chegaria ao composer antes do turno abrir, e a ordem que
+    // o chamador escreveu deixaria de ser a ordem que o Codex vê.
+    if (this.pendingEnter !== null) {
+      this.backlog.push(data);
+    } else if (line === null) {
+      this.pty.write(data);
+    } else {
+      this.pty.write(line.paste);
+      this.pendingEnter = setTimeout(() => this.flushEnter(line.enter), this.submitGapMs);
+    }
+    // Heurística de input: Enter = prompt submetido → working. Emitida no
+    // AGENDAMENTO, não na entrega: o turno é do chamador desde já, e o daemon
+    // precisa ver 'working' antes de considerar o tile ocioso de novo.
     if (data.includes('\r') && !this.exited) {
       this.emitStatus('working', 'input-heuristic');
     }
+  }
+
+  /** Entrega o Enter adiado e drena o que chegou durante a espera, em ordem. */
+  private flushEnter(enter: string): void {
+    this.pendingEnter = null;
+    if (this.exited) {
+      this.backlog.length = 0;
+      return;
+    }
+    this.pty.write(enter);
+    for (const queued of this.backlog.splice(0)) this.write(queued);
   }
 
   resize(cols: number, rows: number): void {
@@ -241,6 +364,11 @@ class CodexSession implements AgentSession {
     this.watcher = null;
     if (this.pollTimer !== null) clearInterval(this.pollTimer);
     this.pollTimer = null;
+    // Enter adiado de uma sessão morta não tem onde cair — cancela e descarta
+    // o backlog, senão o timer sobreviveria ao PTY (handle vazado no vitest).
+    if (this.pendingEnter !== null) clearTimeout(this.pendingEnter);
+    this.pendingEnter = null;
+    this.backlog.length = 0;
     try {
       rmSync(this.tempDir, { recursive: true, force: true });
     } catch {
