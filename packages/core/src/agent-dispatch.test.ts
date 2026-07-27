@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { classifyDispatchTask, findDispatcherSession, findIdleCandidate, planAgentDispatch } from './agent-dispatch';
+import {
+  classifyDispatchTask,
+  findDispatcherSession,
+  findIdleCandidate,
+  planAgentDispatch,
+  resolveDispatchCwd
+} from './agent-dispatch';
 
 const ALL_ADAPTERS = ['shell', 'cmd', 'claude-code', 'codex', 'grok', 'gemini-cli', 'antigravity', 'ollama'];
 
@@ -188,5 +194,44 @@ describe('findIdleCandidate (Story 18.1, AC1)', () => {
       { id: 'worker-2', adapterId: 'claude-code', status: 'done' }
     ];
     expect(findIdleCandidate('claude-code', sessions)).toBe('worker-1');
+  });
+});
+
+describe('resolveDispatchCwd (Onda 1, item 2 — worker nasce no projeto ativo)', () => {
+  it('--cwd explícito vence tudo', () => {
+    expect(
+      resolveDispatchCwd({
+        explicitCwd: 'F:/Projetos/Outro',
+        dispatcherSession: { cwd: 'F:/Projetos/Cockpit' },
+        fallbackCwd: 'C:/Windows/System32'
+      })
+    ).toBe('F:/Projetos/Outro');
+  });
+
+  it('sem --cwd, herda o cwd do terminal-chefe que despachou', () => {
+    expect(
+      resolveDispatchCwd({
+        dispatcherSession: { cwd: 'F:/Projetos/Cockpit' },
+        fallbackCwd: 'C:/Windows/System32'
+      })
+    ).toBe('F:/Projetos/Cockpit');
+  });
+
+  it('sem chefe detectável, mantém o comportamento antigo (process.cwd())', () => {
+    expect(resolveDispatchCwd({ fallbackCwd: 'C:/Windows/System32' })).toBe('C:/Windows/System32');
+  });
+
+  it('string vazia/só espaços não conta como valor — cai pro próximo nível', () => {
+    expect(
+      resolveDispatchCwd({
+        explicitCwd: '   ',
+        dispatcherSession: { cwd: '' },
+        fallbackCwd: 'C:/fallback'
+      })
+    ).toBe('C:/fallback');
+  });
+
+  it('chefe sem cwd conhecido cai pro fallback', () => {
+    expect(resolveDispatchCwd({ dispatcherSession: {}, fallbackCwd: 'C:/fallback' })).toBe('C:/fallback');
   });
 });

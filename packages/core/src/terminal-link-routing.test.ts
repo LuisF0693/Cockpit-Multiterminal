@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionRecord } from '@cockpit/shared';
-import { planTerminalLinkRouting } from './terminal-link-routing';
+import { enrichTerminalLinkMessage, planTerminalLinkGating, planTerminalLinkRouting } from './terminal-link-routing';
 import type { TerminalLink } from './terminal-link-manager';
 
 function session(overrides: Partial<SessionRecord>): SessionRecord {
@@ -85,5 +85,49 @@ describe('planTerminalLinkRouting (Épico 9, Story 9.2, FR26)', () => {
     const s = session({ id: 'a', agentStatus: 'done' });
     const links = [link({ sourceId: 'outro', targetId: 'b' })];
     expect(planTerminalLinkRouting(s, links)).toBeNull();
+  });
+});
+
+describe('mensagem acionável do roteamento (Onda 1)', () => {
+  it('distingue "done" de "waiting-input" — as duas transições disparam o mesmo vínculo', () => {
+    const links = [link({ sourceId: 'a', targetId: 'b' })];
+    const done = planTerminalLinkRouting(session({ id: 'a', agentStatus: 'done' }), links);
+    const waiting = planTerminalLinkRouting(session({ id: 'a', agentStatus: 'waiting-input' }), links);
+
+    expect(done!.message).toContain('concluiu o trabalho (done)');
+    expect(waiting!.message).toContain('waiting-input');
+    expect(done!.message).not.toBe(waiting!.message);
+  });
+
+  it('instrui o alvo a agir sem esperar humano (é o ponto do modo auto)', () => {
+    const links = [link({ sourceId: 'a', targetId: 'b' })];
+    const routing = planTerminalLinkRouting(session({ id: 'a', agentStatus: 'done' }), links);
+    expect(routing!.message).toContain('não espere confirmação humana');
+  });
+
+  it('o gate herda o mesmo desfecho na mensagem que o humano avalia', () => {
+    const links = [link({ sourceId: 'a', targetId: 'b', mode: 'gate' })];
+    const gating = planTerminalLinkGating(session({ id: 'a', agentStatus: 'done' }), links);
+    expect(gating!.message).toContain('concluiu o trabalho (done)');
+  });
+});
+
+describe('enrichTerminalLinkMessage (Onda 1 — contexto externo, no chamador)', () => {
+  it('anexa a tarefa original e o estado dela', () => {
+    const out = enrichTerminalLinkMessage('BASE', { originalTask: 'Implementar 9.2', taskState: 'awaiting_decision' });
+    expect(out).toContain('BASE');
+    expect(out).toContain('"Implementar 9.2"');
+    expect(out).toContain('[estado: awaiting_decision]');
+  });
+
+  it('sem estado, anexa só a tarefa', () => {
+    const out = enrichTerminalLinkMessage('BASE', { originalTask: 'Implementar 9.2' });
+    expect(out).toContain('"Implementar 9.2"');
+    expect(out).not.toContain('[estado:');
+  });
+
+  it('sem tarefa rastreável devolve a base intacta (campo ausente é omitido, nunca inventado)', () => {
+    expect(enrichTerminalLinkMessage('BASE', {})).toBe('BASE');
+    expect(enrichTerminalLinkMessage('BASE', { originalTask: '   ' })).toBe('BASE');
   });
 });

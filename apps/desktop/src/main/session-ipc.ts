@@ -18,6 +18,10 @@ import {
   planTerminalLinkRouting,
   planTerminalLinkGating,
   planExternalAdoption,
+  enrichTerminalLinkMessage,
+  chargeAutoDeliveryBudget,
+  AUTO_DELIVERY_MAX_PER_WINDOW,
+  AUTO_DELIVERY_WINDOW_MS,
   isSameProject,
   NON_DISPATCHABLE,
   ALWAYS_HIDDEN_NAMES,
@@ -28,7 +32,8 @@ import {
   parseGitignorePatterns,
   ulid,
   type StateStore,
-  type TerminalLinkGating
+  type TerminalLinkGating,
+  type AutoDeliveryBudget
 } from '@cockpit/core';
 import {
   AdapterCheckCommandRequestSchema,
@@ -119,6 +124,14 @@ export interface PtyBackend {
    * Fire-and-forget; sem ack. Implementado em ambos os backends.
    */
   writePty?(ptyId: string, text: string): void;
+  /**
+   * Entrega de tarefa respeitando o estado do alvo (Onda 1) — MESMO comando
+   * `deliver-task` que a CLI `agent-dispatch` usa, com fila no daemon. Só o
+   * backend do daemon implementa; o utilityProcess clássico
+   * (COCKPIT_NO_DAEMON=1) não tem o comando e cai no `writePty` acima
+   * (entrega imediata, sem fila — degradação documentada em `deliverToTerminal`).
+   */
+  deliverTask?(ptyId: string, text: string): Promise<{ outcome: string; reason: string; queued: number }>;
 }
 
 export interface SessionIpcHandle {
@@ -322,6 +335,73 @@ export function registerSessionIpc(
     }
   });
 
+  /**
+   * Contexto acionável da instrução automática (Onda 1) — a mensagem pura já
+   * traz nome/adapter/desfecho da origem; aqui entra o que exige I/O: a tarefa
+   * que a origem estava tocando. Mesmo padrão do `enrichReviewMessage` acima
+   * (P2 do Épico 7): campo indisponível é campo omitido, nunca inventado.
+   */
+  const routingContextOf = (source: SessionRecord): { originalTask?: string; taskState?: string } => {
+    if (!source.taskId) return {};
+    const task = taskManager.find(source.taskId);
+    if (!task) return {};
+    return { originalTask: task.title, taskState: task.state };
+  };
+
+  /**
+   * Freio de ping-pong das injeções automáticas (Onda 1) — ver
+   * `chargeAutoDeliveryBudget` no core. Efêmero de propósito: um restart do
+   * app zera o contador, que é o comportamento certo (a sessão dos agentes
+   * também recomeça).
+   */
+  const autoDeliveryBudgets = new Map<string, AutoDeliveryBudget>();
+
+  /**
+   * Injeta a instrução no PTY do terminal alvo — o que FECHA o loop do "não
+   * preciso apertar enter" (Onda 1, item 1 do fundador). Até aqui o roteamento
+   * automático só notificava a UI (`webContents.send`): a instrução aparecia na
+   * tela e ficava esperando o humano digitar no tile-chefe.
+   *
+   * Usa o MESMO caminho da CLI (`deliver-task` no daemon: respeita o estado do
+   * alvo e enfileira quando ele está ocupado) — nenhuma lógica de entrega é
+   * duplicada aqui. Assíncrono e não-bloqueante: este é um listener de evento
+   * do registry, que não pode awaitar sem segurar a persistência e o espelho
+   * da UI que escutam o mesmo `emit()`.
+   */
+  const deliverToTerminal = (targetId: string, text: string): void => {
+    const now = Date.now();
+    const { allowed, budget } = chargeAutoDeliveryBudget(autoDeliveryBudgets.get(targetId), now);
+    autoDeliveryBudgets.set(targetId, budget);
+    if (!allowed) {
+      console.warn(
+        `[terminalLink] injeção automática contida em ${targetId}: ` +
+          `mais de ${AUTO_DELIVERY_MAX_PER_WINDOW} instruções na janela de ${AUTO_DELIVERY_WINDOW_MS}ms ` +
+          '(vínculos auto recíprocos em ping-pong?) — a UI segue sendo notificada'
+      );
+      return;
+    }
+
+    let ptyId: string;
+    try {
+      ptyId = registry.ptyIdOf(targetId);
+    } catch {
+      return; // alvo fechou entre o plano e a entrega — nada a fazer
+    }
+
+    if (ptyHost.deliverTask) {
+      void ptyHost.deliverTask(ptyId, text).then(
+        (ack) => {
+          if (ack.outcome === 'refused') console.warn(`[terminalLink] entrega recusada em ${targetId}: ${ack.reason}`);
+        },
+        (err: unknown) => console.error(`[terminalLink] entrega em ${targetId} falhou:`, err)
+      );
+      return;
+    }
+    // Backend clássico (COCKPIT_NO_DAEMON=1): sem `deliver-task`, logo sem
+    // fila nem checagem de estado — o `\r` final é o que submete a linha.
+    ptyHost.writePty?.(ptyId, `${text}\r`);
+  };
+
   // Roteamento automático de vínculo terminal-a-terminal (Story 9.2, FR26) —
   // mesmo padrão do roteamento SDC (7.2): função pura decide, este listener
   // só executa os efeitos colaterais quando o retorno não é null.
@@ -331,11 +411,21 @@ export function registerSessionIpc(
       const routing = planTerminalLinkRouting(event.session, terminalLinkManager.list());
       if (!routing) return;
 
-      for (const targetId of routing.targetIds) {
-        persistence.recordTerminalLinkRouting(targetId, { sourceId: routing.sourceId });
+      // Onda 1: enriquecimento com dado externo (tarefa da origem) fica AQUI,
+      // no chamador — `planTerminalLinkRouting` permanece pura, como o SDC.
+      const enriched = {
+        ...routing,
+        message: enrichTerminalLinkMessage(routing.message, routingContextOf(event.session))
+      };
+
+      for (const targetId of enriched.targetIds) {
+        persistence.recordTerminalLinkRouting(targetId, { sourceId: enriched.sourceId });
+        // Modo 'auto' = sem humano no meio: injeta de verdade no PTY do alvo.
+        // (O modo 'gate' NÃO passa por aqui — retém até APPROVE, ver abaixo.)
+        deliverToTerminal(targetId, enriched.message);
       }
       for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(IpcChannels.terminalLinkRouted, routing);
+        win.webContents.send(IpcChannels.terminalLinkRouted, enriched);
       }
     } catch (err) {
       console.error('[terminalLink] roteamento automático falhou:', err);
@@ -351,10 +441,16 @@ export function registerSessionIpc(
     try {
       const gating = planTerminalLinkGating(event.session, terminalLinkManager.list());
       if (!gating) return;
+      // Mesmo enriquecimento do modo auto (Onda 1): o humano avalia o gate com
+      // o MESMO texto que o alvo receberá se ele aprovar — nada de divergir.
+      const enriched: TerminalLinkGating = {
+        ...gating,
+        message: enrichTerminalLinkMessage(gating.message, routingContextOf(event.session))
+      };
       const gateId = ulid();
-      pendingGates.set(gateId, gating);
+      pendingGates.set(gateId, enriched);
       for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(IpcChannels.terminalLinkGatePend, { gateId, ...gating });
+        win.webContents.send(IpcChannels.terminalLinkGatePend, { gateId, ...enriched });
       }
     } catch (err) {
       console.error('[terminalLink] gate de roteamento falhou:', err);
@@ -805,6 +901,10 @@ export function registerSessionIpc(
 
     for (const targetId of gating.targetIds) {
       persistence.recordTerminalLinkRouting(targetId, { sourceId: gating.sourceId });
+      // Só AGORA a instrução entra no PTY (Onda 1): o gate existe justamente
+      // para segurar a injeção até o APPROVE humano — o modo 'gate' nunca
+      // dispara sozinho, ao contrário do 'auto'.
+      deliverToTerminal(targetId, gating.message);
     }
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcChannels.terminalLinkRouted, gating);

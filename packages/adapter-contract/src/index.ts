@@ -26,7 +26,15 @@ export interface SpawnConfig {
    * o spawn herda o ambiente do usuário; nada de tokens em config/logs.
    */
   env?: Record<string, string> | undefined;
-  /** Instrução inicial (FR7) — enviada após o CLI ficar pronto. */
+  /**
+   * Instrução inicial (FR7) — a tarefa que o worker deve executar ao nascer.
+   * COMO entregar é responsabilidade do adapter, e a escolha importa: escrever
+   * `${initialInstruction}\r` no PTY logo após o spawn PERDE a instrução em
+   * CLIs de TUI nativo (codex, grok) — os bytes chegam durante o boot e a
+   * tarefa nunca é criada. Prefira SEMPRE o argumento posicional/flag de
+   * prompt inicial do próprio CLI quando existir; o write no PTY é último
+   * recurso, só para CLIs que bufferizam stdin desde o start (shell, Node/Ink).
+   */
   initialInstruction?: string | undefined;
   /**
    * Argumentos extra de CLI (Story 12.6) — a maioria dos adapters ignora;

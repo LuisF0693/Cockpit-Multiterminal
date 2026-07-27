@@ -138,6 +138,22 @@ export type DaemonStatus = z.infer<typeof DaemonStatusSchema>;
 export const AgentStatusSchema = z.enum(['idle', 'working', 'waiting-input', 'done', 'error']);
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
+/**
+ * Status em que o agente JÁ devolveu o turno e aceita uma instrução nova
+ * (Onda 1 — entrega de tarefa em tile já aberto). Mora aqui, colado ao enum,
+ * porque TRÊS camadas precisam do mesmo critério e não podem divergir: o
+ * core decide (`planTaskDelivery`/`findIdleCandidate`), o daemon entrega ou
+ * enfileira (`daemon-server`) e a CLI reporta o desfecho ao chefe.
+ *
+ * `idle` fica DE FORA de propósito: é o estado do adapter antes do CLI ficar
+ * pronto — escrever ali perde a instrução no boot do processo.
+ */
+export const IDLE_AGENT_STATUSES: readonly AgentStatus[] = ['waiting-input', 'done'];
+
+export function isIdleAgentStatus(status: string): boolean {
+  return (IDLE_AGENT_STATUSES as readonly string[]).includes(status);
+}
+
 /** Adapter disponível para hospedar terminais (Epic 2). */
 export const AdapterInfoSchema = z.object({
   id: z.string().min(1),
@@ -619,10 +635,19 @@ export const TerminalLinkEventSchema = z.object({
 export type TerminalLinkEvent = z.infer<typeof TerminalLinkEventSchema>;
 
 /**
- * Push Main -> renderer (Story 9.2, FR26): roteamento automático de vínculo
- * terminal-a-terminal. Mesmo padrão do sdc.reviewRequested (7.2): `message`
- * já vem pronta do Main; o renderer só chama instructAgent por targetId
- * (decisão crítica 4: só o renderer escreve na PTY).
+ * Push Main -> renderer (Story 9.2, FR26): roteamento de vínculo
+ * terminal-a-terminal. DIFERE do sdc.reviewRequested (7.2): lá o renderer
+ * entrega com `instructAgent`; aqui o Main JÁ entregou no PTY do alvo
+ * (`deliverToTerminal`) antes de emitir — nos dois modos ('auto' no
+ * roteamento, 'gate' no APPROVE). Este evento é NOTIFICAÇÃO: quem consumir
+ * chamando `instructAgent` entrega a instrução em DUPLICATA.
+ *
+ * A entrega saiu do renderer porque o loop precisa fechar sem humano e sem
+ * depender da janela (ela pode estar fechada, e o daemon standalone do Épico 6
+ * roda sem renderer nenhum). A decisão crítica 4 segue valendo no que protege:
+ * o STREAM de dados do terminal continua na MessagePort binária, fora do Main.
+ * Instrução é controle, não dado — o canal agente→agente (`terminal.send`, P1)
+ * já escrevia pelo Main pelo mesmo motivo.
  */
 export const TerminalLinkRoutedEventSchema = z.object({
   sourceId: z.string().min(1),

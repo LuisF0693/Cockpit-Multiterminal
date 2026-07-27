@@ -17,6 +17,14 @@ import type { AgentStatus } from '@cockpit/shared';
  * - exit 0→done / ≠0→error
  * - `idle` só virá com parsing por fixtures reais (debt padrão do épico)
  * NFR6: env herdado; auth do CLI fica com o usuário.
+ *
+ * FR7 / instrução inicial: mesmo defeito e mesma correção do adapter Codex —
+ * o grok também é um TUI nativo ("Grok Build TUI") e PERDE o
+ * `${initialInstruction}\r` escrito no PTY logo após o spawn (o CLI ainda
+ * está no boot/gate de confiança quando os bytes chegam, e a tarefa nunca é
+ * criada). Reproduzido com Grok Build 0.2.112 Beta. A instrução vai pelo
+ * posicional nativo (`grok [OPTIONS] [PROMPT]` — documentado no --help como
+ * `grok "fix the bug"`), que já sobe a sessão com o turno submetido.
  */
 
 export interface GrokPtyLike {
@@ -60,6 +68,18 @@ const defaultWhich: WhichFn = (command) => {
   }
 };
 
+/**
+ * Argv do grok: args de sessão (17.3) primeiro, instrução inicial como
+ * POSICIONAL no fim. O `--` separa: o grok aceita `[PROMPT] [COMMAND]` na
+ * mesma posição, então sem ele uma tarefa que comece com palavra de
+ * subcomando (ou com hífen) seria interpretada errado. Pura: só monta a lista.
+ */
+export function buildGrokArgs(config: Pick<SpawnConfig, 'args' | 'initialInstruction'>): string[] {
+  const args = [...(config.args ?? [])];
+  if (config.initialInstruction) args.push('--', config.initialInstruction);
+  return args;
+}
+
 export class GrokAdapter implements AgentAdapter {
   readonly id = 'grok';
   readonly displayName = 'Grok';
@@ -85,8 +105,8 @@ export class GrokAdapter implements AgentAdapter {
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
     // args extras (17.3): ex.: ['--model','grok-4'] — escolha do chefe por sessão
-    const pty = this.spawnFn(this.command, config.args ?? [], config);
-    return new GrokSession(pty, this.graceMs, config.initialInstruction);
+    const pty = this.spawnFn(this.command, buildGrokArgs(config), config);
+    return new GrokSession(pty, this.graceMs);
   }
 }
 
@@ -99,8 +119,7 @@ class GrokSession implements AgentSession {
 
   constructor(
     private readonly pty: GrokPtyLike,
-    private readonly graceMs: number,
-    initialInstruction?: string
+    private readonly graceMs: number
   ) {
     this.terminalId = `grok-${pty.pid}`;
     this.pid = pty.pid;
@@ -108,7 +127,7 @@ class GrokSession implements AgentSession {
       this.exited = true;
       this.emitStatus(exitCode === 0 ? 'done' : 'error', `exit ${exitCode}`);
     });
-    if (initialInstruction) this.write(`${initialInstruction}\r`);
+    // Nada de write() aqui: a instrução inicial já foi via argv (ver cabeçalho).
   }
 
   write(data: string): void {

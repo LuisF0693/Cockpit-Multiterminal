@@ -56,7 +56,37 @@ export type DaemonInbound =
    */
   | { type: 'dispatch-history-push'; counts: AdapterOutcomeCount[] }
   /** Consulta do cache acima — usada pela CLI no `--recommend` (Story 18.5). */
-  | { type: 'dispatch-history'; requestId: number };
+  | { type: 'dispatch-history'; requestId: number }
+  /**
+   * Entrega de tarefa numa sessão JÁ VIVA (Onda 1, item 1 do fundador).
+   *
+   * Por que um comando de CONTROLE e não bytes crus em FRAME_DATA (que o
+   * `write` do DaemonClient já sabe fazer): quem entrega precisa saber SE a
+   * entrega foi aceita, enfileirada ou recusada — a CLI decide o exit code
+   * com isso, e o Main decide se loga aviso. Frame de dados não tem ack.
+   *
+   * A FILA mora no daemon (e não na CLI) porque a CLI é um processo efêmero
+   * que morre segundos depois do comando: uma tarefa pendente guardada nela
+   * sumiria junto. O daemon é o único processo que sobrevive ao app E à CLI e
+   * que já observa o status de cada sessão — é ele que sabe QUANDO o alvo
+   * ficou ocioso.
+   *
+   * Compatibilidade: comando NOVO, sem quebra de contrato — por isso
+   * `DAEMON_PROTOCOL_VERSION` continua em 1. Daemon antigo simplesmente não
+   * casa nenhum `case` do switch e IGNORA a mensagem; o cliente cai no
+   * timeout de request e reporta "daemon antigo, reinicie" (degradação
+   * explícita, ver `DaemonClient.deliverTask`).
+   */
+  | {
+      type: 'deliver-task';
+      requestId: number;
+      /** Sessão alvo (id do daemon = tag = session id do registry). */
+      id: string;
+      /** Instrução em LINHA ÚNICA — o daemon anexa o `\r` que submete. */
+      text: string;
+      /** false = recusa na hora em vez de enfileirar quando o alvo está ocupado. */
+      queueIfBusy?: boolean;
+    };
 
 /** Contagem agregada de desfechos por adapter (Épico 18, Story 18.5, FR63). */
 export interface AdapterOutcomeCount {
@@ -93,4 +123,22 @@ export type DaemonOutbound =
   | { type: 'pong'; requestId: number; daemonPid: number; sessions: number; protocolVersion: number }
   | { type: 'shutdown-done'; requestId: number; orphans: number }
   /** Resposta à consulta de histórico (Story 18.5) — cache do daemon, pode vir vazio. */
-  | { type: 'dispatch-history-result'; requestId: number; counts: AdapterOutcomeCount[] };
+  | { type: 'dispatch-history-result'; requestId: number; counts: AdapterOutcomeCount[] }
+  /** Ack da entrega em sessão viva (Onda 1) — define o exit code da CLI. */
+  | {
+      type: 'task-delivery';
+      requestId: number;
+      id: string;
+      outcome: TaskDeliveryOutcome;
+      /** Motivo legível — vai direto pro stderr da CLI / log do Main. */
+      reason: string;
+      /** Tamanho da fila do alvo DEPOIS da operação (0 quando entregou na hora). */
+      queued: number;
+    };
+
+/**
+ * Desfecho de uma entrega (Onda 1): `delivered` escreveu no PTY agora;
+ * `queued` guardou pra escrever quando o alvo ficar ocioso; `refused` não
+ * entregou nem guardou (alvo inexistente, morto ou em erro).
+ */
+export type TaskDeliveryOutcome = 'delivered' | 'queued' | 'refused';

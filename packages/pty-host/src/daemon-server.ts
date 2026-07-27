@@ -1,6 +1,6 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import { dirname, join } from 'node:path';
-import type { AgentStatus } from '@cockpit/shared';
+import { isIdleAgentStatus, type AgentStatus } from '@cockpit/shared';
 import type { AgentSession } from '@cockpit/adapter-contract';
 import type { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
@@ -37,7 +37,17 @@ interface DaemonSession {
   label: string | undefined;
   /** Sessão do chefe que despachou (17.2) — preservado na adoção. */
   dispatchedBy: string | undefined;
+  /**
+   * Tarefas entregues enquanto a sessão estava OCUPADA (Onda 1) — esvaziadas
+   * uma por vez quando o adapter reporta status ocioso. Vivem aqui, no
+   * daemon, porque a CLI que entregou já morreu (processo efêmero) e o app
+   * pode nem estar aberto: o daemon é quem sobrevive e quem vê o status.
+   */
+  pendingTasks: string[];
 }
+
+/** Teto de fila por sessão — protege contra chefe em loop enfileirando sem fim. */
+const MAX_PENDING_TASKS = 32;
 
 export class DaemonServer {
   private server: Server | null = null;
@@ -168,7 +178,8 @@ export class DaemonServer {
               lastStatus: 'working',
               createdAt: Date.now(),
               label: msg.label,
-              dispatchedBy: msg.dispatchedBy
+              dispatchedBy: msg.dispatchedBy,
+              pendingTasks: []
             };
             this.sessions.set(msg.tag, hosted);
             this.wireSession(msg.tag, hosted, msg.restore === true);
@@ -272,7 +283,77 @@ export class DaemonServer {
       case 'dispatch-history':
         this.send(socket, { type: 'dispatch-history-result', requestId: msg.requestId, counts: this.dispatchHistoryCache });
         break;
+      case 'deliver-task': {
+        this.onDeliverTask(socket, msg.requestId, msg.id, msg.text, msg.queueIfBusy !== false);
+        break;
+      }
     }
+  }
+
+  /**
+   * Entrega de tarefa em sessão viva (Onda 1, item 1 do fundador).
+   * Respeita o ESTADO do alvo: ocioso recebe agora; ocupado ENFILEIRA (nunca
+   * descarta, nunca força — a instrução chegaria no meio do turno do agente e
+   * seria engolida pelo prompt); sessão morta ou em erro é RECUSADA, porque
+   * enfileirar ali seria prometer uma entrega que nunca aconteceria.
+   */
+  private onDeliverTask(socket: Socket, requestId: number, id: string, text: string, queueIfBusy: boolean): void {
+    const ack = (outcome: 'delivered' | 'queued' | 'refused', reason: string, queued: number): void => {
+      this.send(socket, { type: 'task-delivery', requestId, id, outcome, reason, queued });
+    };
+
+    const hosted = this.sessions.get(id);
+    if (!hosted) {
+      ack('refused', `sessão ${id} não existe no daemon (fechada ou nunca criada)`, 0);
+      return;
+    }
+    if (text.trim() === '') {
+      ack('refused', 'instrução vazia', hosted.pendingTasks.length);
+      return;
+    }
+    if (hosted.lastStatus === 'error') {
+      ack('refused', `sessão ${id} está em erro — não voltaria a ficar ociosa sozinha`, hosted.pendingTasks.length);
+      return;
+    }
+    if (isIdleAgentStatus(hosted.lastStatus)) {
+      this.writeTaskLine(hosted, text);
+      ack('delivered', `entregue no PTY de ${id} (status ${hosted.lastStatus})`, hosted.pendingTasks.length);
+      return;
+    }
+    if (!queueIfBusy) {
+      ack('refused', `sessão ${id} ocupada (${hosted.lastStatus}) e a fila foi desligada`, hosted.pendingTasks.length);
+      return;
+    }
+    if (hosted.pendingTasks.length >= MAX_PENDING_TASKS) {
+      ack('refused', `fila de ${id} cheia (${MAX_PENDING_TASKS} tarefas pendentes)`, hosted.pendingTasks.length);
+      return;
+    }
+    hosted.pendingTasks.push(text);
+    ack('queued', `sessão ${id} ocupada (${hosted.lastStatus}) — entrega quando ficar ociosa`, hosted.pendingTasks.length);
+  }
+
+  /**
+   * Escreve a instrução como LINHA SUBMETIDA — mesmo formato que os adapters
+   * usam pro `initialInstruction` (`${texto}\r`). É o `\r` que fecha o loop do
+   * "não preciso apertar enter": sem ele a instrução fica digitada no prompt
+   * do CLI alvo esperando um humano.
+   */
+  private writeTaskLine(hosted: DaemonSession, text: string): void {
+    hosted.session.write(`${text.replace(/[\r\n]+$/, '')}\r`);
+  }
+
+  /**
+   * Esvazia UMA tarefa da fila quando a sessão fica ociosa. Uma por vez de
+   * propósito: entregar o lote inteiro empilharia instruções no prompt do CLI
+   * alvo. A tarefa entregue leva o agente a `working` e o próximo retorno a
+   * ocioso puxa a seguinte — a fila drena sozinha, no ritmo do agente.
+   */
+  private flushPendingTask(hosted: DaemonSession): void {
+    if (hosted.pendingTasks.length === 0) return;
+    if (!isIdleAgentStatus(hosted.lastStatus)) return;
+    const next = hosted.pendingTasks.shift();
+    if (next === undefined) return;
+    this.writeTaskLine(hosted, next);
   }
 
   private wireSession(id: string, hosted: DaemonSession, restore: boolean): void {
@@ -298,6 +379,10 @@ export class DaemonServer {
       hosted.session.onStatus((status, detail) => {
         hosted.lastStatus = status;
         this.broadcast(id, { type: 'session-status', id, status, ...(detail !== undefined ? { detail } : {}) });
+        // Onda 1: ficou ocioso → puxa a próxima tarefa enfileirada. Depois do
+        // broadcast pra que o app veja o status ANTES da nova escrita (senão a
+        // UI mostraria 'working' sem nunca ter mostrado o fim do turno anterior).
+        this.flushPendingTask(hosted);
       })
     );
     hosted.unsubscribes.push(

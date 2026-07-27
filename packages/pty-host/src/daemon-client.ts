@@ -5,7 +5,8 @@ import {
   type AdapterOutcomeCount,
   type DaemonInbound,
   type DaemonOutbound,
-  type DaemonSessionInfo
+  type DaemonSessionInfo,
+  type TaskDeliveryOutcome
 } from './daemon-protocol';
 
 /**
@@ -27,7 +28,15 @@ type Pending =
       reject: (e: Error) => void;
     }
   | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void }
-  | { kind: 'dispatch-history'; resolve: (v: AdapterOutcomeCount[]) => void; reject: (e: Error) => void };
+  | { kind: 'dispatch-history'; resolve: (v: AdapterOutcomeCount[]) => void; reject: (e: Error) => void }
+  | { kind: 'deliver-task'; resolve: (v: TaskDeliveryAck) => void; reject: (e: Error) => void };
+
+/** Resultado de `deliverTask` (Onda 1) — espelha o ack `task-delivery`. */
+export interface TaskDeliveryAck {
+  outcome: TaskDeliveryOutcome;
+  reason: string;
+  queued: number;
+}
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -125,6 +134,40 @@ export class DaemonClient {
 
   write(sessionId: string, bytes: Uint8Array): void {
     this.socket?.write(encodeData(sessionId, bytes));
+  }
+
+  /**
+   * Entrega uma tarefa numa sessão JÁ VIVA (Onda 1, item 1 do fundador) —
+   * diferente de `write`, que despeja bytes crus sem saber se o alvo estava
+   * pronto pra recebê-los. Aqui o daemon respeita o estado do alvo, enfileira
+   * quando ele está ocupado e devolve o desfecho (`delivered`/`queued`/
+   * `refused`), que é o que decide o exit code da CLI.
+   *
+   * Degradação em daemon ANTIGO (sem o comando): a mensagem é ignorada
+   * silenciosamente pelo switch do servidor e este request morre no timeout
+   * de 10s — o erro abaixo traduz isso em instrução acionável em vez de um
+   * "timeout" cru, porque um daemon velho sobrevive a upgrades do app (ele
+   * roda destacado e só morre com `cockpit-daemon --stop`).
+   */
+  async deliverTask(sessionId: string, text: string, opts?: { queueIfBusy?: boolean }): Promise<TaskDeliveryAck> {
+    try {
+      return await this.request<TaskDeliveryAck>('deliver-task', (requestId) => ({
+        type: 'deliver-task',
+        requestId,
+        id: sessionId,
+        text,
+        ...(opts?.queueIfBusy !== undefined ? { queueIfBusy: opts.queueIfBusy } : {})
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('timeout')) {
+        throw new Error(
+          'daemon não respondeu à entrega direta (deliver-task) — provavelmente um daemon antigo ainda rodando: ' +
+            'encerre com `cockpit-daemon --stop` e reabra o Cockpit para subir a versão nova'
+        );
+      }
+      throw err instanceof Error ? err : new Error(message);
+    }
   }
 
   /** Ack manual (autoAck=false): repassa a confirmação do consumidor final. */
@@ -259,6 +302,11 @@ export class DaemonClient {
       case 'dispatch-history-result': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'dispatch-history') p.resolve(msg.counts);
+        break;
+      }
+      case 'task-delivery': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'deliver-task') p.resolve({ outcome: msg.outcome, reason: msg.reason, queued: msg.queued });
         break;
       }
       case 'session-exit':

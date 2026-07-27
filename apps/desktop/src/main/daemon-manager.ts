@@ -2,7 +2,13 @@ import { MessageChannelMain, app } from 'electron';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DaemonClient, DEFAULT_DAEMON_PIPE, type AdapterOutcomeCount, type DaemonSessionInfo } from '@cockpit/pty-host';
+import {
+  DaemonClient,
+  DEFAULT_DAEMON_PIPE,
+  type AdapterOutcomeCount,
+  type DaemonSessionInfo,
+  type TaskDeliveryAck
+} from '@cockpit/pty-host';
 import type { ScrollbackConfig } from './pty-host-manager';
 
 /**
@@ -157,6 +163,17 @@ export class DaemonManager {
 
   writePty(sessionId: string, text: string): void {
     this.client?.write(sessionId, new TextEncoder().encode(text));
+  }
+
+  /**
+   * Entrega de tarefa respeitando o estado do alvo (Onda 1) — é o MESMO
+   * comando que a CLI `agent-dispatch` usa; o Main não tem caminho próprio de
+   * entrega, senão a fila viveria em dois lugares e divergiria. Diferente de
+   * `writePty` (fire-and-forget), devolve o desfecho: o chamador loga quando a
+   * entrega é recusada em vez de sumir silenciosamente.
+   */
+  async deliverTask(sessionId: string, text: string): Promise<TaskDeliveryAck> {
+    return await this.requireClient().deliverTask(sessionId, text);
   }
 
   /**

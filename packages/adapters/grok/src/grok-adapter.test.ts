@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentStatus } from '@cockpit/shared';
-import { GrokAdapter, type GrokPtyLike, type GrokSpawnFn } from './grok-adapter';
+import { GrokAdapter, buildGrokArgs, type GrokPtyLike, type GrokSpawnFn } from './grok-adapter';
 
 function makeFakePty(pid = 999_950): GrokPtyLike & {
   written: string[];
@@ -62,7 +62,39 @@ describe('GrokAdapter — args extras (Story 17.3)', () => {
   });
 });
 
+describe('buildGrokArgs', () => {
+  it('sem instrução inicial: só os args de sessão, sem `--` sobrando', () => {
+    expect(buildGrokArgs({ args: ['--model', 'grok-4'] })).toEqual(['--model', 'grok-4']);
+    expect(buildGrokArgs({})).toEqual([]);
+  });
+
+  it('instrução inicial vai como posicional após `--`, no FIM do argv', () => {
+    expect(
+      buildGrokArgs({ args: ['--model', 'grok-4'], initialInstruction: 'Você é o agente "@analyst". Tarefa: X' })
+    ).toEqual(['--model', 'grok-4', '--', 'Você é o agente "@analyst". Tarefa: X']);
+  });
+});
+
 describe('GrokAdapter (Story 2.4)', () => {
+  // Mesma regressão do adapter Codex: o TUI nativo do grok perde o
+  // `${instrução}\r` escrito no PTY durante o boot — entrega tem que ser argv.
+  it('initialInstruction vai no argv (posicional), NUNCA por write no PTY (FR7)', async () => {
+    const seen: string[][] = [];
+    const ptys: Array<ReturnType<typeof makeFakePty>> = [];
+    const spawnFn: GrokSpawnFn = (_cmd, args) => {
+      seen.push(args);
+      const fake = makeFakePty();
+      ptys.push(fake);
+      return fake;
+    };
+    const adapter = new GrokAdapter(spawnFn, () => 'C:/npm/grok.ps1', 'grok.cmd', 10);
+    const instruction = 'Você é o agente "@analyst". Tarefa: pesquisar concorrentes';
+    await adapter.spawn({ ...CONFIG, initialInstruction: instruction });
+
+    expect(seen[0]).toEqual(['--', instruction]);
+    expect(ptys[0]!.written).toEqual([]);
+  });
+
   it('identidade output-parsing + availability com razão clara', async () => {
     const { adapter } = makeHarness();
     expect(adapter.id).toBe('grok');

@@ -7,6 +7,8 @@
  * princípio de `planExternalAdoption` (16.3): decisão sem I/O.
  */
 
+import { isIdleAgentStatus } from '@cockpit/shared';
+
 export type DispatchCategory = 'development' | 'review-planning' | 'research' | 'marketing-content';
 
 export interface AgentDispatchRequest {
@@ -133,9 +135,6 @@ export interface IdleSessionRef {
   status: string;
 }
 
-/** Status considerados "ociosos" — o worker terminou o turno e aceita nova instrução. */
-const IDLE_STATUSES = new Set(['waiting-input', 'done']);
-
 /**
  * Encontra a primeira sessão ociosa (`waiting-input` ou `done`) do MESMO
  * adapter do candidato escolhido (Story 18.1, AC1) — o chamador usa isso só
@@ -143,6 +142,31 @@ const IDLE_STATUSES = new Set(['waiting-input', 'done']);
  * `listSessions` no daemon é a CLI; aqui só decide.
  */
 export function findIdleCandidate(adapterId: string, sessions: readonly IdleSessionRef[]): string | null {
-  const match = sessions.find((s) => s.adapterId === adapterId && IDLE_STATUSES.has(s.status));
+  const match = sessions.find((s) => s.adapterId === adapterId && isIdleAgentStatus(s.status));
   return match?.id ?? null;
+}
+
+/**
+ * cwd do worker despachado (Onda 1, item 2 do fundador: "quando abre outro
+ * terminal, abrir já no cwd do projeto ativo, não lá em cima").
+ *
+ * Precedência: `--cwd` explícito > cwd da sessão do CHEFE que despachou >
+ * `process.cwd()`. O cwd do chefe É o do projeto ativo quando o despacho
+ * parte de um tile do Cockpit — a Story 8.3 já faz `session.create` nascer no
+ * `rootPath` do projeto. O `process.cwd()` da CLI é último recurso porque é o
+ * diretório do processo Node efêmero (tipicamente a raiz de onde o Electron
+ * foi lançado), quase nunca o projeto em que o fundador está trabalhando.
+ * Pura: quem consulta `listSessions` no daemon é a CLI.
+ */
+export function resolveDispatchCwd(opts: {
+  explicitCwd?: string | undefined;
+  /** Sessão do chefe (`dispatchedBy`) já resolvida no `listSessions`. */
+  dispatcherSession?: { cwd?: string | undefined } | undefined;
+  fallbackCwd: string;
+}): string {
+  const explicit = opts.explicitCwd?.trim();
+  if (explicit !== undefined && explicit !== '') return explicit;
+  const chief = opts.dispatcherSession?.cwd?.trim();
+  if (chief !== undefined && chief !== '') return chief;
+  return opts.fallbackCwd;
 }

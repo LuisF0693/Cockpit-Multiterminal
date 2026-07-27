@@ -23,6 +23,15 @@ import { AgentStatusSchema, type AgentStatus } from '@cockpit/shared';
  * - exit 0→done / ≠0→error.
  * waiting-input (prompts de aprovação) = debt até fixtures reais (política 2.2).
  * NFR6: env herdado; auth do codex fica no próprio CLI (~/.codex).
+ *
+ * FR7 / instrução inicial: o Codex é um TUI NATIVO (Rust/ratatui). Escrever
+ * `${initialInstruction}\r` no PTY logo após o spawn — como faziam os demais
+ * adapters — perde os bytes: o CLI ainda está carregando config e subindo
+ * MCP servers quando eles chegam, e a caixa de composição acaba VAZIA (a
+ * tarefa nunca é criada). Reproduzido com codex-cli 0.145.0. Por isso a
+ * instrução vai pelo argumento POSICIONAL nativo (`codex [OPTIONS] [PROMPT]`
+ * — "Optional user prompt to start the session"), que já sobe a sessão com o
+ * turno submetido: sem corrida, sem heurística de prontidão.
  */
 
 export interface CodexPtyLike {
@@ -53,6 +62,22 @@ function isPidAlive(pid: number): boolean {
 /** Override TOML do notify (literal strings — paths Windows sem escaping). */
 export function buildNotifyOverride(statusPath: string): string {
   return `notify=['cmd','/c','echo idle>> ${statusPath}']`;
+}
+
+/**
+ * Argv do codex: opções primeiro (notify + args de sessão da 17.3), depois a
+ * instrução inicial como POSICIONAL. O `--` é obrigatório: sem ele o clap do
+ * codex tentaria casar a instrução com um subcomando (`review`, `resume`,
+ * `exec`...) ou reclamaria de token com hífen — o próprio CLI sugere
+ * `-- <valor>` nesse erro. Pura: só monta a lista, quem faz spawn é o caller.
+ */
+export function buildCodexArgs(
+  statusPath: string,
+  config: Pick<SpawnConfig, 'args' | 'initialInstruction'>
+): string[] {
+  const args = ['-c', buildNotifyOverride(statusPath), ...(config.args ?? [])];
+  if (config.initialInstruction) args.push('--', config.initialInstruction);
+  return args;
 }
 
 const defaultSpawn: CodexSpawnFn = (command, args, config) =>
@@ -100,8 +125,8 @@ export class CodexAdapter implements AgentAdapter {
     const statusPath = join(dir, 'session.status');
     writeFileSync(statusPath, '');
     // args extras (17.3): ex.: ['--model','gpt-5.5-codex'] — escolha do chefe por sessão
-    const pty = this.spawnFn(this.command, ['-c', buildNotifyOverride(statusPath), ...(config.args ?? [])], config);
-    return new CodexSession(pty, dir, statusPath, this.graceMs, this.pollMs, config.initialInstruction);
+    const pty = this.spawnFn(this.command, buildCodexArgs(statusPath, config), config);
+    return new CodexSession(pty, dir, statusPath, this.graceMs, this.pollMs);
   }
 }
 
@@ -120,8 +145,7 @@ class CodexSession implements AgentSession {
     private readonly tempDir: string,
     private readonly statusPath: string,
     private readonly graceMs: number,
-    pollMs: number,
-    initialInstruction?: string
+    pollMs: number
   ) {
     this.terminalId = `codex-${pty.pid}`;
     this.pid = pty.pid;
@@ -138,8 +162,10 @@ class CodexSession implements AgentSession {
       this.emitStatus(exitCode === 0 ? 'done' : 'error', `exit ${exitCode}`);
       this.cleanup();
     });
-
-    if (initialInstruction) this.write(`${initialInstruction}\r`);
+    // Nada de write() aqui: a instrução inicial já foi via argv (ver cabeçalho).
+    // O 'working' do primeiro turno vem do daemon, que semeia lastStatus
+    // 'working' no create — emitir aqui não teria assinante ainda e ainda
+    // envenenaria o dedupe de `last`, engolindo o próximo 'working' legítimo.
   }
 
   write(data: string): void {

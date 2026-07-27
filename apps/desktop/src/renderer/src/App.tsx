@@ -236,15 +236,6 @@ export function App(): JSX.Element {
    * restart do app, então o estado local aqui é a única cópia do renderer.
    */
   const [pendingGates, setPendingGates] = useState<PendingLinkGate[]>([]);
-  /**
-   * Gates que ESTE renderer acabou de aprovar. No APPROVE o Main já escreve a
-   * instrução no PTY do alvo E emite `terminalLinkRouted` — se `onRouted`
-   * também chamasse `instructAgent`, o agente receberia a mesma instrução
-   * DUAS vezes. A chave é `sourceId|message` (o que o evento roteado carrega)
-   * e é consumida uma única vez. Correção definitiva é no Main (não emitir o
-   * routed depois de já ter entregue) — território de outro agente.
-   */
-  const gateApprovedRef = useRef<Set<string>>(new Set());
   // Arraste de vínculo por gesture no canvas (Story 12.2) — linha de preview
   // segue o cursor (AC2); nulo quando nenhum arraste está em curso.
   const [linkDrag, setLinkDrag] = useState<{ sourceId: string; x: number; y: number } | null>(null);
@@ -443,14 +434,24 @@ export function App(): JSX.Element {
       void instructAgent(event.writerId, event.message);
     });
 
-    // Roteamento automático de vínculo terminal-a-terminal (Story 9.2,
-    // FR26) — mesmo motivo do onReviewRequested: só o renderer escreve PTY.
-    const unsubTerminalLinkRouted = window.cockpit.terminalLink.onRouted((event) => {
-      // Gate aprovado por nós: o Main JÁ entregou a instrução (deliverToTerminal)
-      // antes de emitir este evento — instruir de novo duplicaria o comando.
-      const key = `${event.sourceId}|${event.message}`;
-      if (gateApprovedRef.current.delete(key)) return;
-      for (const targetId of event.targetIds) void instructAgent(targetId, event.message);
+    // Roteamento de vínculo terminal-a-terminal (Story 9.2, FR26) — NOTIFICAÇÃO
+    // APENAS. Ao contrário do roteamento SDC acima, aqui o Main JÁ entregou a
+    // instrução no PTY do alvo (`deliverToTerminal`, session-ipc) antes de
+    // emitir este evento, nos DOIS modos: 'auto' no próprio roteamento e 'gate'
+    // no APPROVE. Chamar `instructAgent` aqui entregaria a MESMA instrução duas
+    // vezes — o agente alvo executaria o comando em duplicata.
+    //
+    // Por que a entrega saiu do renderer (invertendo o que a 9.2 previa): o
+    // pedido do fundador é o loop fechar SEM humano e SEM depender desta
+    // janela. Entrega pelo renderer morre com a janela fechada/minimizada e não
+    // existe com o daemon standalone (Épico 6) — o encadeamento silenciosamente
+    // pararia. A decisão crítica 4 continua valendo para o que ela protege: o
+    // STREAM de dados do terminal segue pela MessagePort binária, sem passar
+    // pelo Main. Uma linha de instrução é controle, não dado — e o Main já
+    // escrevia assim no canal agente→agente (`terminal.send`, P1).
+    const unsubTerminalLinkRouted = window.cockpit.terminalLink.onRouted(() => {
+      // Sem efeito no PTY: a timeline e o espelho de sessões já refletem a
+      // entrega pelos eventos de status que o Main empurra em seguida.
     });
 
     // Gate de vínculo pendente (modo 'gate') → fila de Decisões. Sem este
@@ -1249,8 +1250,6 @@ export function App(): JSX.Element {
 
   /** Resolve um gate retido; APPROVE injeta no alvo (o Main entrega), REJECT descarta. */
   const resolveGate = (gateId: string, action: 'approve' | 'reject'): void => {
-    const gate = pendingGates.find((g) => g.gateId === gateId);
-    if (action === 'approve' && gate) gateApprovedRef.current.add(`${gate.sourceId}|${gate.message}`);
     setPendingGates((prev) => prev.filter((g) => g.gateId !== gateId));
     void window.cockpit.terminalLink
       .gateResolve({ gateId, action })

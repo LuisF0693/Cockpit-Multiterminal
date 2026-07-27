@@ -1,7 +1,13 @@
 import { appendFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AgentStatus } from '@cockpit/shared';
-import { CodexAdapter, buildNotifyOverride, type CodexPtyLike, type CodexSpawnFn } from './codex-adapter';
+import {
+  CodexAdapter,
+  buildCodexArgs,
+  buildNotifyOverride,
+  type CodexPtyLike,
+  type CodexSpawnFn
+} from './codex-adapter';
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -70,6 +76,33 @@ describe('buildNotifyOverride', () => {
   });
 });
 
+describe('buildCodexArgs', () => {
+  it('sem instrução inicial: só notify + args de sessão', () => {
+    expect(buildCodexArgs('C:\\tmp\\s.status', { args: ['--model', 'gpt-5.5-codex'] })).toEqual([
+      '-c',
+      `notify=['cmd','/c','echo idle>> C:\\tmp\\s.status']`,
+      '--model',
+      'gpt-5.5-codex'
+    ]);
+  });
+
+  it('instrução inicial vai como posicional após `--`, no FIM do argv', () => {
+    expect(
+      buildCodexArgs('C:\\tmp\\s.status', {
+        args: ['--model', 'gpt-5.5-codex'],
+        initialInstruction: 'Você é o agente "@qa". Tarefa: revisar a story 17.1'
+      })
+    ).toEqual([
+      '-c',
+      `notify=['cmd','/c','echo idle>> C:\\tmp\\s.status']`,
+      '--model',
+      'gpt-5.5-codex',
+      '--',
+      'Você é o agente "@qa". Tarefa: revisar a story 17.1'
+    ]);
+  });
+});
+
 describe('CodexAdapter', () => {
   it('identidade output-parsing + availability pelo which', async () => {
     const { adapter } = makeHarness();
@@ -96,6 +129,29 @@ describe('CodexAdapter', () => {
     cleanups.push(() => void session.dispose().catch(() => void 0));
 
     expect(lastArgs().slice(2)).toEqual(['--model', 'gpt-5.5-codex']);
+  });
+
+  // Regressão do bug do fundador ("chamo um agente com Codex e ele NÃO CRIA A
+  // TAREFA"): a instrução ia por write() no PTY logo após o spawn e o TUI do
+  // Codex, ainda no boot, engolia os bytes — composer vazio, turno nunca
+  // submetido. Prova de que a entrega agora é por argv, sem tocar no PTY.
+  it('initialInstruction vai no argv (posicional), NUNCA por write no PTY (FR7)', async () => {
+    const { adapter, ptys, lastArgs } = makeHarness();
+    const instruction = 'Você é o agente "@qa". Tarefa: revisar a story 17.1';
+    const session = await adapter.spawn({ ...CONFIG, initialInstruction: instruction });
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    const args = lastArgs();
+    expect(args.slice(-2)).toEqual(['--', instruction]);
+    expect(ptys[0]!.written).toEqual([]);
+  });
+
+  it('sem initialInstruction o argv não ganha `--` sobrando', async () => {
+    const { adapter, lastArgs } = makeHarness();
+    const session = await adapter.spawn(CONFIG);
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    expect(lastArgs()).not.toContain('--');
   });
 
   it('notify appendado (com sufixo JSON do Codex) vira idle; dedupe', async () => {

@@ -29,8 +29,8 @@ export { parseGitignorePatterns, isGitignored, isPathWithin, ALWAYS_HIDDEN_NAMES
 export { parseGitHead, parseGitdirPointer } from './git-info';
 export { TerminalLinkManager } from './terminal-link-manager';
 export type { TerminalLink, TerminalLinkEvent, TerminalLinkListener } from './terminal-link-manager';
-export { planTerminalLinkRouting, planTerminalLinkGating } from './terminal-link-routing';
-export type { TerminalLinkRouting, TerminalLinkGating } from './terminal-link-routing';
+export { planTerminalLinkRouting, planTerminalLinkGating, enrichTerminalLinkMessage } from './terminal-link-routing';
+export type { TerminalLinkRouting, TerminalLinkGating, TerminalLinkRoutingContext } from './terminal-link-routing';
 export { planExternalAdoption } from './external-adoption';
 export type { ExternalSessionInfo, ExternalAdoptionPlan } from './external-adoption';
 export {
@@ -38,9 +38,27 @@ export {
   planAgentDispatch,
   findDispatcherSession,
   findIdleCandidate,
+  resolveDispatchCwd,
   NON_DISPATCHABLE
 } from './agent-dispatch';
 export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef, IdleSessionRef } from './agent-dispatch';
+// Entrega de tarefa em tile JÁ ABERTO (Onda 1) — decisão pura; o efeito
+// (escrever no PTY) é do chamador: CLI `agent-dispatch` ou Main `session-ipc`.
+export {
+  resolveDeliveryTarget,
+  planTaskDelivery,
+  chargeAutoDeliveryBudget,
+  AUTO_DELIVERY_WINDOW_MS,
+  AUTO_DELIVERY_MAX_PER_WINDOW
+} from './task-delivery';
+export type {
+  DeliveryTargetRef,
+  DeliveryTargetSelector,
+  DeliveryTargetResolution,
+  TaskDeliveryDecision,
+  TaskDeliveryPlan,
+  AutoDeliveryBudget
+} from './task-delivery';
 export { DEFAULT_ADAPTER_MATRIX, mergeAdapterMatrix, explainCandidates, aggregateDispatchOutcomes } from './adapter-profile';
 export type { AdapterMatrix, AdapterProfile, CandidateExplanation, AdapterOutcomeCounts } from './adapter-profile';
 export { BrowserTileManager } from './browser-tile-manager';
