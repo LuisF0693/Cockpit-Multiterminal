@@ -12,9 +12,15 @@ const electronVersion = require('electron/package.json').version;
 
 const bin = join(sqliteDir, 'node_modules', '.bin', 'prebuild-install.CMD');
 console.log(`[rebuild:native] better-sqlite3 → electron ${electronVersion}`);
-execFileSync(bin, ['--runtime', 'electron', '--target', electronVersion, '--arch', process.arch, '--verbose'], {
-  cwd: sqliteDir,
-  stdio: 'inherit',
-  shell: true
-});
+// O caminho vai ENTRE ASPAS porque `shell: true` faz o Node concatenar tudo
+// numa linha de comando: sem elas o cmd.exe corta no primeiro espaço e o repo
+// do fundador vive em `F:\Projetos\Projetos\Meu Cockpit` — quebrava em
+// "'F:\Projetos\Projetos\Meu' is not recognized". `.CMD` exige o shell no
+// Windows, então tirar o `shell: true` não é opção. Nenhum dos args tem
+// espaço; se algum dia tiver, ele precisa do mesmo tratamento.
+execFileSync(
+  `"${bin}"`,
+  ['--runtime', 'electron', '--target', electronVersion, '--arch', process.arch, '--verbose'],
+  { cwd: sqliteDir, stdio: 'inherit', shell: true }
+);
 console.log('[rebuild:native] ok');
