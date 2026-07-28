@@ -36,11 +36,13 @@ describe('HOOK_STATUS_MAP (Causa B2 — nascer ≠ devolver o turno)', () => {
   });
 
   it('todo evento mapeado vira um hook de comando no settings gerado', () => {
-    const settings = buildHookSettings('C:\\tmp\\session.status') as {
+    const settings = buildHookSettings('C:\\tmp\\status-hook.cjs') as {
       hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
     };
     for (const [event, status] of Object.entries(HOOK_STATUS_MAP)) {
-      expect(settings.hooks[event]?.[0]?.hooks[0]?.command).toContain(`echo ${status}`);
+      // O status é o ARGV do script — nunca mais um `echo` interpretado pelo
+      // shell (ver `buildHookCommand`: o Git Bash mutilava o `cmd /c`).
+      expect(settings.hooks[event]?.[0]?.hooks[0]?.command).toBe(`node "C:\\tmp\\status-hook.cjs" ${status}`);
     }
   });
 });

@@ -19,6 +19,18 @@ import { StatusFileWatcher } from './status-file-watcher';
  * primeiro output (CLI antigo/sem suporte), seguimos como process-only
  * com log — a sessão NUNCA quebra por causa do status.
  * NFR6: env herdado do usuário; auth fica no próprio CLI.
+ *
+ * FR7 / instrução inicial: o Claude Code é Node/Ink, mas o composer do Ink
+ * NÃO está montado quando o PTY nasce. Escrever `${initialInstruction}\r`
+ * logo após o spawn — o que este adapter fazia — deixa o TEXTO no composer e
+ * PERDE o Enter: o turno nunca é submetido. Reproduzido com claude-code
+ * 2.1.220 (ver `buildClaudeArgs`). Por isso a instrução vai pelo argumento
+ * POSICIONAL nativo (`claude [options] [prompt]`), como no Codex.
+ *
+ * Fora do boot o composer é normal: `${texto}\r` num ÚNICO write submete o
+ * turno na hora — MEDIDO, ver `buildClaudeArgs`. Diferente do Codex, aqui
+ * NÃO é preciso quebrar a linha em dois bursts nem esperar gap nenhum, e por
+ * isso `write()` repassa os bytes intactos.
  */
 
 export interface ClaudePtyLike {
@@ -36,6 +48,54 @@ export type WhichFn = (command: string) => string | null;
 const DEFAULT_COMMAND = 'claude.cmd';
 const KILL_GRACE_MS = 1500;
 const HOOK_DEGRADE_TIMEOUT_MS = 30_000;
+
+/**
+ * Argv do claude: `--settings` primeiro, depois os args de sessão da 17.3,
+ * depois a instrução inicial como POSICIONAL atrás de `--`. Pura: só monta a
+ * lista, quem faz spawn é o caller.
+ *
+ * ── Por que POSICIONAL e não `pty.write` (Defeito 1) ──────────────────────
+ * Medido com claude-code 2.1.220 sob node-pty, ambiente LIMPO (toda variável
+ * `CLAUDE*` do processo pai removida — herdadas, elas contaminam a sessão
+ * filha e fazem um teste "passar" sem prova):
+ *
+ *   entrega da instrução inicial          | turno submetido? | status file
+ *   --------------------------------------|------------------|--------------------
+ *   `pty.write(`${instr}\r`)` no construtor| NÃO (texto parado| ["starting"]
+ *                                          |  no composer)    |
+ *   argumento posicional `claude ... -- x` | SIM (9-10s)      | ["starting",
+ *                                          |                  |  "working","idle"]
+ *
+ * A primeira linha é EXATAMENTE o sintoma que o fundador viu na tela:
+ * `❯ Escreva apenas o resultado de 111 vezes 111, sem mais nada.` parado no
+ * composer, tile travado. Não é atraso de boot que uma espera resolveria: o
+ * texto CHEGA, é o Enter que o Ink descarta enquanto monta.
+ *
+ * ── Por que `--` ──────────────────────────────────────────────────────────
+ * Sem ele, uma instrução que comece com `-` viraria opção e uma que colidisse
+ * com um subcomando (`agents`, `mcp`, `config`) viraria comando. Testado:
+ * `claude --model haiku -p -- "-- responda so: PANG"` responde PANG.
+ *
+ * ── E o gap texto→Enter do Codex? ─────────────────────────────────────────
+ * Não se aplica. Com o tile JÁ BOOTADO e o composer vazio, medido no mesmo
+ * banco de provas que mediu o Codex:
+ *
+ *   `${texto}\r` em UM write        → SUBMETEU (resposta em 2,6s)
+ *   bracketed paste + `\r`, gap 0ms → SUBMETEU (resposta em 1,8s)
+ *
+ * O composer do Ink não tem a janela de graça temporal do TUI Rust do Codex
+ * (lá o piso medido ficou entre 40ms e 70ms). Não há gap a introduzir aqui, e
+ * introduzir um só adicionaria latência. Por isso `write()` fica intacto.
+ */
+export function buildClaudeArgs(
+  settingsPath: string,
+  config: Pick<SpawnConfig, 'args' | 'initialInstruction'>
+): string[] {
+  // args extras (17.3): ex.: ['--model','haiku'] — escolha do chefe por sessão
+  const args = ['--settings', settingsPath, ...(config.args ?? [])];
+  if (config.initialInstruction) args.push('--', config.initialInstruction);
+  return args;
+}
 
 function isPidAlive(pid: number): boolean {
   try {
@@ -88,9 +148,8 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
   async spawn(config: SpawnConfig): Promise<AgentSession> {
     const files = writeSessionHookFiles(`s${++sessionSeq}`);
-    // args extras (17.3): ex.: ['--model','haiku'] — escolha do chefe por sessão
-    const pty = this.spawnFn(this.command, ['--settings', files.settingsPath, ...(config.args ?? [])], config);
-    return new ClaudeSession(pty, files, this.graceMs, this.hookTimeoutMs, config.initialInstruction);
+    const pty = this.spawnFn(this.command, buildClaudeArgs(files.settingsPath, config), config);
+    return new ClaudeSession(pty, files, this.graceMs, this.hookTimeoutMs);
   }
 }
 
@@ -107,8 +166,7 @@ class ClaudeSession implements AgentSession {
     private readonly pty: ClaudePtyLike,
     private readonly files: SessionHookFiles,
     private readonly graceMs: number,
-    hookTimeoutMs: number,
-    initialInstruction?: string
+    hookTimeoutMs: number
   ) {
     this.terminalId = `claude-${pty.pid}`;
     this.pid = pty.pid;
@@ -137,8 +195,9 @@ class ClaudeSession implements AgentSession {
       this.emitStatus(exitCode === 0 ? 'done' : 'error', `exit ${exitCode}`);
       this.cleanup();
     });
-
-    if (initialInstruction) this.pty.write(`${initialInstruction}\r`);
+    // Nada de write() aqui: a instrução inicial já foi via argv posicional
+    // (ver `buildClaudeArgs`) — escrevê-la no PTY durante o boot do Ink perde
+    // o Enter e deixa o tile travado com o texto no composer.
   }
 
   write(data: string): void {

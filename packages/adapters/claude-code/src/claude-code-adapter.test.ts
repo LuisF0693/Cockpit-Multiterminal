@@ -1,10 +1,11 @@
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AgentStatus } from '@cockpit/shared';
-import { ClaudeCodeAdapter, type ClaudePtyLike, type ClaudeSpawnFn } from './claude-code-adapter';
-import { HOOK_STATUS_MAP, buildHookSettings } from './hook-settings';
+import { ClaudeCodeAdapter, buildClaudeArgs, type ClaudePtyLike, type ClaudeSpawnFn } from './claude-code-adapter';
+import { HOOK_STATUS_MAP, buildHookScript, buildHookSettings } from './hook-settings';
 import { StatusFileWatcher } from './status-file-watcher';
 
 const cleanups: Array<() => void> = [];
@@ -88,14 +89,149 @@ describe('ClaudeCodeAdapter — args extras (Story 17.3)', () => {
 });
 
 describe('buildHookSettings', () => {
-  it('gera hooks para os 4 eventos com append no arquivo de status', () => {
-    const settings = buildHookSettings('C:\\tmp\\s.status') as {
+  it('gera hooks para os 4 eventos invocando o script de status por node', () => {
+    const settings = buildHookSettings('C:\\tmp\\status-hook.cjs') as {
       hooks: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
     };
     expect(Object.keys(settings.hooks)).toEqual(Object.keys(HOOK_STATUS_MAP));
     const stop = settings.hooks['Stop']![0]!.hooks[0]!;
     expect(stop.type).toBe('command');
-    expect(stop.command).toBe('cmd /c echo idle>> "C:\\tmp\\s.status"');
+    expect(stop.command).toBe('node "C:\\tmp\\status-hook.cjs" idle');
+  });
+});
+
+/**
+ * Regressão do Defeito 2 — os hooks nunca disparavam.
+ *
+ * O comando era `cmd /c echo <status>>> "<path>"`. O Claude Code roda o
+ * comando do hook por um SHELL, e no Windows esse shell é o Git Bash: o MSYS
+ * converte o argumento `/c` (que parece caminho POSIX) em `C:/`, o cmd.exe
+ * sobe INTERATIVO, escreve o próprio banner no arquivo de status e ecoa o
+ * payload JSON que chega no stdin. Nenhuma linha parseável → `sawAnyStatus`
+ * false → degradação para process-only → tile travado em `working`.
+ *
+ * A trava aqui é sintática de propósito: qualquer volta a um comando que
+ * dependa de interpretação de shell (redirecionamento, `/c`, `&&`) quebra.
+ */
+describe('comando do hook (Defeito 2 — mangling de shell)', () => {
+  const settings = buildHookSettings('C:\\tmp dir\\status-hook.cjs') as {
+    hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+  };
+  const commands = Object.keys(HOOK_STATUS_MAP).map((e) => settings.hooks[e]![0]!.hooks[0]!.command);
+
+  it('nenhum hook usa redirecionamento nem `cmd /c` (o que o Git Bash mutila)', () => {
+    for (const command of commands) {
+      expect(command, `comando de hook depende de shell: ${command}`).not.toMatch(/cmd\s+\/c|>>|>|&&|\|/);
+    }
+  });
+
+  it('todo hook invoca node com o script entre aspas (path com espaço sobrevive)', () => {
+    for (const command of commands) {
+      expect(command).toMatch(/^node "C:\\tmp dir\\status-hook\.cjs" [a-z-]+$/);
+    }
+  });
+
+  it('o script embute o path do status escapado e escreve só o argv', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cockpit-hookscript-'));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    const statusPath = join(dir, 'session.status');
+    const scriptPath = join(dir, 'status-hook.cjs');
+    writeFileSync(scriptPath, buildHookScript(statusPath));
+
+    // Executa o script DE VERDADE, do mesmo jeito que o hook executa: node +
+    // argv. Prova que o path do Windows embutido não quebra o require/append.
+    execFileSync(process.execPath, [scriptPath, 'idle'], { stdio: 'pipe' });
+    execFileSync(process.execPath, [scriptPath, 'working'], { stdio: 'pipe' });
+
+    expect(readFileSync(statusPath, 'utf8')).toBe('idle\nworking\n');
+  });
+
+  it('o script não imprime nada (stdout de hook vira contexto do agente)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cockpit-hookquiet-'));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    const scriptPath = join(dir, 'status-hook.cjs');
+    writeFileSync(scriptPath, buildHookScript(join(dir, 'session.status')));
+
+    const out = execFileSync(process.execPath, [scriptPath, 'idle'], { encoding: 'utf8' });
+    expect(out).toBe('');
+  });
+});
+
+/**
+ * Regressão do Defeito 1 — o turno inicial não era submetido.
+ *
+ * `pty.write(`${instrução}\r`)` no construtor da sessão chega enquanto o Ink
+ * ainda monta o composer: o texto entra, o Enter se perde, e o tile fica
+ * parado com a tarefa digitada (statuses = ["starting"]). A instrução TEM que
+ * ir pelo argumento posicional do CLI.
+ */
+describe('buildClaudeArgs (Defeito 1 — instrução inicial)', () => {
+  it('instrução inicial vai como posicional atrás de `--`, nunca no PTY', () => {
+    expect(buildClaudeArgs('C:\\tmp\\s.json', { initialInstruction: 'faça X' })).toEqual([
+      '--settings',
+      'C:\\tmp\\s.json',
+      '--',
+      'faça X'
+    ]);
+  });
+
+  it('`--` protege instrução que começa com hífen de virar opção do CLI', () => {
+    const args = buildClaudeArgs('S', { initialInstruction: '--model é o assunto' });
+    expect(args.indexOf('--')).toBe(args.length - 2);
+    expect(args.at(-1)).toBe('--model é o assunto');
+  });
+
+  it('sem instrução inicial não sobra `--` solto no argv', () => {
+    expect(buildClaudeArgs('S', { args: ['--model', 'haiku'] })).toEqual(['--settings', 'S', '--model', 'haiku']);
+  });
+
+  it('args de sessão (17.3) vêm ANTES do posicional', () => {
+    expect(buildClaudeArgs('S', { args: ['--model', 'haiku'], initialInstruction: 'oi' })).toEqual([
+      '--settings',
+      'S',
+      '--model',
+      'haiku',
+      '--',
+      'oi'
+    ]);
+  });
+
+  it('a sessão NÃO escreve a instrução inicial no PTY', async () => {
+    const ptys: Array<ReturnType<typeof makeFakePty>> = [];
+    const spawnFn: ClaudeSpawnFn = () => {
+      const fake = makeFakePty();
+      ptys.push(fake);
+      return fake;
+    };
+    const adapter = new ClaudeCodeAdapter(spawnFn, () => 'C:/npm/claude.ps1', 'claude.cmd', 10, 200);
+    const session = await adapter.spawn({ ...CONFIG, initialInstruction: 'faça X' });
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    expect(ptys[0]!.written).toEqual([]);
+  });
+});
+
+/**
+ * O composer do Ink NÃO precisa do tratamento que o Codex precisa. Medido com
+ * claude-code 2.1.220, tile bootado e composer vazio: `${texto}\r` num único
+ * write submeteu o turno (resposta em 2,6s), e bracketed paste + Enter com gap
+ * 0ms também (1,8s). Como não há gap a respeitar, `write()` repassa os bytes
+ * INTACTOS — sem split, sem timer, sem backlog.
+ */
+describe('write() (contraste com o Codex — sem gap de submissão)', () => {
+  it('repassa a linha submetida intacta, num único write', async () => {
+    const ptys: Array<ReturnType<typeof makeFakePty>> = [];
+    const spawnFn: ClaudeSpawnFn = () => {
+      const fake = makeFakePty();
+      ptys.push(fake);
+      return fake;
+    };
+    const adapter = new ClaudeCodeAdapter(spawnFn, () => 'C:/npm/claude.ps1', 'claude.cmd', 10, 200);
+    const session = await adapter.spawn(CONFIG);
+    cleanups.push(() => void session.dispose().catch(() => void 0));
+
+    session.write('quanto é 2+2\r');
+    expect(ptys[0]!.written).toEqual(['quanto é 2+2\r']);
   });
 });
 
