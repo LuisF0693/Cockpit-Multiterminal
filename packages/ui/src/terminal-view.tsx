@@ -53,6 +53,18 @@ export interface TerminalViewProps {
    * a colagem segue direto — este componente nunca abre dialog nativo.
    */
   onConfirmMultilinePaste?: (submits: number) => Promise<boolean>;
+  /**
+   * Conteúdo coberto pelo LOD do tile (zoom baixo — ver
+   * `terminalContentVisible`): suspende fit e `session.resize`.
+   *
+   * O xterm continua MONTADO de propósito — desmontar fecharia a MessagePort
+   * e perderia o scrollback só para atravessar um gesto de zoom. O que se
+   * ganha aqui é não reflowar: enquanto o corpo está tampado, cada passo de
+   * zoom mudaria cols/rows e faria a TUI do agente se redesenhar inteira,
+   * atrás de um painel que ninguém está lendo. Ao reaparecer, um fit único
+   * reconcilia o tamanho.
+   */
+  frozen?: boolean;
 }
 
 // Tema do xterm coordenado pelo tema ATIVO (Story 15.2, FR55) — xterm não
@@ -66,11 +78,20 @@ export function TerminalView({
   port,
   focused = true,
   onResize,
-  onConfirmMultilinePaste
+  onConfirmMultilinePaste,
+  frozen = false
 }: TerminalViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const onResizeRef = useRef(onResize);
   onResizeRef.current = onResize;
+  // Lido pelo ResizeObserver registrado no mount — ref pelo mesmo motivo dos
+  // demais: a closure do efeito não enxergaria o valor novo.
+  const frozenRef = useRef(frozen);
+  frozenRef.current = frozen;
+  // Ponte para o efeito de descongelamento: o `notifyResize` real nasce
+  // dentro do efeito de mount (precisa de `fit` e `term`), e o efeito abaixo
+  // roda depois e em outro escopo.
+  const notifyResizeRef = useRef<(() => void) | null>(null);
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
   // Lido dentro dos handlers registrados no mount — ref evita a closure
@@ -306,9 +327,14 @@ export function TerminalView({
      */
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleResize = (): void => {
+      // Tampado pelo LOD: nem agenda. Cada passo do gesto de zoom mudaria
+      // cols/rows e faria a TUI do agente se redesenhar inteira atrás de um
+      // painel opaco. O fit de reconciliação vem no efeito de `frozen`.
+      if (frozenRef.current) return;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(notifyResize, RESIZE_DEBOUNCE_MS);
     };
+    notifyResizeRef.current = notifyResize;
     const observer = new ResizeObserver(scheduleResize);
     observer.observe(container);
 
@@ -319,6 +345,7 @@ export function TerminalView({
       cancelPasteFallback();
       flushRef.current = null;
       termRef.current = null;
+      notifyResizeRef.current = null;
       container.removeEventListener('paste', onPasteEvent, true);
       container.removeEventListener('contextmenu', onContextMenu);
       observer.disconnect();
@@ -340,6 +367,17 @@ export function TerminalView({
       termRef.current?.focus();
     }
   }, [focused]);
+
+  /**
+   * Descongelou (o tile voltou a ser desenhado): um fit único reconcilia
+   * cols/rows, que ficaram parados no último tamanho de antes do LOD. Sem
+   * isso o terminal reaparece com a geometria errada até o próximo resize
+   * espontâneo — e pode nem haver um.
+   */
+  useEffect(() => {
+    if (frozen) return;
+    notifyResizeRef.current?.();
+  }, [frozen]);
 
   // Qualquer clique/Esc fecha o menu de contexto — registrado só enquanto ele
   // existe (nada de listener global permanente por tile).

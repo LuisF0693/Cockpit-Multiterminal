@@ -56,6 +56,26 @@ export function terminalContentScale(layout: Pick<TileLayout, 'width' | 'height'
   return Math.min(1, screenWidth / MIN_CONTENT_WIDTH_PX, screenHeight / MIN_CONTENT_HEIGHT_PX);
 }
 
+/**
+ * LOD do corpo do tile (pedido do fundador, com o AIOX Cockpit como
+ * referência): abaixo de certo zoom o terminal deixa de ser desenhado e o
+ * corpo vira superfície lisa — o tile mantém só moldura, header e badges.
+ *
+ * O critério é o MESMO piso do `terminalContentScale`: enquanto a escala é 1
+ * o texto está nítido e legível, e vale desenhar; quando cai abaixo de 1 o
+ * conteúdo só existiria como miniatura escalada — texto ilegível, recortado
+ * no meio de uma frase, que não informa nada e ainda polui o canvas. Reusar o
+ * piso em vez de inventar um limiar de zoom fixo mantém a decisão coerente
+ * com o tamanho REAL do tile na tela: um tile grande continua legível num
+ * zoom em que um tile pequeno já não estaria.
+ *
+ * Puro de propósito — quem desenha o placeholder e quem congela o reflow é o
+ * componente, este arquivo não conhece DOM.
+ */
+export function terminalContentVisible(layout: Pick<TileLayout, 'width' | 'height'>, zoom: number): boolean {
+  return terminalContentScale(layout, zoom) >= 1;
+}
+
 export function createLayout(): CanvasLayout {
   return { layoutVersion: 1, tiles: [] };
 }

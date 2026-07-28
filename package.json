@@ -1,6 +1,6 @@
 {
   "name": "meu-cockpit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Central de controle multiagente — orquestração de CLIs de IA com sessão master, lifecycle e persistência total",
   "license": "UNLICENSED",

@@ -5,7 +5,7 @@ import { statusColor, statusLabel } from './status-colors';
 import { adapterColor } from './adapter-colors';
 import { ICON_SIZE, Icon, Icons } from './icons';
 import { theme } from './theme';
-import { MIN_TILE_HEIGHT, MIN_TILE_WIDTH, terminalContentScale } from './layout';
+import { MIN_TILE_HEIGHT, MIN_TILE_WIDTH, terminalContentScale, terminalContentVisible } from './layout';
 import type { TileLayout } from './layout';
 
 /**
@@ -175,6 +175,8 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
   // `contentFactor * zoom` = `terminalContentScale(...)` — 1 quando há espaço,
   // menor só na miniatura de zoom extremo.
   const contentFactor = terminalContentScale(layout, props.zoom) / props.zoom;
+  // Zoom baixo → o corpo vira superfície lisa (ver a tampa no JSX abaixo).
+  const contentVisible = terminalContentVisible(layout, props.zoom);
   const exited = session.status === 'exited';
   const dotColor = statusColor(session.agentStatus);
   const waiting = session.agentStatus === 'waiting-input' && !exited;
@@ -398,7 +400,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
           então ela preenche a área útil EXATAMENTE em qualquer zoom — nada de
           recorte nem de sobra.
         */}
-        <div style={{ flex: 1, minHeight: 0, padding: 4, overflow: 'hidden' }}>
+        <div style={{ flex: 1, minHeight: 0, padding: 4, overflow: 'hidden', position: 'relative' }}>
           {port ? (
             <div
               style={{
@@ -412,6 +414,7 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
                 port={port}
                 focused={focused}
                 onResize={props.onResizePty}
+                frozen={!contentVisible}
                 {...(props.onConfirmMultilinePaste !== undefined
                   ? { onConfirmMultilinePaste: props.onConfirmMultilinePaste }
                   : {})}
@@ -421,6 +424,37 @@ export function TerminalTile(props: TerminalTileProps): JSX.Element {
             <p style={{ fontSize: theme.font.size.sm, color: theme.text.muted, padding: theme.space.sm, fontFamily: theme.font.mono }}>
               conectando PTY…
             </p>
+          )}
+
+          {/*
+            LOD do corpo (pedido do fundador, referência: AIOX Cockpit em ~38%).
+            Em zoom baixo o texto do terminal só existiria como miniatura
+            ilegível, recortada no meio de uma frase — ruído que não informa
+            nada. O corpo vira superfície lisa e o tile passa a ser lido pelo
+            que continua legível: moldura, cor do adapter, nome e status.
+
+            É uma TAMPA, não um unmount: o xterm segue vivo embaixo com a
+            MessagePort e o scrollback intactos — desmontar para atravessar um
+            gesto de zoom fecharia o canal. O ganho real vem junto do
+            `frozen`, que suspende o reflow enquanto isto está por cima.
+
+            `pointerEvents: none` porque o gesto de arrastar/selecionar o tile
+            é do canvas: a tampa não pode interceptar o ponteiro.
+          */}
+          {!contentVisible && (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                // `surface.tile` é o MESMO valor de `terminal.background` nos
+                // três presets (theme-runtime) e, sendo CSS var, acompanha a
+                // troca de tema ao vivo — a tampa nunca destoa do terminal
+                // que ela cobre, inclusive no tema claro.
+                background: theme.surface.tile,
+                pointerEvents: 'none'
+              }}
+            />
           )}
         </div>
 
