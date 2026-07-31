@@ -1,4 +1,4 @@
-import type { AgentStatus } from '@cockpit/shared';
+import type { AgentStatus, PendingDispatchChoice } from '@cockpit/shared';
 
 /**
  * Protocolo de controle daemon↔cliente (Story 6.1) — viaja em frames
@@ -32,6 +32,22 @@ export type DaemonInbound =
       dispatchedBy?: string;
     }
   | { type: 'resize'; id: string; cols: number; rows: number }
+  /**
+   * Nome do tile → daemon (Épico 20, Story 20.1). O `label` do `create` só é
+   * preenchido por cliente EXTERNO (a CLI `agent-dispatch`, Story 17.1) — tile
+   * aberto pela UI do Cockpit nasce no daemon ANÔNIMO, e a renomeação na UI
+   * (`SessionRegistry.rename`) nunca atravessava o processo. Consequência: o
+   * casamento por nome (`--to-agent`, e agora o REUSO automático do despacho)
+   * enxergava só os tiles que a própria CLI havia criado — era por isso que o
+   * chefe abria um segundo "@dev" em vez de continuar com o que estava aberto.
+   *
+   * Fire-and-forget, sem requestId/ack, pelo mesmo motivo do `resize`: é
+   * metadado de exibição, não decisão. Daemon antigo ignora a mensagem e
+   * continua servindo a sessão sem label — o reuso simplesmente não casa e o
+   * despacho cria worker novo, que é o comportamento de hoje (degradação sem
+   * quebra, por isso `DAEMON_PROTOCOL_VERSION` segue em 1).
+   */
+  | { type: 'set-label'; id: string; label: string }
   | { type: 'close'; requestId: number; id: string }
   | { type: 'list-adapters'; requestId: number }
   | { type: 'data-ack'; id: string; n: number }
@@ -57,6 +73,27 @@ export type DaemonInbound =
   | { type: 'dispatch-history-push'; counts: AdapterOutcomeCount[] }
   /** Consulta do cache acima — usada pela CLI no `--recommend` (Story 18.5). */
   | { type: 'dispatch-history'; requestId: number }
+  /**
+   * ESCOLHA DE DESPACHO (Épico 20, Story 20.3): o chefe pediu um agente que já
+   * existe mas está OCUPADO. A decisão do fundador é que isso vira pergunta na
+   * fila de Decisões — e o daemon é o único lugar onde essa pergunta pode
+   * esperar, porque a CLI morre segundos depois do comando (mesmo raciocínio
+   * da fila de `deliver-task`).
+   *
+   * O ack devolve `accepted: false` quando NÃO há app conectado ao daemon: sem
+   * Cockpit aberto não existe fila pra perguntar, e segurar a pendência seria o
+   * sumiço silencioso que o Épico 19 existiu pra eliminar — a CLI então
+   * enfileira no próprio agente, que nunca descarta a tarefa.
+   */
+  | {
+      type: 'dispatch-choice-push';
+      requestId: number;
+      choice: PendingDispatchChoice;
+    }
+  /** Consulta das escolhas pendentes — o Main faz isso no poll de adoção. */
+  | { type: 'dispatch-choices'; requestId: number }
+  /** Remove a escolha já resolvida pelo humano (o Main executou a ação). */
+  | { type: 'dispatch-choice-resolve'; id: string }
   /**
    * Entrega de tarefa numa sessão JÁ VIVA (Onda 1, item 1 do fundador).
    *
@@ -134,7 +171,15 @@ export type DaemonOutbound =
       reason: string;
       /** Tamanho da fila do alvo DEPOIS da operação (0 quando entregou na hora). */
       queued: number;
-    };
+    }
+  /**
+   * Ack do `dispatch-choice-push` (Story 20.3). `accepted: false` = ninguém vai
+   * ver essa pergunta (app fechado ou teto de pendências atingido); a CLI cai
+   * no fallback de enfileirar, nunca descarta a tarefa.
+   */
+  | { type: 'dispatch-choice-ack'; requestId: number; accepted: boolean; reason: string }
+  /** Escolhas pendentes servidas ao Main (Story 20.3). */
+  | { type: 'dispatch-choices-result'; requestId: number; choices: PendingDispatchChoice[] };
 
 /**
  * Desfecho de uma entrega (Onda 1): `delivered` escreveu no PTY agora;

@@ -1,4 +1,4 @@
-import type { SessionRecord, Task } from '@cockpit/shared';
+import type { PendingDispatchChoice, SessionRecord, Task } from '@cockpit/shared';
 
 /**
  * Fila de decisões UNIFICADA (Story 3.4 + Story 5.3, AC3) — função PURA que
@@ -35,7 +35,7 @@ export interface PendingLinkGate {
  */
 export type DecisionSeverity = 'blocking' | 'attention';
 
-export type DecisionKind = 'task-decision' | 'link-gate' | 'agent-waiting';
+export type DecisionKind = 'task-decision' | 'link-gate' | 'agent-waiting' | 'dispatch-choice';
 
 /** Para onde o clique no item leva (AC3 da 3.4). */
 export type DecisionTarget = { type: 'terminal'; id: string } | { type: 'task'; id: string };
@@ -57,6 +57,11 @@ export interface DecisionQueueInput {
   sessions: SessionRecord[];
   tasks: Task[];
   gates: PendingLinkGate[];
+  /**
+   * Despachos que pediram um agente OCUPADO (Épico 20, Story 20.3). Opcional
+   * para não quebrar chamadores antigos — ausência é lista vazia.
+   */
+  dispatchChoices?: PendingDispatchChoice[];
   /** Agora, injetado para a função continuar pura/testável. */
   now: number;
   /** Título da tarefa vinculada a um terminal (o dono já tem o mapa). */
@@ -100,6 +105,23 @@ export function buildDecisionQueue(input: DecisionQueueInput): DecisionItem[] {
       // Deep-link no ORIGEM: é lá que o fundador vê o que o agente produziu
       // e decide se aquilo deve mesmo ser injetado no alvo.
       target: { type: 'terminal', id: gate.sourceId }
+    });
+  }
+
+  // Despacho barrado num agente ocupado (Story 20.3). É `blocking` de verdade:
+  // a tarefa NÃO foi entregue a ninguém enquanto o fundador não escolher entre
+  // esperar a vez do agente e abrir um segundo worker.
+  for (const choice of input.dispatchChoices ?? []) {
+    items.push({
+      id: `dispatch-${choice.id}`,
+      kind: 'dispatch-choice',
+      severity: 'blocking',
+      title: `"${choice.targetLabel ?? choice.agent}" está ocupado — enfileirar ou abrir outro?`,
+      detail: choice.task,
+      waitingMs: Math.max(0, input.now - choice.createdAt),
+      // Deep-link no tile ocupado: é olhando o que ele está fazendo agora que
+      // se decide se vale a pena esperar a vez.
+      target: { type: 'terminal', id: choice.targetId }
     });
   }
 

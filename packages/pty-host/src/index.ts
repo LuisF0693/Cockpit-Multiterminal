@@ -17,4 +17,4 @@ export type {
 } from './daemon-protocol';
 export { DaemonServer } from './daemon-server';
 export { DaemonClient } from './daemon-client';
-export type { TaskDeliveryAck } from './daemon-client';
+export type { TaskDeliveryAck, DispatchChoiceAck } from './daemon-client';

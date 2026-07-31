@@ -8,6 +8,7 @@
  */
 
 import { isIdleAgentStatus } from '@cockpit/shared';
+import { resolveDeliveryTarget, type DeliveryTargetRef } from './task-delivery';
 
 export type DispatchCategory = 'development' | 'review-planning' | 'research' | 'marketing-content';
 
@@ -144,6 +145,89 @@ export interface IdleSessionRef {
 export function findIdleCandidate(adapterId: string, sessions: readonly IdleSessionRef[]): string | null {
   const match = sessions.find((s) => s.adapterId === adapterId && isIdleAgentStatus(s.status));
   return match?.id ?? null;
+}
+
+/**
+ * CONTINUIDADE DE AGENTE (Épico 20, Story 20.2) — o despacho deixa de abrir um
+ * segundo "@dev" quando já existe um vivo.
+ *
+ * Pedido do fundador: "já temos o agente de dev que fez o trabalho, ele está lá
+ * no terminal, porém quando a orquestração pede para usar o dev, ele abre outro
+ * dev — ele poderia continuar com o dev que está lá". Até a 18.1 o reuso era só
+ * um AVISO no stderr (`findIdleCandidate`, AC5: "nunca bloqueia"); o worker novo
+ * nascia de qualquer jeito e o contexto acumulado ficava no tile antigo.
+ *
+ * Agora o reuso é o PADRÃO e a criação é o caso excepcional. Três guardas
+ * decidem quando NÃO reusar — cada um veio de uma decisão do fundador ou de uma
+ * invariante que já valia no vínculo:
+ *
+ * - `--new`: escape explícito de quem quer paralelismo de verdade.
+ * - Adapter divergente: `--adapter` explícito é escolha consciente da CLI
+ *   (protocolo do Épico 17 — "quem escolhe modelo escolhe a CLI"); reusar um
+ *   tile de outra CLI trairia essa escolha. SEM `--adapter`, o adapter do tile
+ *   vivo é irrelevante: a identidade do agente é que importa.
+ * - Projeto diferente: mesma invariante do vínculo automático (17.2 — chefe e
+ *   worker no mesmo projeto). Um "@dev" aberto em outro repositório não é o
+ *   mesmo colaborador; entregar ali executaria a tarefa no lugar errado.
+ *
+ * Tile em `error` também não é reusado: `planTaskDelivery` recusaria a entrega
+ * (ele não volta a ficar ocioso sozinho), então cair na criação é o único
+ * desfecho que ainda entrega a tarefa a alguém.
+ *
+ * Pura: quem consulta `listSessions` e quem escreve no PTY é a CLI.
+ */
+export type AgentReusePlan =
+  /** Tile do MESMO agente encontrado — `busy` diz se a entrega vai enfileirar. */
+  | { kind: 'reuse'; target: DeliveryTargetRef; busy: boolean }
+  /** Mais de um tile com esse nome — o chefe desambigua com `--to-session`. */
+  | { kind: 'ambiguous'; matches: DeliveryTargetRef[]; reason: string }
+  /** Nada a reusar: despacha worker novo (comportamento pré-20.2). */
+  | { kind: 'create'; reason: string };
+
+/**
+ * Compara diretórios como IDENTIDADE de projeto, não como string: Windows é
+ * case-insensitive e mistura `\` com `/` no mesmo caminho (o cwd do daemon vem
+ * do spawn, o do chefe vem do registry). Sem esta normalização o escopo de
+ * projeto reprovaria tiles legítimos e o reuso nunca aconteceria na prática.
+ */
+function sameDir(a: string | undefined, b: string): boolean {
+  if (a === undefined || a.trim() === '') return false;
+  const norm = (p: string): string => p.trim().replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  return norm(a) === norm(b);
+}
+
+export function planAgentReuse(opts: {
+  /** Identidade pedida no despacho (`--agent`) — casa contra o label do tile. */
+  agent: string;
+  /** Sessões vivas do daemon (o MESMO `listSessions` do vínculo/cwd). */
+  sessions: readonly DeliveryTargetRef[];
+  /** cwd já resolvido do despacho (`resolveDispatchCwd`) — escopo de projeto. */
+  cwd: string;
+  /** `--adapter`: divergência força worker novo (decisão do fundador). */
+  explicitAdapter?: string | undefined;
+  /** `--new`: pula o reuso inteiro. */
+  forceNew?: boolean | undefined;
+}): AgentReusePlan {
+  if (opts.forceNew === true) return { kind: 'create', reason: '--new: worker novo pedido explicitamente' };
+
+  const eligible = opts.sessions.filter((s) => {
+    if (s.status === 'error') return false;
+    if (!sameDir(s.cwd, opts.cwd)) return false;
+    if (opts.explicitAdapter !== undefined && s.adapterId !== opts.explicitAdapter.trim()) return false;
+    return true;
+  });
+
+  // Heurística de nome vem de `resolveDeliveryTarget` (Onda 1) de propósito:
+  // `--to-agent` e o reuso automático DEVEM casar o mesmo tile, senão o chefe
+  // que confere com `--list-sessions` vê um alvo e o despacho escolhe outro.
+  const resolution = resolveDeliveryTarget(eligible, { agentLabel: opts.agent });
+  if (resolution.kind === 'ambiguous') {
+    return { kind: 'ambiguous', matches: resolution.matches, reason: resolution.reason };
+  }
+  if (resolution.kind === 'not-found') {
+    return { kind: 'create', reason: `nenhum tile vivo chamado "${opts.agent.trim()}" neste projeto` };
+  }
+  return { kind: 'reuse', target: resolution.target, busy: !isIdleAgentStatus(resolution.target.status) };
 }
 
 /**

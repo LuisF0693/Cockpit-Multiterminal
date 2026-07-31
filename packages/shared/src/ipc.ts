@@ -70,6 +70,13 @@ export const IpcChannels = {
   terminalLinkGatePend: 'terminalLink.gate.pend',
   /** Renderer → Main: resolução humana do gate (APPROVE/REJECT). */
   terminalLinkGateResolve: 'terminalLink.gate.resolve',
+  /**
+   * Push Main → renderer: despacho pediu um agente que está OCUPADO e a
+   * escolha (enfileirar × abrir outro worker) é do fundador (Épico 20, 20.3).
+   */
+  dispatchChoicePend: 'dispatch.choice.pend',
+  /** Renderer → Main: resolução da escolha acima. */
+  dispatchChoiceResolve: 'dispatch.choice.resolve',
   /** Preview de browser via Playwright (Épico 10, FR28/FR29). */
   browserCreate: 'browser.create',
   browserRemove: 'browser.remove',
@@ -692,6 +699,41 @@ export const TerminalLinkGateResolveRequestSchema = z.object({
 export type TerminalLinkGateResolveRequest = z.infer<typeof TerminalLinkGateResolveRequestSchema>;
 
 /**
+ * Escolha de despacho pendente (Épico 20, Story 20.3) — o chefe pediu um
+ * agente que JÁ EXISTE mas está trabalhando, e a decisão do fundador foi que
+ * esse caso vira pergunta na fila de Decisões em vez de política fixa:
+ * enfileirar na vez dele (preserva contexto, custa espera) ou abrir um segundo
+ * worker (ganha paralelismo, perde contexto).
+ *
+ * Nasce na CLI `agent-dispatch`, viaja pelo daemon (que é o único processo
+ * comum entre a CLI efêmera e o app) e chega aqui pelo poll do Main.
+ */
+export const PendingDispatchChoiceSchema = z.object({
+  id: z.string().min(1),
+  /** Identidade pedida no despacho (`--agent`). */
+  agent: z.string().min(1),
+  /** Tarefa em linguagem natural, como o chefe escreveu. */
+  task: z.string(),
+  /** Instrução JÁ formatada — o que será entregue, seja qual for a escolha. */
+  instruction: z.string(),
+  /** Tile ocupado que casou com o nome do agente. */
+  targetId: z.string().min(1),
+  targetLabel: z.string().nullable(),
+  /** Adapter do alvo — é o que um worker novo usaria para ser o mesmo agente. */
+  adapterId: z.string().min(1),
+  cwd: z.string(),
+  createdAt: z.number()
+});
+export type PendingDispatchChoice = z.infer<typeof PendingDispatchChoiceSchema>;
+
+export const DispatchChoiceResolveRequestSchema = z.object({
+  id: z.string().min(1),
+  /** `queue` entrega na vez do agente atual; `new` abre outro worker igual. */
+  action: z.enum(['queue', 'new'])
+});
+export type DispatchChoiceResolveRequest = z.infer<typeof DispatchChoiceResolveRequestSchema>;
+
+/**
  * Scratchpad assíncrono por tarefa (P4) — arquivo `.cockpit/scratchpad/{taskId}.md`
  * no projeto, acessível por agentes via `$COCKPIT_SCRATCHPAD_DIR` e pelo
  * renderer via IPC. Push `scratchpadChanged` quando o arquivo muda em disco.
@@ -1015,6 +1057,13 @@ export interface CockpitApi {
   dispatch: {
     /** Histórico de despachos rastreáveis (Story 18.4, AC5) — lista completa, sem paginação. */
     history(): Promise<DispatchRecord[]>;
+    /**
+     * Escolha pendente de despacho em agente ocupado (Story 20.3); retorna
+     * unsubscribe. O item entra na fila de Decisões como `blocking`.
+     */
+    onChoicePend(cb: (choice: PendingDispatchChoice) => void): () => void;
+    /** `queue` entrega na vez do agente atual; `new` abre outro worker igual. */
+    choiceResolve(req: DispatchChoiceResolveRequest): Promise<void>;
   };
   terminal: {
     /**

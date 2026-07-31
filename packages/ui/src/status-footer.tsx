@@ -26,7 +26,9 @@ import { theme } from './theme';
 const KIND_ICON: Record<DecisionKind, LucideIcon> = {
   'task-decision': Icons.warning,
   'link-gate': Icons.link,
-  'agent-waiting': Icons.waiting
+  'agent-waiting': Icons.waiting,
+  /** Despacho esperando a vez de um agente ocupado (Story 20.3). */
+  'dispatch-choice': Icons.waiting
 };
 
 export interface StatusFooterProps {

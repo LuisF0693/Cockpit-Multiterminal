@@ -9,6 +9,7 @@ import {
   type DaemonSessionInfo,
   type TaskDeliveryAck
 } from '@cockpit/pty-host';
+import type { PendingDispatchChoice } from '@cockpit/shared';
 import type { ScrollbackConfig } from './pty-host-manager';
 
 /**
@@ -166,6 +167,16 @@ export class DaemonManager {
   }
 
   /**
+   * Nome do tile → daemon (Story 20.1). Best-effort como `resizePty`: sem
+   * client conectado o label some, mas o próximo `renamed`/relançamento
+   * reenvia — e o pior caso é o reuso por nome não casar, que é o
+   * comportamento anterior a esta story (cria worker novo).
+   */
+  setLabel(sessionId: string, label: string): void {
+    this.client?.setLabel(sessionId, label);
+  }
+
+  /**
    * Entrega de tarefa respeitando o estado do alvo (Onda 1) — é o MESMO
    * comando que a CLI `agent-dispatch` usa; o Main não tem caminho próprio de
    * entrega, senão a fila viveria em dois lugares e divergiria. Diferente de
@@ -184,6 +195,20 @@ export class DaemonManager {
    */
   pushDispatchHistory(counts: AdapterOutcomeCount[]): void {
     this.client?.pushDispatchHistory(counts);
+  }
+
+  /**
+   * Escolhas de despacho aguardando o humano (Story 20.3) — a CLI deixa a
+   * pergunta no daemon e o Main a colhe no mesmo poll da adoção externa. Sem
+   * client conectado devolve lista vazia: o próximo tick tenta de novo.
+   */
+  async listDispatchChoices(): Promise<PendingDispatchChoice[]> {
+    return this.client === null ? [] : await this.client.listDispatchChoices();
+  }
+
+  /** Marca a escolha como resolvida no daemon (o Main já executou a ação). */
+  resolveDispatchChoice(id: string): void {
+    this.client?.resolveDispatchChoice(id);
   }
 
   /**

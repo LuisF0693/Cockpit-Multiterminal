@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionRecord, Task } from '@cockpit/shared';
+import type { PendingDispatchChoice, SessionRecord, Task } from '@cockpit/shared';
 import { buildDecisionQueue, countBlocking, type PendingLinkGate } from './decision-queue';
 
 const NOW = 1_000_000;
@@ -38,6 +38,19 @@ const gate = (over: Partial<PendingLinkGate>): PendingLinkGate => ({
   targetIds: ['b'],
   message: 'avalie o resultado',
   receivedAt: NOW - 1000,
+  ...over
+});
+
+const dispatchChoice = (over: Partial<PendingDispatchChoice> = {}): PendingDispatchChoice => ({
+  id: 'c1',
+  agent: '@dev',
+  task: 'implementar o reuso',
+  instruction: 'Você é o agente "@dev". Tarefa: implementar o reuso',
+  targetId: 'tile-dev',
+  targetLabel: '@dev',
+  adapterId: 'claude-code',
+  cwd: 'F:/Projetos/Meu Cockpit',
+  createdAt: NOW - 5000,
   ...over
 });
 
@@ -136,6 +149,41 @@ describe('buildDecisionQueue', () => {
     });
     expect(items).toHaveLength(3);
     expect(new Set(items.map((i) => i.kind))).toEqual(new Set(['agent-waiting', 'task-decision', 'link-gate']));
+  });
+});
+
+describe('escolha de despacho em agente ocupado (Story 20.3)', () => {
+  it('entra na fila como BLOCKING — a tarefa não foi entregue a ninguém ainda', () => {
+    const items = buildDecisionQueue({ ...base, sessions: [], tasks: [], gates: [], dispatchChoices: [dispatchChoice()] });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: 'dispatch-choice',
+      severity: 'blocking',
+      detail: 'implementar o reuso',
+      // Deep-link no tile OCUPADO: é vendo o que ele faz que se decide esperar.
+      target: { type: 'terminal', id: 'tile-dev' }
+    });
+    expect(items[0]?.title).toContain('@dev');
+  });
+
+  it('usa o nome do agente pedido quando o tile alvo não tem label', () => {
+    const items = buildDecisionQueue({
+      ...base,
+      sessions: [],
+      tasks: [],
+      gates: [],
+      dispatchChoices: [dispatchChoice({ targetLabel: null })]
+    });
+    expect(items[0]?.title).toContain('@dev');
+  });
+
+  it('conta o tempo desde que a pergunta nasceu (sobe sozinha na fila)', () => {
+    const items = buildDecisionQueue({ ...base, sessions: [], tasks: [], gates: [], dispatchChoices: [dispatchChoice()] });
+    expect(items[0]?.waitingMs).toBe(5000);
+  });
+
+  it('ausência do campo não quebra chamador antigo', () => {
+    expect(buildDecisionQueue({ ...base, sessions: [], tasks: [], gates: [] })).toEqual([]);
   });
 });
 

@@ -104,6 +104,93 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
   );
 
   it(
+    'set-label: tile criado SEM label (caminho da UI) ganha nome depois, e a renomeação chega ao list-sessions (Story 20.1)',
+    { timeout: 60_000 },
+    async () => {
+      const pipe = uniquePipe();
+      const server = await startDaemon(pipe);
+
+      // O Main cria a sessão como a UI cria hoje: sem `label` nenhum. É esse
+      // anonimato que fazia o reuso por nome do agente nunca casar um tile
+      // aberto pelo Cockpit — e o despacho abrir um segundo "@dev".
+      const main = new DaemonClient();
+      await main.connect(pipe);
+      const { id } = await main.createSession({ tag: 'sess-20-1', cols: 80, rows: 24, adapterId: 'shell' });
+      expect((await main.listSessions())[0]).not.toHaveProperty('label');
+
+      main.setLabel(id, '@dev');
+      // A CLI é um cliente SEPARADO — é ela quem precisa enxergar o nome.
+      const cli = new DaemonClient();
+      await cli.connect(pipe);
+      await waitFor(async () => (await cli.listSessions())[0]?.label === '@dev', 10_000);
+
+      // Renomear na UI reflete no daemon (o listener assina 'renamed' também).
+      main.setLabel(id, '@dev-refatoracao');
+      await waitFor(async () => (await cli.listSessions())[0]?.label === '@dev-refatoracao', 10_000);
+
+      // Sessão inexistente é no-op silencioso (tile fechado entre o rename e o frame).
+      main.setLabel('sessao-que-nao-existe', '@fantasma');
+      expect(await cli.listSessions()).toHaveLength(1);
+
+      await main.closeSession(id);
+      const { orphans } = await main.shutdownDaemon();
+      expect(orphans).toBe(0);
+      main.disconnect();
+      cli.disconnect();
+      await server.shutdown();
+    }
+  );
+
+  it(
+    'dispatch-choice: sem app conectado a pergunta é RECUSADA; com app, ela espera e o app a consome (Story 20.3)',
+    { timeout: 30_000 },
+    async () => {
+      const pipe = uniquePipe();
+      const server = await startDaemon(pipe);
+
+      const choice = {
+        id: 'choice-1',
+        agent: '@dev',
+        task: 'seguir a story 20.3',
+        instruction: 'Você é o agente "@dev". Tarefa: seguir a story 20.3',
+        targetId: 'tile-dev',
+        targetLabel: '@dev',
+        adapterId: 'claude-code',
+        cwd: 'F:/Projetos/Meu Cockpit',
+        createdAt: Date.now()
+      };
+
+      // A CLI é um cliente que NUNCA manda `configure` — é assim que o daemon
+      // sabe que ela não é o app. Sem Cockpit aberto, não há fila de Decisões:
+      // recusar aqui é o que faz a CLI cair no enfileiramento em vez de deixar
+      // a tarefa presa numa pergunta que ninguém veria.
+      const cli = new DaemonClient();
+      await cli.connect(pipe);
+      const semApp = await cli.pushDispatchChoice(choice);
+      expect(semApp.accepted).toBe(false);
+      expect(await cli.listDispatchChoices()).toEqual([]);
+
+      // App conecta e se identifica pelo `configure` (o que só ele manda).
+      const app = new DaemonClient();
+      await app.connect(pipe);
+      app.configure({ scrollbackDir: 'F:/tmp/scrollback', maxFileBytes: 1024, restoreTailBytes: 256 });
+      await new Promise((r) => setTimeout(r, 200));
+
+      const comApp = await cli.pushDispatchChoice(choice);
+      expect(comApp.accepted).toBe(true);
+      expect(await app.listDispatchChoices()).toEqual([choice]);
+
+      // Humano decidiu: o Main executa a ação e remove a pendência.
+      app.resolveDispatchChoice(choice.id);
+      await waitFor(async () => (await app.listDispatchChoices()).length === 0, 5_000);
+
+      cli.disconnect();
+      app.disconnect();
+      await server.shutdown();
+    }
+  );
+
+  it(
     'dispatch-history: cache começa vazio, um cliente empurra e OUTRO cliente lê o mesmo snapshot (Story 18.5)',
     { timeout: 30_000 },
     async () => {
@@ -162,9 +249,11 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
   });
 });
 
-async function waitFor(cond: () => boolean, timeoutMs: number): Promise<void> {
+// Condição pode ser assíncrona (Story 20.1: a checagem é um `list-sessions`
+// round-trip pelo pipe, não uma variável local acumulada por `onData`).
+async function waitFor(cond: () => boolean | Promise<boolean>, timeoutMs: number): Promise<void> {
   const start = Date.now();
-  while (!cond()) {
+  while (!(await cond())) {
     if (Date.now() - start > timeoutMs) throw new Error('timeout aguardando condição do daemon');
     await new Promise((r) => setTimeout(r, 100));
   }

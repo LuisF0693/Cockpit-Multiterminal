@@ -8,5 +8,5 @@
       "@cockpit/pty-host": ["../../packages/pty-host/src/index.ts"]
     }
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "spike/**/*", "electron.vite.config.ts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "spike/**/*", "test/**/*", "electron.vite.config.ts"]
 }

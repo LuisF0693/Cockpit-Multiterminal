@@ -5,6 +5,7 @@ import type { AgentSession } from '@cockpit/adapter-contract';
 import type { AdapterRegistry } from './adapter-registry';
 import { ScrollbackWriter, readScrollbackTail } from './scrollback-writer';
 import { FrameDecoder, encodeControl, encodeData } from './framing';
+import type { PendingDispatchChoice } from '@cockpit/shared';
 import { DAEMON_PROTOCOL_VERSION, type AdapterOutcomeCount, type DaemonInbound, type DaemonOutbound } from './daemon-protocol';
 
 /**
@@ -48,6 +49,12 @@ interface DaemonSession {
 
 /** Teto de fila por sessão — protege contra chefe em loop enfileirando sem fim. */
 const MAX_PENDING_TASKS = 32;
+/**
+ * Teto de perguntas abertas na fila de Decisões (Story 20.3). Baixo de
+ * propósito: pendência humana é cara de ler, e um chefe em loop transformaria
+ * a fila num depósito. Estourou, a CLI volta a enfileirar sozinha.
+ */
+const MAX_PENDING_CHOICES = 16;
 
 export class DaemonServer {
   private server: Server | null = null;
@@ -56,6 +63,20 @@ export class DaemonServer {
   private shuttingDown = false;
   /** Cache do histórico de despachos (Story 18.5) — empurrado pelo Main, servido a qualquer cliente. */
   private dispatchHistoryCache: AdapterOutcomeCount[] = [];
+  /**
+   * Escolhas de despacho aguardando o humano (Story 20.3) — em memória, como
+   * os gates de vínculo: pendência que exige olho humano não sobrevive a
+   * restart de propósito (reter uma pergunta invisível é pior que perdê-la).
+   */
+  private readonly dispatchChoices = new Map<string, PendingDispatchChoice>();
+  /**
+   * Sockets do APP (não da CLI). O `configure` é a assinatura do Main: só ele
+   * manda config de scrollback no handshake — a CLI `agent-dispatch` nunca
+   * manda. É assim que o daemon sabe se existe uma fila de Decisões viva pra
+   * receber uma pergunta (Story 20.3); sem app, a CLI cai no fallback de
+   * enfileirar em vez de segurar pendência que ninguém veria.
+   */
+  private readonly appSockets = new Set<Socket>();
   /** Pipe path armazenado em listen() — injetado no env de todo PTY (P0). */
   private pipePath = '';
 
@@ -135,6 +156,9 @@ export class DaemonServer {
       for (const s of this.sessions.values()) {
         if (s.subscriber === socket) s.subscriber = null;
       }
+      // App fechou: novas perguntas passam a ser recusadas (Story 20.3). As já
+      // pendentes ficam — o app pode voltar e consumi-las no próximo poll.
+      this.appSockets.delete(socket);
     });
     socket.on('error', () => void 0);
   }
@@ -149,6 +173,9 @@ export class DaemonServer {
           maxFileBytes: msg.maxFileBytes,
           restoreTailBytes: msg.restoreTailBytes
         };
+        // Quem configura scrollback é o app (Story 20.3) — vira a prova de que
+        // existe uma fila de Decisões viva pra receber perguntas.
+        this.appSockets.add(socket);
         break;
       case 'create': {
         void (async () => {
@@ -197,6 +224,13 @@ export class DaemonServer {
       case 'resize':
         this.sessions.get(msg.id)?.session.resize(msg.cols, msg.rows);
         break;
+      case 'set-label': {
+        // Story 20.1: sessão inexistente é no-op (tile fechado entre o rename
+        // na UI e a chegada do frame) — nada a reportar, o comando não tem ack.
+        const hosted = this.sessions.get(msg.id);
+        if (hosted) hosted.label = msg.label;
+        break;
+      }
       case 'close': {
         const hosted = this.sessions.get(msg.id);
         if (!hosted) {
@@ -279,6 +313,47 @@ export class DaemonServer {
       }
       case 'dispatch-history-push':
         this.dispatchHistoryCache = msg.counts;
+        break;
+      case 'dispatch-choice-push': {
+        // Recusa em DOIS casos, ambos com o mesmo efeito prático na CLI (cai
+        // pro enfileiramento): sem app não há quem responda; com a fila
+        // estourada, aceitar mais uma pergunta só empilharia trabalho invisível.
+        if (this.appSockets.size === 0) {
+          this.send(socket, {
+            type: 'dispatch-choice-ack',
+            requestId: msg.requestId,
+            accepted: false,
+            reason: 'nenhum Cockpit conectado ao daemon — não há fila de Decisões para perguntar'
+          });
+          break;
+        }
+        if (this.dispatchChoices.size >= MAX_PENDING_CHOICES) {
+          this.send(socket, {
+            type: 'dispatch-choice-ack',
+            requestId: msg.requestId,
+            accepted: false,
+            reason: `fila de escolhas cheia (${MAX_PENDING_CHOICES} pendentes)`
+          });
+          break;
+        }
+        this.dispatchChoices.set(msg.choice.id, msg.choice);
+        this.send(socket, {
+          type: 'dispatch-choice-ack',
+          requestId: msg.requestId,
+          accepted: true,
+          reason: `escolha ${msg.choice.id} aguardando decisão humana no Cockpit`
+        });
+        break;
+      }
+      case 'dispatch-choices':
+        this.send(socket, {
+          type: 'dispatch-choices-result',
+          requestId: msg.requestId,
+          choices: [...this.dispatchChoices.values()]
+        });
+        break;
+      case 'dispatch-choice-resolve':
+        this.dispatchChoices.delete(msg.id);
         break;
       case 'dispatch-history':
         this.send(socket, { type: 'dispatch-history-result', requestId: msg.requestId, counts: this.dispatchHistoryCache });

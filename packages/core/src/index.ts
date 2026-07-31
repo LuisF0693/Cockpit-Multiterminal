@@ -38,10 +38,18 @@ export {
   planAgentDispatch,
   findDispatcherSession,
   findIdleCandidate,
+  planAgentReuse,
   resolveDispatchCwd,
   NON_DISPATCHABLE
 } from './agent-dispatch';
-export type { AgentDispatchPlan, AgentDispatchRequest, DispatchCategory, LiveSessionRef, IdleSessionRef } from './agent-dispatch';
+export type {
+  AgentDispatchPlan,
+  AgentDispatchRequest,
+  AgentReusePlan,
+  DispatchCategory,
+  LiveSessionRef,
+  IdleSessionRef
+} from './agent-dispatch';
 // Entrega de tarefa em tile JÁ ABERTO (Onda 1) — decisão pura; o efeito
 // (escrever no PTY) é do chamador: CLI `agent-dispatch` ou Main `session-ipc`.
 export {

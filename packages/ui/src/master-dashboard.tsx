@@ -40,7 +40,10 @@ const WAITING_TINT = `${statusColor('waiting-input')}14`;
 const DECISION_KIND_ICON: Record<DecisionKind, LucideIcon> = {
   'task-decision': Icons.warning,
   'link-gate': Icons.link,
-  'agent-waiting': Icons.waiting
+  'agent-waiting': Icons.waiting,
+  // Despacho barrado num agente ocupado (Story 20.3) — o agente existe e está
+  // trabalhando; a pendência é sobre a VEZ dele, daí a ampulheta.
+  'dispatch-choice': Icons.waiting
 };
 
 /**
@@ -148,6 +151,11 @@ export interface MasterDashboardProps {
   onOpenDecision: (item: DecisionItem) => void;
   /** Resolve um gate de vínculo retido (APPROVE injeta a instrução, REJECT descarta). */
   onResolveGate?: (gateId: string, action: 'approve' | 'reject') => void;
+  /**
+   * Resolve uma escolha de despacho (Story 20.3): `queue` entrega na vez do
+   * agente ocupado; `new` abre um worker igual e toca em paralelo.
+   */
+  onResolveDispatchChoice?: (choiceId: string, action: 'queue' | 'new') => void;
   /** Vínculos terminal-a-terminal (Épico 9, FR25) — independentes de tarefa. */
   terminalLinks: TerminalLink[];
   onCreateLink: (sourceId: string, targetId: string, mode: TerminalLinkMode) => void;
@@ -181,6 +189,7 @@ export function MasterDashboard({
   decisions,
   onOpenDecision,
   onResolveGate,
+  onResolveDispatchChoice,
   terminalLinks,
   onCreateLink,
   onRemoveLink,
@@ -469,10 +478,38 @@ export function MasterDashboard({
           </>
         );
 
+        /**
+         * Escolha de despacho num agente ocupado (Story 20.3). As duas saídas
+         * são legítimas — a troca (contexto × paralelismo) é do fundador:
+         * `enfileirar` entrega na vez do agente atual, preservando o que ele já
+         * sabe; `abrir outro` nasce um worker igual e toca em paralelo.
+         */
+        const dispatchChoiceActions = (choiceId: string): JSX.Element => (
+          <>
+            <button
+              onClick={() => onResolveDispatchChoice?.(choiceId, 'queue')}
+              style={{ ...queueButtonStyle, borderColor: theme.accent.ok, color: theme.accent.ok }}
+              title="enfileirar: o agente atual recebe assim que terminar o turno (mantém o contexto dele)"
+            >
+              <Icon glyph={Icons.waiting} size={ICON_SIZE.sm} />
+              enfileirar
+            </button>
+            <button
+              onClick={() => onResolveDispatchChoice?.(choiceId, 'new')}
+              style={queueButtonStyle}
+              title="abrir outro: nasce um worker igual (mesmo nome, adapter e projeto) e toca em paralelo"
+            >
+              <Icon glyph={Icons.terminalNew} size={ICON_SIZE.sm} />
+              abrir outro
+            </button>
+          </>
+        );
+
         const row = (d: DecisionItem): JSX.Element => {
           const tone = d.severity === 'blocking' ? theme.accent.danger : statusColor('waiting-input');
           const gateId = d.kind === 'link-gate' ? d.id.slice('gate-'.length) : null;
           const taskId = d.kind === 'task-decision' ? d.id.slice('task-'.length) : null;
+          const choiceId = d.kind === 'dispatch-choice' ? d.id.slice('dispatch-'.length) : null;
           return (
             <div
               key={d.id}
@@ -541,6 +578,7 @@ export function MasterDashboard({
               </span>
               {taskId && taskActions(taskId)}
               {gateId && gateActions(gateId)}
+              {choiceId && dispatchChoiceActions(choiceId)}
               {d.kind === 'agent-waiting' && (
                 <button onClick={() => onOpenDecision(d)} style={queueButtonStyle}>
                   responder

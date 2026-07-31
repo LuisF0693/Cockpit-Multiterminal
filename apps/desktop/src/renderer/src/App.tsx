@@ -57,6 +57,7 @@ import type {
   ProjectDirEntry,
   Learning,
   Project,
+  PendingDispatchChoice,
   SessionReport,
   Task,
   TaskRole,
@@ -236,6 +237,12 @@ export function App(): JSX.Element {
    * restart do app, então o estado local aqui é a única cópia do renderer.
    */
   const [pendingGates, setPendingGates] = useState<PendingLinkGate[]>([]);
+  /**
+   * Escolhas de despacho em agente ocupado (Épico 20, Story 20.3) — mesma
+   * natureza efêmera dos gates acima: vivem no daemon até alguém decidir, e o
+   * renderer guarda a cópia que alimenta a fila de Decisões.
+   */
+  const [dispatchChoices, setDispatchChoices] = useState<PendingDispatchChoice[]>([]);
   // Arraste de vínculo por gesture no canvas (Story 12.2) — linha de preview
   // segue o cursor (AC2); nulo quando nenhum arraste está em curso.
   const [linkDrag, setLinkDrag] = useState<{ sourceId: string; x: number; y: number } | null>(null);
@@ -463,6 +470,13 @@ export function App(): JSX.Element {
       );
     });
 
+    // Despacho que pediu um agente OCUPADO (Story 20.3) → fila de Decisões.
+    // O Main colhe do daemon num poll, então a MESMA escolha pode chegar mais
+    // de uma vez num restart de janela: deduplica por id.
+    const unsubDispatchChoice = window.cockpit.dispatch.onChoicePend((choice) => {
+      setDispatchChoices((prev) => (prev.some((c) => c.id === choice.id) ? prev : [...prev, choice]));
+    });
+
     // Portas binárias chegam via window message (tag = session id).
     const onWindowMessage = (event: MessageEvent): void => {
       const data = event.data as Partial<TerminalPortMessage> | undefined;
@@ -559,6 +573,7 @@ export function App(): JSX.Element {
       unsubSdcCorrection();
       unsubTerminalLinkRouted();
       unsubTerminalLinkGate();
+      unsubDispatchChoice();
       unsubTerminalLinks();
       unsubBrowserTiles();
       unsubLearnings();
@@ -1229,6 +1244,10 @@ export function App(): JSX.Element {
     // projectId, e reter uma pendência humana invisível seria pior que
     // mostrá-la fora do escopo.
     gates: pendingGates,
+    // Escolhas de despacho (20.3): idem gates — não escopadas por projeto, e
+    // uma tarefa parada esperando decisão é o tipo de pendência que não pode
+    // ficar invisível por causa de filtro.
+    dispatchChoices,
     now: nowTick,
     taskTitle: taskTitleOf,
     sessionName: sessionNameOf
@@ -1253,6 +1272,18 @@ export function App(): JSX.Element {
     setPendingGates((prev) => prev.filter((g) => g.gateId !== gateId));
     void window.cockpit.terminalLink
       .gateResolve({ gateId, action })
+      .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+  };
+
+  /**
+   * Resolve a escolha de despacho (Story 20.3): `queue` entrega na vez do
+   * agente ocupado; `new` abre um worker igual. Quem executa é o Main — aqui
+   * só some com o item da fila.
+   */
+  const resolveDispatchChoice = (choiceId: string, action: 'queue' | 'new'): void => {
+    setDispatchChoices((prev) => prev.filter((c) => c.id !== choiceId));
+    void window.cockpit.dispatch
+      .choiceResolve({ id: choiceId, action })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
   };
 
@@ -1578,6 +1609,7 @@ export function App(): JSX.Element {
             decisions={pendingDecisions}
             onOpenDecision={openDecision}
             onResolveGate={resolveGate}
+            onResolveDispatchChoice={resolveDispatchChoice}
             terminalLinks={projectTerminalLinks}
             onCreateLink={createTerminalLink}
             onRemoveLink={removeTerminalLink}

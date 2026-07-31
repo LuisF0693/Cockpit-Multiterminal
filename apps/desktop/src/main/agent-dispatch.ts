@@ -9,6 +9,7 @@ import {
   findIdleCandidate,
   mergeAdapterMatrix,
   planAgentDispatch,
+  planAgentReuse,
   planTaskDelivery,
   resolveDeliveryTarget,
   resolveDispatchCwd,
@@ -22,6 +23,7 @@ import {
   type DaemonSessionInfo,
   type TaskDeliveryAck
 } from '@cockpit/pty-host';
+import type { PendingDispatchChoice } from '@cockpit/shared';
 
 /**
  * CLI agent-dispatch (Stories 17.1/17.2) — despacho genérico de workers por
@@ -51,12 +53,20 @@ import {
  * `--link-from` força a origem. Falha de detecção NUNCA bloqueia o despacho.
  * O Cockpit adota a sessão em até ~4s preservando o nome do agente (AC4).
  *
- * Checagem de sessão ociosa (18.1): antes de despachar, a CLI reusa a MESMA
- * consulta `listSessions` (feita pro vínculo acima) pra procurar um worker
- * ocioso (`waiting-input`/`done`) do mesmo adapter do primeiro candidato —
- * se achar, avisa no stderr (AC3) mas NUNCA bloqueia (AC5). `--model` não
- * entra no filtro: não há como ler o modelo de uma sessão já em execução
- * sem introspecção nova (AC2 — limitação documentada, sem workaround hoje).
+ * CONTINUIDADE DE AGENTE (Épico 20, Story 20.2) — o despacho REUSA por padrão:
+ * antes de nascer worker, a CLI procura na MESMA consulta `listSessions` um
+ * tile vivo com o nome do agente pedido, no mesmo projeto (cwd), e entrega a
+ * tarefa lá pelo `deliver-task` — ocioso recebe na hora, ocupado enfileira.
+ * Só cria worker novo quando não há esse tile, quando `--adapter` explícito
+ * diverge do adapter dele, ou com `--new`. Dois tiles com o mesmo nome ABORTAM
+ * o despacho pedindo `--to-session` (entregar no errado é pior que recusar).
+ *
+ * Sem esse reuso, pedir "@dev" com um @dev já aberto abria um SEGUNDO @dev e
+ * jogava fora o contexto acumulado no primeiro — o sintoma que o fundador
+ * reportou. O aviso de sessão ociosa da 18.1 continua, mas só no caminho em
+ * que não houve match por nome. `--model` não entra no filtro: não há como ler
+ * o modelo de uma sessão já em execução sem introspecção nova (limitação da
+ * 18.1, sem workaround hoje).
  *
  * ENTREGA EM TILE JÁ ABERTO (Onda 1, item 1 do fundador): até aqui a CLI só
  * sabia NASCER worker (`createSession`) — o chefe que quisesse falar com um
@@ -73,11 +83,13 @@ import {
  * instrução é o próprio nome do tile alvo. `--no-queue` recusa em vez de
  * enfileirar quando o alvo está ocupado.
  *
- * LIMITAÇÃO conhecida do `--to-agent`: o `label` que ele casa é o que foi
- * dado no `create` do daemon (Story 17.1) — ou seja, só tiles DESPACHADOS por
- * esta CLI têm nome lá. Tile aberto pela UI do Cockpit chega ao daemon sem
- * label, e a renomeação na UI não é propagada; para esses, use
- * `--list-sessions` + `--to-session <id>`, que sempre funciona.
+ * NOME DO TILE (Story 20.1): o `label` que o `--to-agent` (e o reuso) casam
+ * deixou de ser exclusividade dos tiles despachados por esta CLI — o Main
+ * propaga o nome ao daemon na criação e em toda renomeação (`set-label`).
+ * Ressalva: com um daemon ANTIGO em execução (ele sobrevive a upgrades do app;
+ * só morre com `cockpit-daemon --stop`) o comando é ignorado e o tile da UI
+ * volta a ser anônimo — aí o caminho garantido continua sendo
+ * `--list-sessions` + `--to-session <id>`.
  *
  * cwd (Onda 1, item 2): `--cwd` explícito > cwd da sessão do CHEFE
  * (`dispatchedBy`, já resolvido pelo MESMO `listSessions` do vínculo) >
@@ -100,8 +112,9 @@ function argValue(argv: string[], name: string): string | undefined {
 
 function usage(): void {
   console.error(
-    'uso (worker novo): agent-dispatch --agent "<nome>" --task "<tarefa>" [--cwd <dir>] [--adapter <id>] ' +
+    'uso (agente):      agent-dispatch --agent "<nome>" --task "<tarefa>" [--new] [--cwd <dir>] [--adapter <id>] ' +
       '[--model <nome>] [--recommend] [--no-link] [--link-from <sessionId>] [--profile <json>] [--pipe <named-pipe>]\n' +
+      '                   (reusa o tile vivo com esse nome no projeto; --new força worker novo)\n' +
       'uso (tile já aberto): agent-dispatch --to-session <sessionId> | --to-agent "<nome>" --task "<tarefa>" ' +
       '[--agent "<nome>"] [--no-queue] [--pipe <named-pipe>]\n' +
       'uso (descoberta):     agent-dispatch --list-sessions [--pipe <named-pipe>]'
@@ -377,14 +390,23 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
       availableAdapters: available,
       ...(matrix.preferences !== undefined ? { preferences: matrix.preferences } : {})
     });
-    if (plan.candidates.length === 0) {
+    // "Sem candidato" deixou de ser fatal AQUI (Story 20.2): candidato é o que
+    // se usaria pra NASCER worker, e o reuso não nasce nada — um "@dev" vivo
+    // recebe a tarefa mesmo que nenhum adapter de IA esteja registrado no
+    // daemon. O erro segue existindo, só que no ponto em que a criação vira
+    // mesmo o único caminho (logo antes do loop de spawn). `--recommend` é a
+    // exceção: ele SÓ fala de candidatos, então sem candidato não há o que
+    // recomendar e o erro continua imediato.
+    const noCandidates = plan.candidates.length === 0;
+    const reportNoCandidates = (): number => {
       console.error(
         explicitAdapter !== undefined
           ? `[agent-dispatch] adapter "${explicitAdapter}" não existe no daemon (disponíveis: ${available.join(', ')})`
           : '[agent-dispatch] nenhum adapter de IA disponível no daemon'
       );
       return 1;
-    }
+    };
+    if (noCandidates && argv.includes('--recommend')) return reportNoCandidates();
 
     // --recommend: só CONSULTA a política + matriz — o chefe decide (ou
     // pergunta ao usuário) e despacha depois com --adapter explícito.
@@ -474,18 +496,119 @@ export async function dispatchAgent(argv: string[]): Promise<number> {
       console.error(`[agent-dispatch] cwd herdado do terminal-chefe ${dispatchedBy ?? ''}: ${cwd}`);
     }
 
-    // Sessão ociosa do mesmo adapter (18.1, AC1/AC3): só o PRIMEIRO candidato
-    // é checado — é o que a política escolheria se nada estivesse ocioso.
-    // Aviso puro: nunca bloqueia o despacho (AC5).
-    const [firstCandidate] = plan.candidates;
-    if (firstCandidate !== undefined) {
-      const idleId = findIdleCandidate(firstCandidate, liveSessions);
-      if (idleId !== null) {
+    // CONTINUIDADE DE AGENTE (Épico 20, Story 20.2): antes de NASCER worker,
+    // procura o tile vivo com o nome desse agente NESTE projeto. Achou →
+    // entrega lá (o `deliver-task` do daemon respeita o estado do alvo, igual
+    // ao caminho `--to-session`); não achou → segue e cria, como antes.
+    const reuse = planAgentReuse({
+      agent,
+      sessions: liveSessions,
+      cwd,
+      ...(explicitAdapter !== undefined ? { explicitAdapter } : {}),
+      forceNew: argv.includes('--new')
+    });
+
+    if (reuse.kind === 'ambiguous') {
+      // Entregar no tile errado é pior que recusar (mesma regra do --to-agent):
+      // dois "@dev" abertos exigem que o chefe diga em qual continuar.
+      console.error(`[agent-dispatch] reuso ABORTADO: ${reuse.reason}`);
+      for (const m of reuse.matches) console.error(`  - ${m.id} (${m.label ?? 'sem nome'} / ${m.adapterId})`);
+      console.error('[agent-dispatch] use --to-session <id> para escolher, ou --new para abrir outro worker');
+      return 1;
+    }
+
+    if (reuse.kind === 'reuse') {
+      const target = reuse.target;
+      const { initialInstruction } = planAgentDispatch({
+        agent,
+        task,
+        explicitAdapter: target.adapterId,
+        availableAdapters: [target.adapterId]
+      });
+      // Alvo OCUPADO vira pergunta na fila de Decisões (Story 20.3, decisão do
+      // fundador): enfileirar preserva contexto mas custa espera; abrir outro
+      // worker ganha paralelismo mas perde o contexto acumulado — a troca é
+      // dele, não da política. Se ninguém está conectado pra responder (app
+      // fechado, daemon antigo, fila cheia), cai no enfileiramento: a tarefa
+      // espera a vez do agente em vez de sumir.
+      if (reuse.busy) {
+        const choice: PendingDispatchChoice = {
+          id: ulid(),
+          agent,
+          task,
+          instruction: initialInstruction,
+          targetId: target.id,
+          targetLabel: target.label ?? null,
+          adapterId: target.adapterId,
+          cwd,
+          createdAt: Date.now()
+        };
+        let asked = { accepted: false, reason: 'daemon não respondeu à pergunta' };
+        try {
+          asked = await client.pushDispatchChoice(choice);
+        } catch (err) {
+          console.error(
+            '[agent-dispatch] não deu pra perguntar no Cockpit — a tarefa vai para a fila do agente:',
+            err instanceof Error ? err.message : err
+          );
+        }
+        if (asked.accepted) {
+          console.log(
+            `[agent-dispatch] "${agent}" está OCUPADO — pergunta aberta na fila de Decisões do Cockpit ` +
+              `(enfileirar na vez dele × abrir outro worker). Nada foi entregue ainda: ${asked.reason}`
+          );
+          return 0;
+        }
+        console.error(`[agent-dispatch] sem pergunta possível (${asked.reason}) — enfileirando no próprio agente`);
+      }
+
+      try {
+        const ack = await client.deliverTask(target.id, initialInstruction, { queueIfBusy: true });
+        if (ack.outcome === 'refused') {
+          // Recusa aqui é rara (tile em `error` já foi filtrado pelo plano) —
+          // o estado pode ter mudado entre o listSessions e a escrita.
+          console.error(`[agent-dispatch] reuso recusado pelo daemon: ${ack.reason} — abrindo worker novo`);
+        } else {
+          console.log(
+            `[agent-dispatch] agente REUSADO: ${target.label ?? target.id} (${target.adapterId}) — tarefa ` +
+              `${ack.outcome === 'delivered' ? 'ENTREGUE' : 'ENFILEIRADA'} em ${target.id}: ${ack.reason}` +
+              (ack.queued > 0 ? ` [fila: ${ack.queued}]` : '')
+          );
+          if (dispatchedBy !== undefined) {
+            // Lacuna conhecida (fecha na 20.3): o vínculo worker→chefe nasce na
+            // ADOÇÃO de sessão nova (17.2). Reusar um tile que já existe não
+            // passa por lá, então o fim do turno dele não instrui o chefe
+            // automaticamente se esse vínculo ainda não existir.
+            console.error(
+              `[agent-dispatch] atenção: reuso não cria vínculo→chefe ${dispatchedBy} — se o tile ${target.id} ainda não estiver vinculado, o término não avisa sozinho`
+            );
+          }
+          console.log('[agent-dispatch] nenhum worker novo foi aberto (use --new para forçar um).');
+          return 0;
+        }
+      } catch (err) {
         console.error(
-          `[agent-dispatch] sessão ociosa do mesmo adapter encontrada: ${idleId} — considere reusar em vez de abrir um novo worker`
+          '[agent-dispatch] entrega no agente existente falhou — caindo para worker novo:',
+          err instanceof Error ? err.message : err
         );
       }
+    } else {
+      console.error(`[agent-dispatch] sem reuso: ${reuse.reason}`);
+      // Sessão ociosa do mesmo adapter (18.1, AC1/AC3): sobrevive como AVISO
+      // para o caso em que não há tile com o nome do agente, mas há um worker
+      // ocioso da mesma CLI — o chefe pode preferir aproveitá-lo por id.
+      const [firstCandidate] = plan.candidates;
+      if (firstCandidate !== undefined) {
+        const idleId = findIdleCandidate(firstCandidate, liveSessions);
+        if (idleId !== null) {
+          console.error(
+            `[agent-dispatch] sessão ociosa do mesmo adapter encontrada: ${idleId} — considere --to-session ${idleId} em vez de abrir um novo worker`
+          );
+        }
+      }
     }
+
+    if (noCandidates) return reportNoCandidates();
 
     for (const adapterId of plan.candidates) {
       try {

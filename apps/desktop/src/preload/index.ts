@@ -33,6 +33,8 @@ import {
   TerminalLinkRoutedEventSchema,
   TerminalLinkGatePendEventSchema,
   TerminalLinkGateResolveRequestSchema,
+  PendingDispatchChoiceSchema,
+  DispatchChoiceResolveRequestSchema,
   BrowserTileSchema,
   BrowserTileEventSchema,
   LearningSchema,
@@ -79,6 +81,8 @@ import {
   type TerminalLinkRoutedEvent,
   type TerminalLinkGatePendEvent,
   type TerminalLinkGateResolveRequest,
+  type PendingDispatchChoice,
+  type DispatchChoiceResolveRequest,
   type BrowserTileCreateRequest,
   type BrowserTileIdRequest,
   type BrowserNavigateRequest,
@@ -421,6 +425,18 @@ const api: CockpitApi = {
     history: async () => {
       const raw: unknown = await ipcRenderer.invoke(IpcChannels.dispatchHistory);
       return DispatchRecordSchema.array().parse(raw);
+    },
+    // Escolha de despacho em agente ocupado (Épico 20, Story 20.3).
+    onChoicePend: (cb: (choice: PendingDispatchChoice) => void) => {
+      const listener = (_e: unknown, raw: unknown): void => {
+        cb(PendingDispatchChoiceSchema.parse(raw));
+      };
+      ipcRenderer.on(IpcChannels.dispatchChoicePend, listener);
+      return () => ipcRenderer.removeListener(IpcChannels.dispatchChoicePend, listener);
+    },
+    choiceResolve: async (req: DispatchChoiceResolveRequest) => {
+      const validated = DispatchChoiceResolveRequestSchema.parse(req);
+      await ipcRenderer.invoke(IpcChannels.dispatchChoiceResolve, validated);
     }
   },
   terminal: {

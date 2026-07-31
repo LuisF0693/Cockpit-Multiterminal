@@ -1,4 +1,5 @@
 import { createConnection, type Socket } from 'node:net';
+import type { PendingDispatchChoice } from '@cockpit/shared';
 import { FrameDecoder, encodeControl, encodeData } from './framing';
 import {
   DAEMON_PROTOCOL_VERSION,
@@ -29,7 +30,15 @@ type Pending =
     }
   | { kind: 'shutdown'; resolve: (v: { orphans: number }) => void; reject: (e: Error) => void }
   | { kind: 'dispatch-history'; resolve: (v: AdapterOutcomeCount[]) => void; reject: (e: Error) => void }
-  | { kind: 'deliver-task'; resolve: (v: TaskDeliveryAck) => void; reject: (e: Error) => void };
+  | { kind: 'deliver-task'; resolve: (v: TaskDeliveryAck) => void; reject: (e: Error) => void }
+  | { kind: 'dispatch-choice-push'; resolve: (v: DispatchChoiceAck) => void; reject: (e: Error) => void }
+  | { kind: 'dispatch-choices'; resolve: (v: PendingDispatchChoice[]) => void; reject: (e: Error) => void };
+
+/** Resultado do `pushDispatchChoice` (Story 20.3) — `accepted: false` = fallback. */
+export interface DispatchChoiceAck {
+  accepted: boolean;
+  reason: string;
+}
 
 /** Resultado de `deliverTask` (Onda 1) — espelha o ack `task-delivery`. */
 export interface TaskDeliveryAck {
@@ -179,6 +188,15 @@ export class DaemonClient {
     this.post({ type: 'resize', id: sessionId, cols, rows });
   }
 
+  /**
+   * Nome do tile → daemon (Story 20.1). Fire-and-forget: sem isto, o tile
+   * aberto pela UI é anônimo no `list-sessions` e o reuso por nome do agente
+   * nunca o encontra. Chamado na criação E em toda renomeação.
+   */
+  setLabel(sessionId: string, label: string): void {
+    this.post({ type: 'set-label', id: sessionId, label });
+  }
+
   async closeSession(sessionId: string): Promise<{ orphan: boolean }> {
     return await this.request('close', (requestId) => ({ type: 'close', requestId, id: sessionId }));
   }
@@ -222,6 +240,30 @@ export class DaemonClient {
    */
   pushDispatchHistory(counts: AdapterOutcomeCount[]): void {
     this.post({ type: 'dispatch-history-push', counts });
+  }
+
+  /**
+   * Pergunta pendente na fila de Decisões (Story 20.3) — a CLI empurra e o
+   * daemon responde se alguém vai ver. Daemon ANTIGO ignora o comando e o
+   * request morre no timeout: o chamador trata como `accepted: false` e
+   * enfileira, que é o desfecho seguro (nunca descarta a tarefa).
+   */
+  async pushDispatchChoice(choice: PendingDispatchChoice): Promise<DispatchChoiceAck> {
+    return await this.request<DispatchChoiceAck>('dispatch-choice-push', (requestId) => ({
+      type: 'dispatch-choice-push',
+      requestId,
+      choice
+    }));
+  }
+
+  /** Escolhas aguardando o humano (Story 20.3) — o Main consulta no poll. */
+  async listDispatchChoices(): Promise<PendingDispatchChoice[]> {
+    return await this.request('dispatch-choices', (requestId) => ({ type: 'dispatch-choices', requestId }));
+  }
+
+  /** Remove a escolha já resolvida (o Main executou queue/new). Fire-and-forget. */
+  resolveDispatchChoice(id: string): void {
+    this.post({ type: 'dispatch-choice-resolve', id });
   }
 
   /**
@@ -307,6 +349,16 @@ export class DaemonClient {
       case 'task-delivery': {
         const p = this.takePending(msg.requestId);
         if (p?.kind === 'deliver-task') p.resolve({ outcome: msg.outcome, reason: msg.reason, queued: msg.queued });
+        break;
+      }
+      case 'dispatch-choice-ack': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'dispatch-choice-push') p.resolve({ accepted: msg.accepted, reason: msg.reason });
+        break;
+      }
+      case 'dispatch-choices-result': {
+        const p = this.takePending(msg.requestId);
+        if (p?.kind === 'dispatch-choices') p.resolve(msg.choices);
         break;
       }
       case 'session-exit':

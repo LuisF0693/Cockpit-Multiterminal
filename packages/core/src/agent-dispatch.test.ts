@@ -4,6 +4,7 @@ import {
   findDispatcherSession,
   findIdleCandidate,
   planAgentDispatch,
+  planAgentReuse,
   resolveDispatchCwd
 } from './agent-dispatch';
 
@@ -240,5 +241,88 @@ describe('resolveDispatchCwd (Onda 1, item 2 — worker nasce no projeto ativo)'
 
   it('chefe sem cwd conhecido cai pro fallback', () => {
     expect(resolveDispatchCwd({ dispatcherSession: {}, fallbackCwd: 'C:/fallback' })).toBe('C:/fallback');
+  });
+});
+
+describe('planAgentReuse (Épico 20, Story 20.2 — continuidade de agente)', () => {
+  const PROJ = 'F:/Projetos/Meu Cockpit';
+  const dev = (
+    over: Partial<{ id: string; adapterId: string; status: string; label: string | undefined; cwd: string }> = {}
+  ) => ({
+    id: 'tile-dev',
+    adapterId: 'claude-code',
+    status: 'waiting-input',
+    label: '@dev',
+    cwd: PROJ,
+    ...over
+  });
+
+  it('reusa o tile vivo do MESMO agente em vez de mandar criar outro', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev()], cwd: PROJ });
+    expect(plan.kind).toBe('reuse');
+    if (plan.kind !== 'reuse') return;
+    expect(plan.target.id).toBe('tile-dev');
+    expect(plan.busy).toBe(false);
+  });
+
+  it('marca busy quando o agente está trabalhando (a entrega vai enfileirar)', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ status: 'working' })], cwd: PROJ });
+    expect(plan).toMatchObject({ kind: 'reuse', busy: true });
+  });
+
+  it('sem tile com esse nome, manda criar', () => {
+    const plan = planAgentReuse({ agent: '@qa', sessions: [dev()], cwd: PROJ });
+    expect(plan.kind).toBe('create');
+  });
+
+  it('--new pula o reuso mesmo com o agente ocioso na tela', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev()], cwd: PROJ, forceNew: true });
+    expect(plan).toMatchObject({ kind: 'create', reason: expect.stringContaining('--new') });
+  });
+
+  it('NÃO reusa tile de outro projeto (mesma invariante do vínculo 17.2)', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ cwd: 'F:/Projetos/Outro' })], cwd: PROJ });
+    expect(plan.kind).toBe('create');
+  });
+
+  it('compara cwd como caminho, não como string (barra e caixa do Windows)', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ cwd: 'F:\\Projetos\\Meu Cockpit\\' })], cwd: PROJ });
+    expect(plan.kind).toBe('reuse');
+  });
+
+  it('--adapter explícito divergente força worker novo (decisão do fundador)', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev()], cwd: PROJ, explicitAdapter: 'codex' });
+    expect(plan.kind).toBe('create');
+  });
+
+  it('--adapter explícito COINCIDENTE reusa normalmente', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev()], cwd: PROJ, explicitAdapter: 'claude-code' });
+    expect(plan.kind).toBe('reuse');
+  });
+
+  it('sem --adapter, a identidade do agente vence o adapter do tile', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ adapterId: 'codex' })], cwd: PROJ });
+    expect(plan.kind).toBe('reuse');
+  });
+
+  it('tile em erro não é reusado — ele não voltaria a ficar ocioso sozinho', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ status: 'error' })], cwd: PROJ });
+    expect(plan.kind).toBe('create');
+  });
+
+  it('dois tiles com o mesmo nome ABORTAM em vez de escolher o errado', () => {
+    const plan = planAgentReuse({
+      agent: '@dev',
+      sessions: [dev(), dev({ id: 'tile-dev-2' })],
+      cwd: PROJ
+    });
+    expect(plan.kind).toBe('ambiguous');
+    if (plan.kind !== 'ambiguous') return;
+    expect(plan.matches).toHaveLength(2);
+  });
+
+  it('tile sem label (daemon antigo, sem set-label) não casa — cria worker novo', () => {
+    const plan = planAgentReuse({ agent: '@dev', sessions: [dev({ label: undefined })], cwd: PROJ });
+    expect(plan.kind).toBe('create');
   });
 });

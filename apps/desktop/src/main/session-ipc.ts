@@ -45,6 +45,8 @@ import {
   SettingsUpdateRequestSchema,
   TerminalSendRequestSchema,
   TerminalLinkGateResolveRequestSchema,
+  DispatchChoiceResolveRequestSchema,
+  type PendingDispatchChoice,
   ScratchpadReadRequestSchema,
   ScratchpadAppendRequestSchema,
   type ApiProvider,
@@ -119,6 +121,20 @@ export interface PtyBackend {
    * método fica ausente e a chamada vira no-op (optional chaining no wiring).
    */
   pushDispatchHistory?(counts: AdapterOutcomeCount[]): void;
+  /**
+   * Nome do tile → daemon (Story 20.1): o que destrava o casamento por nome do
+   * agente (`--to-agent` e o reuso automático do despacho) para tiles abertos
+   * pela UI. Só o backend do daemon implementa — no utilityProcess clássico
+   * não há CLI externa consultando `list-sessions`, então a ausência é inócua.
+   */
+  setLabel?(ptyId: string, label: string): void;
+  /**
+   * Escolhas de despacho pendentes (Story 20.3) — perguntas deixadas pela CLI
+   * no daemon quando o agente pedido estava ocupado. Só o backend do daemon
+   * implementa (é ele que conversa com a CLI).
+   */
+  listDispatchChoices?(): Promise<PendingDispatchChoice[]>;
+  resolveDispatchChoice?(id: string): void;
   /**
    * Escrita direta no stdin de uma sessão ativa (P1 — canal agente→agente).
    * Fire-and-forget; sem ack. Implementado em ambos os backends.
@@ -251,6 +267,25 @@ export function registerSessionIpc(
   registry.onEvent((event: SessionEvent) => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcChannels.sessionEvent, event);
+    }
+  });
+
+  // Nome do tile → daemon (Épico 20, Story 20.1). O `label` do daemon só era
+  // preenchido por cliente EXTERNO (CLI `agent-dispatch`, 17.1): tile aberto
+  // pela UI nascia anônimo lá, e a renomeação nunca atravessava o processo.
+  // Sem isso o REUSO por nome do agente (20.2) enxergaria só os tiles que a
+  // própria CLI criou — exatamente o buraco que fazia o chefe abrir um segundo
+  // "@dev". Um listener só cobre os três caminhos que dão nome a um tile:
+  // `created` (criação e restore), `renamed` (F2 na UI) e a adoção externa
+  // (que emite 'created' — reenviar o label que a CLI já mandou é idempotente).
+  // Best-effort como `pushDispatchHistory`: backend sem `setLabel`
+  // (utilityProcess clássico) ou daemon antigo simplesmente ignora.
+  registry.onEvent((event: SessionEvent) => {
+    if (event.type !== 'created' && event.type !== 'renamed') return;
+    try {
+      ptyHost.setLabel?.(registry.ptyIdOf(event.session.id), event.session.name);
+    } catch {
+      // sessão já saiu do registry entre o evento e o ptyIdOf — nada a fazer
     }
   });
 
@@ -1135,6 +1170,69 @@ export function registerSessionIpc(
     }
   };
   setInterval(() => void adoptExternalSessions(), 4000).unref();
+
+  /**
+   * ESCOLHAS DE DESPACHO (Épico 20, Story 20.3) — o chefe pediu um agente que
+   * já existe mas está OCUPADO. A CLI não pode esperar a resposta (processo
+   * efêmero), então deixa a pergunta no daemon; aqui ela é colhida e vira item
+   * `blocking` na fila de Decisões, com deep-link no tile ocupado.
+   *
+   * Mesmo poll de 4s da adoção externa, e pelo mesmo motivo: é o único canal
+   * daemon→Main que existe. `seen` evita reemitir a mesma pergunta a cada tick
+   * (o renderer deduplica por id também, mas re-notificar seria ruído).
+   */
+  const pendingChoices = new Map<string, PendingDispatchChoice>();
+  const pollDispatchChoices = async (): Promise<void> => {
+    if (!ptyHost.listDispatchChoices) return;
+    try {
+      for (const choice of await ptyHost.listDispatchChoices()) {
+        if (pendingChoices.has(choice.id)) continue;
+        pendingChoices.set(choice.id, choice);
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send(IpcChannels.dispatchChoicePend, choice);
+        }
+      }
+    } catch {
+      // daemon fora do ar ou antigo (sem o comando) — próximo tick tenta
+    }
+  };
+  setInterval(() => void pollDispatchChoices(), 4000).unref();
+
+  /**
+   * Resolução humana da escolha (Story 20.3):
+   * - `queue` entrega pelo MESMO `deliver-task` que a CLI usaria — o daemon
+   *   enfileira e injeta quando o agente devolver o turno.
+   * - `new` abre um worker igual (mesmo nome, adapter e cwd) e entrega nele;
+   *   como ele nasce `working` (boot do CLI), a entrega naturalmente ENFILEIRA
+   *   e cai no PTY quando o agente fica pronto — é o mesmo mecanismo que o
+   *   `initialInstruction` do despacho, sem duplicar caminho de escrita.
+   */
+  ipcMain.handle(IpcChannels.dispatchChoiceResolve, async (event, raw: unknown) => {
+    const req = DispatchChoiceResolveRequestSchema.parse(raw);
+    const choice = pendingChoices.get(req.id);
+    if (!choice) return; // já resolvida, ou o daemon reiniciou desde o pend
+    pendingChoices.delete(req.id);
+    ptyHost.resolveDispatchChoice?.(req.id);
+
+    if (req.action === 'queue') {
+      deliverToTerminal(choice.targetId, choice.instruction);
+      return;
+    }
+
+    const { projects, activeId } = persistence.projects();
+    const project = projects.find((p) => resolve(p.rootPath).toLowerCase() === resolve(choice.cwd).toLowerCase());
+    const record = await registry.create({
+      name: choice.agent,
+      cols: 120,
+      rows: 30,
+      cwd: choice.cwd,
+      adapterId: choice.adapterId,
+      workspace: persistence.workspaces().active,
+      projectId: project?.id ?? activeId
+    });
+    deliverPort(record.id, event.sender);
+    deliverToTerminal(record.id, choice.instruction);
+  });
 
   // Recuperação pós-crash (Story 4.3)
   ipcMain.handle(IpcChannels.recoverySummary, () => {
