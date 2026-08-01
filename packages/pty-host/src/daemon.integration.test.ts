@@ -160,21 +160,21 @@ describe('DaemonServer + DaemonClient (pipe real, PTY real)', () => {
         createdAt: Date.now()
       };
 
-      // A CLI é um cliente que NUNCA manda `configure` — é assim que o daemon
-      // sabe que ela não é o app. Sem Cockpit aberto, não há fila de Decisões:
-      // recusar aqui é o que faz a CLI cair no enfileiramento em vez de deixar
-      // a tarefa presa numa pergunta que ninguém veria.
+      // A CLI só EMPURRA pergunta, nunca consulta a fila — por isso ela não se
+      // registra como app. Sem Cockpit aberto não há fila de Decisões: recusar
+      // aqui é o que faz a CLI cair no enfileiramento em vez de deixar a tarefa
+      // presa numa pergunta que ninguém veria.
       const cli = new DaemonClient();
       await cli.connect(pipe);
       const semApp = await cli.pushDispatchChoice(choice);
       expect(semApp.accepted).toBe(false);
-      expect(await cli.listDispatchChoices()).toEqual([]);
 
-      // App conecta e se identifica pelo `configure` (o que só ele manda).
+      // App se identifica PELO POLL da fila (o que só ele faz). Sinal repetido
+      // de propósito: sobrevive à troca de socket na reconexão (6.4), que foi
+      // o que derrubou a primeira versão baseada em `configure`.
       const app = new DaemonClient();
       await app.connect(pipe);
-      app.configure({ scrollbackDir: 'F:/tmp/scrollback', maxFileBytes: 1024, restoreTailBytes: 256 });
-      await new Promise((r) => setTimeout(r, 200));
+      expect(await app.listDispatchChoices()).toEqual([]);
 
       const comApp = await cli.pushDispatchChoice(choice);
       expect(comApp.accepted).toBe(true);

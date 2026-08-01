@@ -1196,6 +1196,11 @@ export function registerSessionIpc(
       // daemon fora do ar ou antigo (sem o comando) — próximo tick tenta
     }
   };
+  // Poll imediato além do intervalo: além de colher perguntas feitas enquanto
+  // o app estava fechado, é ele que REGISTRA este app no daemon (o daemon
+  // reconhece o app justamente por consultar a fila) — sem isso haveria uma
+  // janela de 4s no boot em que um despacho seria recusado por "sem Cockpit".
+  void pollDispatchChoices();
   setInterval(() => void pollDispatchChoices(), 4000).unref();
 
   /**

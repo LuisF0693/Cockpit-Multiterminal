@@ -44,9 +44,15 @@ O Épico 19 deu à CLI o caminho para falar com um tile aberto (`--to-session` /
 Duas decisões foram tomadas por mim, dentro do que o pedido implicava, e ficam registradas para revisão:
 
 - **Escopo de projeto no reuso.** Um "@dev" aberto em outro repositório não é o mesmo colaborador — reusá-lo executaria a tarefa no lugar errado. Vale a mesma invariante do vínculo automático (17.2, "mesmo projeto"). Comparação por caminho normalizado, não string crua (Windows mistura `\` e `/` e ignora caixa).
-- **Fallback sem Cockpit aberto.** Se ninguém está conectado ao daemon, não existe fila para perguntar; segurar a pendência seria o sumiço silencioso que o Épico 19 existiu para eliminar. A CLI enfileira no próprio agente e avisa no stderr. O daemon distingue app de CLI pelo `configure` — só o Main o envia.
+- **Fallback sem Cockpit aberto.** Se ninguém está conectado ao daemon, não existe fila para perguntar; segurar a pendência seria o sumiço silencioso que o Épico 19 existiu para eliminar. A CLI enfileira no próprio agente e avisa no stderr. O daemon reconhece o app pelo **poll de `dispatch-choices`** (a CLI só empurra pergunta, nunca consulta a fila).
 
 ## O que a execução revelou (e não estava previsto)
+
+**A detecção do app pelo `configure` não sobrevive ao mundo real — achado na validação com o app INSTALADO.** A primeira versão marcava o socket do Cockpit quando ele mandava `configure` (config de scrollback no handshake, que só o Main envia). Passava nos testes e falhava na máquina: com o Cockpit aberto na tela, a CLI respondia *"nenhum Cockpit conectado"*. O `configure` é enviado UMA vez, mas o socket do app troca ao longo da vida (reconexão com backoff, 6.4) — o daemon seguia com a config guardada (o scrollback continuava sendo escrito, prova de que a mensagem chegou) enquanto o socket registrado já tinha fechado. Reprodução determinística: falhava quando o app SPAWNAVA o daemon (primeiro boot depois de instalar) e funcionava quando ele conectava a um daemon já existente.
+
+Corrigido trocando o sinal por um **repetido e auto-corretivo**: o daemon reconhece o app pelo POLL de `dispatch-choices` (4s). Além de imune à troca de socket, é semanticamente mais honesto — significa "existe alguém consultando a fila agora", que é exatamente a condição que a pergunta exige. App desconectado para de pollar e some sozinho, e aí recusar é o desfecho certo.
+
+Vale registrar o padrão, porque é o mesmo do Épico 19: **o teste com adapter/cenário sintético aprovou o que a máquina reprovou.** Aqui nem foi adapter fake — foi um teste que abria a conexão e mandava `configure` na ordem ideal, sem nunca exercer a reconexão que acontece de verdade.
 
 **"Nenhum adapter de IA disponível" abortava o despacho antes de considerar o reuso.** A checagem de candidatos vinha primeiro, e candidato é o que se usaria para *nascer* worker — com o "@dev" vivo na tela, um daemon sem CLI de IA registrada fazia o despacho falhar em vez de entregar no agente que já existia. O erro foi movido para logo antes do loop de spawn, onde criar é de fato o único caminho restante.
 

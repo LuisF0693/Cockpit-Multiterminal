@@ -239,12 +239,11 @@ describe('agent-dispatch: reuso do agente já aberto (Story 20.2)', () => {
       await withDaemon(async ({ pipe, client }) => {
         const devId = await openDevTile(client);
 
-        // `configure` é a assinatura do app — é o que prova ao daemon que
-        // existe uma fila de Decisões viva pra receber a pergunta.
+        // Consultar a fila é a assinatura do app — é o poll de 4s do Main que
+        // prova ao daemon que existe uma fila de Decisões viva para a pergunta.
         const app = new DaemonClient();
         await app.connect(pipe);
-        app.configure({ scrollbackDir: `${CWD}/.cockpit/scrollback`, maxFileBytes: 1024, restoreTailBytes: 256 });
-        await new Promise((r) => setTimeout(r, 200));
+        await app.listDispatchChoices();
 
         const code = await dispatchAgent([
           '--agent',

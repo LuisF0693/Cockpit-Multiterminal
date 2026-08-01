@@ -70,11 +70,23 @@ export class DaemonServer {
    */
   private readonly dispatchChoices = new Map<string, PendingDispatchChoice>();
   /**
-   * Sockets do APP (não da CLI). O `configure` é a assinatura do Main: só ele
-   * manda config de scrollback no handshake — a CLI `agent-dispatch` nunca
-   * manda. É assim que o daemon sabe se existe uma fila de Decisões viva pra
-   * receber uma pergunta (Story 20.3); sem app, a CLI cai no fallback de
-   * enfileirar em vez de segurar pendência que ninguém veria.
+   * Sockets do APP (não da CLI) — quem PODE mostrar uma pergunta ao humano
+   * (Story 20.3). Sem nenhum, a CLI cai no fallback de enfileirar em vez de
+   * segurar pendência que ninguém veria.
+   *
+   * O sinal é o POLL de `dispatch-choices`, não o `configure` do handshake.
+   * A primeira versão usava `configure` (só o Main manda) e falhou em campo de
+   * um jeito instrutivo: o app manda `configure` UMA vez, mas o socket dele
+   * troca ao longo da vida (reconexão com backoff, 6.4) — o daemon guardava a
+   * config de scrollback e seguia escrevendo, enquanto o socket registrado
+   * aqui já tinha fechado. Resultado: Cockpit aberto na tela e a CLI
+   * respondendo "nenhum Cockpit conectado".
+   *
+   * O poll não tem esse problema porque é REPETIDO (4s) e porque significa
+   * exatamente o que precisa significar: existe alguém consultando a fila
+   * AGORA e, portanto, capaz de consumir a resposta. App desconectado para de
+   * pollar e some daqui sozinho — que é o desfecho correto, já que uma
+   * pergunta feita a um app desconectado nunca seria vista.
    */
   private readonly appSockets = new Set<Socket>();
   /** Pipe path armazenado em listen() — injetado no env de todo PTY (P0). */
@@ -173,9 +185,6 @@ export class DaemonServer {
           maxFileBytes: msg.maxFileBytes,
           restoreTailBytes: msg.restoreTailBytes
         };
-        // Quem configura scrollback é o app (Story 20.3) — vira a prova de que
-        // existe uma fila de Decisões viva pra receber perguntas.
-        this.appSockets.add(socket);
         break;
       case 'create': {
         void (async () => {
@@ -346,6 +355,10 @@ export class DaemonServer {
         break;
       }
       case 'dispatch-choices':
+        // Consultar a fila é a assinatura do app (Story 20.3): a CLI nunca
+        // pergunta o que está pendente, ela só empurra. Marcar AQUI mantém o
+        // registro vivo a cada tick do poll, sobrevivendo a reconexão.
+        this.appSockets.add(socket);
         this.send(socket, {
           type: 'dispatch-choices-result',
           requestId: msg.requestId,
