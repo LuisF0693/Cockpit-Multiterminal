@@ -1,7 +1,7 @@
 # Epic 20 — Continuidade de Agente
 
 **Formalizado:** 2026-07-31 (junto da execução, a partir de pedido verbal do fundador no terminal).
-**Status:** ENTREGUE (Stories 20.1/20.2/20.3) — `pnpm verify` verde; **validação com CLI real pendente do fundador** (ver Pendências).
+**Status:** ENTREGUE (Stories 20.1/20.2/20.3) — `pnpm verify` verde, commits `2c3b9fe`/`75227ea`/`1f72443` em `main`, **v0.3.1 instalada e validada no app real**. Resta o olho do fundador no visual da pergunta e o smoke com claude-code/codex reais (ver Pendências).
 **Origem:** um pedido único do fundador, com três decisões de design tomadas por ele via `AskUserQuestion`.
 
 ---
@@ -56,9 +56,22 @@ Vale registrar o padrão, porque é o mesmo do Épico 19: **o teste com adapter/
 
 **"Nenhum adapter de IA disponível" abortava o despacho antes de considerar o reuso.** A checagem de candidatos vinha primeiro, e candidato é o que se usaria para *nascer* worker — com o "@dev" vivo na tela, um daemon sem CLI de IA registrada fazia o despacho falhar em vez de entregar no agente que já existia. O erro foi movido para logo antes do loop de spawn, onde criar é de fato o único caminho restante.
 
+## Validação feita no app instalado (2026-07-31, v0.3.1)
+
+Executada contra o binário em `C:\Program Files\Meu Cockpit`, com daemon e PTYs reais — não em ambiente de teste:
+
+| O que | Resultado |
+|---|---|
+| `--list-sessions` pela CLI instalada | Os 5 tiles abertos pela UI aparecem **com `label`** (`Terminal 4`, `Terminal 1`…) — prova do `set-label` (20.1); antes seriam anônimos |
+| Despacho para `"Terminal 4"` | `agente REUSADO … nenhum worker novo foi aberto`; contagem no daemon permaneceu **5** — o sintoma relatado pelo fundador não se reproduz mais |
+| Alvo ocupado com Cockpit aberto | `pergunta aberta na fila de Decisões` (escolha `01KYXCJW…`), nada entregue ainda |
+| Alvo ocupado sem Cockpit | Enfileira no próprio agente e avisa no stderr — a tarefa nunca some |
+| Ambos os caminhos de boot | App conectando a daemon existente **e** app spawnando o daemon (foi este que expôs o bug do `configure`) |
+
 ## Pendências conhecidas
 
-- **Validação com CLI real não foi feita.** A regra da [decisão crítica 6](../architecture/decisao-critica-6-entrega-de-instrucao-no-pty.md) é que recurso que escreve no PTY só conta como pronto com smoke de CLI real. O reuso reaproveita o `deliver-task` já validado com claude-code e codex, e os 8 casos de integração usam daemon/PTY reais — mas o fluxo completo (despachar "@dev" com um Claude Code de verdade aberto) ainda não passou pelo olho do fundador. **É a primeira coisa a fazer na próxima sessão dentro do Cockpit.**
+- **O visual da pergunta não foi visto pelo fundador.** Ficou uma escolha real aberta na fila de Decisões (`01KYXCJW…`, alvo "Terminal 4") justamente para essa conferência: os dois botões (*enfileirar* / *abrir outro*) passam nos testes da fila, mas o resultado na tela precisa do olho dele.
+- **Smoke com claude-code/codex reais não foi rodado.** A validação acima usou tiles `shell`. O reuso reaproveita o `deliver-task` já validado com CLI real no Épico 19, mas o fluxo completo (despachar "@dev" com um Claude Code de verdade em turno) ainda não foi exercido — é o que fecha a regra da [decisão crítica 6](../architecture/decisao-critica-6-entrega-de-instrucao-no-pty.md).
 - **Reuso não cria vínculo worker→chefe.** O vínculo automático (17.2) nasce na ADOÇÃO de sessão nova; reusar um tile existente não passa por lá. Se aquele tile ainda não estiver vinculado ao chefe, o término dele não instrui o chefe sozinho — a CLI avisa no stderr quando isso pode acontecer. Fechar exige um pedido de vínculo pelo mesmo relay criado na 20.3.
 - **Escolhas de despacho não são persistidas** (mesma natureza dos gates de vínculo): somem se o daemon reiniciar. Teto de 16 pendências simultâneas; estourou, a CLI volta a enfileirar sozinha.
 - **Daemon ANTIGO em execução ignora `set-label`** (ele sobrevive a upgrades do app; só morre com `cockpit-daemon --stop`). Nesse caso o tile da UI volta a ser anônimo e o reuso não casa — o despacho cria worker novo, exatamente como antes desta leva.
